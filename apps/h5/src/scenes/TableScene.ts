@@ -874,7 +874,7 @@ class SeatView extends Container {
                 repeat: -1,
                 ease: 'none',
                 onUpdate: () => {
-                    const i = Math.floor(obj.t);
+                    const i = Math.min(Math.floor(obj.t), 5);
                     const f = obj.t - i;
                     const p1 = vertices[i];
                     const p2 = vertices[i + 1];
