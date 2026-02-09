@@ -6,9 +6,10 @@ import { bindGameClientToStore } from './store/gameStore';
 import { useUiStore, type SceneName } from './store/uiStore';
 import { UiLayerApp } from './ui/UiLayerApp';
 
-// Design dimensions (mobile-first, portrait orientation)
+// Design baseline: iPhone 14 Pro Max portrait viewport (430 x 932).
+// Keep logical width at 750 for existing scene coordinates, and match baseline aspect ratio.
 const DESIGN_WIDTH = 750;
-const DESIGN_HEIGHT = 1334;
+const DESIGN_HEIGHT = DESIGN_WIDTH * (932 / 430);
 
 class GameApp {
     private app: Application;
@@ -16,6 +17,7 @@ class GameApp {
     private currentSceneName: SceneName = 'boot';
     private uiRoot: Root | null = null;
     private unsubscribeUiStore: (() => void) | null = null;
+    private viewportEl: HTMLElement | Window = window;
 
     constructor() {
         this.app = new Application();
@@ -25,6 +27,7 @@ class GameApp {
         // Pixi and React mount points are separated by boundary contract.
         const canvas = requireCanvas();
         const uiLayer = requireUiRoot();
+        this.viewportEl = canvas.parentElement instanceof HTMLElement ? canvas.parentElement : window;
         bindGameClientToStore();
 
         this.uiRoot = createRoot(uiLayer);
@@ -42,8 +45,8 @@ class GameApp {
 
         await this.app.init({
             canvas,
-            background: '#0a0a0f',
-            resizeTo: window,
+            background: '#120810',
+            resizeTo: this.viewportEl,
             antialias: true,
             resolution: Math.min(window.devicePixelRatio, 2),
             autoDensity: true,
@@ -60,9 +63,10 @@ class GameApp {
     }
 
     private handleResize(): void {
-        const { innerWidth: w, innerHeight: h } = window;
+        const w = this.viewportEl instanceof Window ? this.viewportEl.innerWidth : this.viewportEl.clientWidth;
+        const h = this.viewportEl instanceof Window ? this.viewportEl.innerHeight : this.viewportEl.clientHeight;
 
-        // Calculate scale to fit design within viewport
+        // Use contain scaling to avoid any left/right cropping.
         const scaleX = w / DESIGN_WIDTH;
         const scaleY = h / DESIGN_HEIGHT;
         const scale = Math.min(scaleX, scaleY);
@@ -71,8 +75,20 @@ class GameApp {
         this.app.stage.scale.set(scale);
 
         // Center the stage
-        this.app.stage.x = (w - DESIGN_WIDTH * scale) / 2;
-        this.app.stage.y = (h - DESIGN_HEIGHT * scale) / 2;
+        const stageX = (w - DESIGN_WIDTH * scale) / 2;
+        const stageY = (h - DESIGN_HEIGHT * scale) / 2;
+        this.app.stage.x = stageX;
+        this.app.stage.y = stageY;
+
+        // Expose stage bounds to DOM overlay for pixel alignment.
+        const stageW = DESIGN_WIDTH * scale;
+        const stageH = DESIGN_HEIGHT * scale;
+        const rootStyle = document.documentElement.style;
+        rootStyle.setProperty('--stage-x', `${stageX}px`);
+        rootStyle.setProperty('--stage-y', `${stageY}px`);
+        rootStyle.setProperty('--stage-width', `${stageW}px`);
+        rootStyle.setProperty('--stage-height', `${stageH}px`);
+        rootStyle.setProperty('--stage-scale', `${scale}`);
     }
 
     async loadScene(sceneName: string): Promise<void> {

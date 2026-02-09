@@ -34,7 +34,6 @@ export class TableScene extends Container {
     private opponentViews: OpponentView[] = [];
     private myCards!: Container;
     private actionPanel!: Container;
-    private stackText!: Text;
     private myChair: number = -1;
     private boardCards: Card[] = [];
     private unsubscribeStore: (() => void) | null = null;
@@ -84,7 +83,7 @@ export class TableScene extends Container {
 
         // Signal indicator
         const signal = new Text({
-            text: '▰▰▰▰',
+            text: '\u25AE\u25AE\u25AE\u25AE',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
                 fontSize: 10,
@@ -113,6 +112,19 @@ export class TableScene extends Container {
         settingsBtn.fill({ color: 0x331122 });
         settingsBtn.stroke({ color: COLORS.primary, width: 1, alpha: 0.3 });
         topBar.addChild(settingsBtn);
+        const settingsIcon = new Text({
+            text: '\u2699',
+            style: {
+                fontFamily: 'Space Grotesk, Inter, sans-serif',
+                fontSize: 16,
+                fontWeight: '400',
+                fill: COLORS.primary,
+            },
+        });
+        settingsIcon.anchor.set(0.5);
+        settingsIcon.x = DESIGN_WIDTH - 80;
+        settingsIcon.y = 0;
+        topBar.addChild(settingsIcon);
 
         // Chat button
         const chatBtn = new Graphics();
@@ -120,6 +132,19 @@ export class TableScene extends Container {
         chatBtn.fill({ color: 0x003333 });
         chatBtn.stroke({ color: COLORS.cyan, width: 1, alpha: 0.3 });
         topBar.addChild(chatBtn);
+        const chatIcon = new Text({
+            text: '\u{1F5E8}',
+            style: {
+                fontFamily: 'Space Grotesk, Inter, sans-serif',
+                fontSize: 14,
+                fontWeight: '400',
+                fill: COLORS.cyan,
+            },
+        });
+        chatIcon.anchor.set(0.5);
+        chatIcon.x = DESIGN_WIDTH - 40;
+        chatIcon.y = 0;
+        topBar.addChild(chatIcon);
     }
 
     private createPotDisplay(): void {
@@ -195,38 +220,6 @@ export class TableScene extends Container {
         this.myCards.x = DESIGN_WIDTH / 2;
         this.myCards.y = -40;
         this.actionPanel.addChild(this.myCards);
-
-        // Action HUD content
-        const hudContent = new Container();
-        hudContent.x = 30;
-        hudContent.y = 100;
-        this.actionPanel.addChild(hudContent);
-
-        // Your Stack
-        const stackLabel = new Text({
-            text: 'YOUR STACK',
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 10,
-                letterSpacing: 3,
-                fill: 0x666666,
-                fontWeight: '700',
-            },
-        });
-        hudContent.addChild(stackLabel);
-
-        this.stackText = new Text({
-            text: '$10,000',
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 24,
-                fontWeight: '700',
-                fill: 0xffffff,
-            },
-        });
-        this.stackText.y = 15;
-        hudContent.addChild(this.stackText);
-
     }
 
     private setupHandlers(): void {
@@ -386,8 +379,7 @@ export class TableScene extends Container {
         // Iterate through all players
         for (const [chair, player] of this.players) {
             if (chair === this.myChair) {
-                // My update
-                this.stackText.text = `$${player.stack}`;
+                // Hero cards
                 if (player.handCards.length > 0) {
                     this.showMyCards(player.handCards);
                 }
@@ -796,10 +788,10 @@ export class TableScene extends Container {
 
     private getSuitSymbol(suit: Suit): string {
         switch (suit) {
-            case Suit.SPADE: return 'S';
-            case Suit.HEART: return 'H';
-            case Suit.CLUB: return 'C';
-            case Suit.DIAMOND: return 'D';
+            case Suit.SPADE: return '\u2660';
+            case Suit.HEART: return '\u2665';
+            case Suit.CLUB: return '\u2663';
+            case Suit.DIAMOND: return '\u2666';
             default: return '?';
         }
     }
@@ -1011,6 +1003,7 @@ class OpponentView extends Container {
         }
     }
 }
+
 
 
 

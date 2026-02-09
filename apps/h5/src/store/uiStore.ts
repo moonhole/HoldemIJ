@@ -21,7 +21,7 @@ type UiStoreState = {
     resetQuickStart: () => void;
 };
 
-const QUICK_START_IDLE_LABEL = 'Quick Start - 6 Max';
+const QUICK_START_IDLE_LABEL = 'Quick Join';
 
 function delay(ms: number): Promise<void> {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -66,10 +66,10 @@ export const useUiStore = create<UiStoreState>((set) => ({
         }
 
         set((prev) => ({
-            ...prev,
-            quickStartPhase: 'connecting',
-            quickStartLabel: 'Connecting...',
-            quickStartError: '',
+                ...prev,
+                quickStartPhase: 'connecting',
+                quickStartLabel: 'Connecting...',
+                quickStartError: '',
         }));
 
         try {
@@ -81,7 +81,7 @@ export const useUiStore = create<UiStoreState>((set) => ({
             set((prev) => ({
                 ...prev,
                 quickStartPhase: 'sitting',
-                quickStartLabel: 'Sitting down...',
+                quickStartLabel: 'Joining table...',
             }));
 
             const randomSeat = Math.floor(Math.random() * 6);
