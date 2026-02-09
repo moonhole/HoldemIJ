@@ -8,23 +8,25 @@ import { ActionType, Suit, Rank, Phase, HandRank } from '@gen/messages_pb';
 
 // Colors from cyber-poker design
 const COLORS = {
-    primary: 0xf425af,      // Pink/Magenta
-    cyan: 0x00f3ff,         // Cyber cyan
-    bgDark: 0x0a0609,       // Dark background
-    bgPanel: 0x1a0c16,      // Panel background
+    bgDark: 0x070407,       // Pure dark
+    bgDesk: 0x1a1a3d,       // Even clearer Deep Navy for table
+    bgConsole: 0x1a0c16,    // Dark Magenta for Console
+    primary: 0xf425af,
+    cyan: 0x00f3ff,
     white10: 0x1a1a1a,
     white20: 0x333333,
     cardRed: 0xf425af,      // Pink for hearts/diamonds
     cardBlack: 0xffffff,    // White for spades/clubs
 };
 
-// Opponent positions (clockwise relative to Hero)
-const OPPONENT_POSITIONS = [
-    { x: DESIGN_WIDTH * 0.15, y: 680 },   // [0] Bottom Left
-    { x: DESIGN_WIDTH * 0.15, y: 340 },   // [1] Top Left
-    { x: DESIGN_WIDTH * 0.50, y: 220 },   // [2] Opposite (Top Center)
-    { x: DESIGN_WIDTH * 0.85, y: 340 },   // [3] Top Right
-    { x: DESIGN_WIDTH * 0.85, y: 680 },   // [4] Bottom Right
+// Seat positions (clockwise relative to Bottom Center)
+const SEAT_POSITIONS = [
+    { x: DESIGN_WIDTH * 0.50, y: 810 },   // [0] Bottom Center (Hero spot)
+    { x: DESIGN_WIDTH * 0.15, y: 680 },   // [1] Bottom Left
+    { x: DESIGN_WIDTH * 0.15, y: 340 },   // [2] Top Left
+    { x: DESIGN_WIDTH * 0.50, y: 220 },   // [3] Top Center (Opposite)
+    { x: DESIGN_WIDTH * 0.85, y: 340 },   // [4] Top Right
+    { x: DESIGN_WIDTH * 0.85, y: 680 },   // [5] Bottom Right
 ];
 
 export class TableScene extends Container {
@@ -32,49 +34,98 @@ export class TableScene extends Container {
     private potText!: Text;
     private potAmount!: Text;
     private communityCards!: Container;
-    private opponentViews: OpponentView[] = [];
+    private seatViews: SeatView[] = [];
     private myCards!: Container;
     private actionPanel!: Container;
     private myChair: number = -1;
     private boardCards: Card[] = [];
     private unsubscribeStore: (() => void) | null = null;
+    private _potTickerValue = { val: 0 };
 
     // Local state to track all players at the table
-    // Maps chair ID -> PlayerState
     private players = new Map<number, PlayerState>();
 
     constructor(game: GameApp) {
         super();
         this._game = game;
 
-        // Background gradient
+        // 1. Base Layer (Everything Dark)
         const bg = new Graphics();
         bg.rect(0, 0, DESIGN_WIDTH, DESIGN_HEIGHT);
         bg.fill({ color: COLORS.bgDark });
         this.addChild(bg);
 
-        // Top status bar
+        // 2. Table Desk (The Play Area - Middle)
+        const tabletop = new Graphics();
+        const tabletopY = 120; // Corrected to avoid top card clipping
+        const consoleHeight = 680; // Taller console area
+        const tabletopBottom = DESIGN_HEIGHT - consoleHeight;
+        const tabletopH = tabletopBottom - tabletopY;
+        tabletop.rect(0, tabletopY, DESIGN_WIDTH, tabletopH);
+        tabletop.fill({ color: COLORS.bgDesk }); // Full opacity for better contrast
+        // More visible edge lighting
+        tabletop.stroke({ color: COLORS.cyan, width: 2, alpha: 0.25 });
+        this.addChild(tabletop);
+
+        // 2.5 Add a techy pattern to the desk - Moving Grid
+        const gridContainer = new Container();
+        const gridMask = new Graphics();
+        gridMask.rect(0, tabletopY, DESIGN_WIDTH, tabletopH);
+        gridMask.fill(0xffffff);
+        gridContainer.mask = gridMask;
+        this.addChild(gridMask);
+        this.addChild(gridContainer);
+
+        const deskGrid = new Graphics();
+        const gridSize = 100;
+        // Draw extra vertical lines for smooth infinite movement
+        for (let x = -gridSize; x <= DESIGN_WIDTH + gridSize; x += gridSize) {
+            deskGrid.moveTo(x, tabletopY).lineTo(x, tabletopY + tabletopH);
+        }
+        // Horizontal lines
+        for (let y = tabletopY; y <= tabletopY + tabletopH; y += gridSize) {
+            deskGrid.moveTo(-gridSize, y).lineTo(DESIGN_WIDTH + gridSize, y);
+        }
+        deskGrid.stroke({ color: COLORS.cyan, width: 1, alpha: 0.12 });
+        gridContainer.addChild(deskGrid);
+
+        // Infinite slow scroll to the right
+        gsap.to(deskGrid, {
+            x: gridSize,
+            duration: 10,
+            repeat: -1,
+            ease: 'none'
+        });
+
+        // 3. Console/Hand Area (Bottom)
+        // We make this distinct with a dark magenta theme
+        const consoleY = DESIGN_HEIGHT - consoleHeight;
+        const consoleArea = new Graphics();
+        consoleArea.rect(0, consoleY, DESIGN_WIDTH, consoleHeight);
+        consoleArea.fill({ color: COLORS.bgConsole });
+        consoleArea.stroke({ color: COLORS.primary, width: 2, alpha: 0.2, alignment: 0 });
+        this.addChild(consoleArea);
+
+        // 4. Add a decorative grid to the console for "Cyber" feel
+        const grid = new Graphics();
+        for (let x = 0; x <= DESIGN_WIDTH; x += 30) {
+            grid.moveTo(x, consoleY).lineTo(x, DESIGN_HEIGHT);
+        }
+        for (let y = consoleY; y <= DESIGN_HEIGHT; y += 30) {
+            grid.moveTo(0, y).lineTo(DESIGN_WIDTH, y);
+        }
+        grid.stroke({ color: COLORS.primary, width: 1, alpha: 0.04 });
+        this.addChild(grid);
+
         this.createTopBar();
-
-        // Pot display
         this.createPotDisplay();
-
-        // Opponent grid (4 opponents visible)
-        this.createOpponentGrid();
-
-        // Community cards
+        this.createSeatGrid();
         this.createCommunityCards();
-
-        // Bottom action panel with hole cards
         this.createActionPanel();
 
-        this.myChair = useGameStore.getState().myChair;
-
-        // Store -> Pixi bridge
         this.setupHandlers();
-
-        // Apply latest store state
         this.applyCachedState();
+        this.updateSeats();
     }
 
     private createTopBar(): void {
@@ -82,7 +133,6 @@ export class TableScene extends Container {
         topBar.y = 40;
         this.addChild(topBar);
 
-        // Signal indicator
         const signal = new Text({
             text: '\u25AE \u25AE \u25AE \u25AE',
             style: {
@@ -96,7 +146,6 @@ export class TableScene extends Container {
         signal.y = -2;
         topBar.addChild(signal);
 
-        // Table name
         const tableName = new Text({
             text: 'TABLE_402_CORE',
             style: {
@@ -111,37 +160,27 @@ export class TableScene extends Container {
         tableName.y = -2;
         topBar.addChild(tableName);
 
-        // Settings button
         const settingsBtn = new Graphics();
         settingsBtn.circle(DESIGN_WIDTH - 85, 0, 18);
         settingsBtn.fill({ color: 0x2a0818 });
         settingsBtn.stroke({ color: COLORS.primary, width: 2, alpha: 0.5 });
         topBar.addChild(settingsBtn);
         const settingsIcon = new Text({
-            text: '\u2699', // Gear
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 18,
-                fill: COLORS.primary,
-            },
+            text: '\u2699',
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 18, fill: COLORS.primary },
         });
         settingsIcon.anchor.set(0.5);
         settingsIcon.x = DESIGN_WIDTH - 85;
         topBar.addChild(settingsIcon);
 
-        // Chat button
         const chatBtn = new Graphics();
         chatBtn.circle(DESIGN_WIDTH - 40, 0, 18);
         chatBtn.fill({ color: 0x061a1a });
         chatBtn.stroke({ color: COLORS.cyan, width: 2, alpha: 0.5 });
         topBar.addChild(chatBtn);
         const chatIcon = new Text({
-            text: '\u{1F5E8}', // Speech bubble
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 16,
-                fill: COLORS.cyan,
-            },
+            text: '\u{1F5E8}',
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 16, fill: COLORS.cyan },
         });
         chatIcon.anchor.set(0.5);
         chatIcon.x = DESIGN_WIDTH - 40;
@@ -151,10 +190,9 @@ export class TableScene extends Container {
     private createPotDisplay(): void {
         const potContainer = new Container();
         potContainer.x = DESIGN_WIDTH / 2;
-        potContainer.y = 330; // Below the opposite player (y=220) and above the board (y=450)
+        potContainer.y = 380; // Moved down to avoid clash with top player
         this.addChild(potContainer);
 
-        // "TOTAL POT" label
         this.potText = new Text({
             text: 'TOTAL POT',
             style: {
@@ -173,7 +211,6 @@ export class TableScene extends Container {
         potValueContainer.y = 10;
         potContainer.addChild(potValueContainer);
 
-        // Pink $ symbol
         const currencySymbol = new Text({
             text: '$',
             style: {
@@ -188,7 +225,6 @@ export class TableScene extends Container {
         currencySymbol.x = -8;
         potValueContainer.addChild(currencySymbol);
 
-        // Pot amount
         this.potAmount = new Text({
             text: '0',
             style: {
@@ -204,97 +240,58 @@ export class TableScene extends Container {
         potValueContainer.addChild(this.potAmount);
     }
 
-    private createOpponentGrid(): void {
-        // Create 5 opponent views clockwise
-        for (let i = 0; i < 5; i++) {
-            const pos = OPPONENT_POSITIONS[i];
-            const opponent = new OpponentView(i);
-            opponent.x = pos.x;
-            opponent.y = pos.y;
-            this.addChild(opponent);
-            this.opponentViews.push(opponent);
+    private createSeatGrid(): void {
+        for (let i = 0; i < 6; i++) {
+            const pos = SEAT_POSITIONS[i];
+            const seat = new SeatView(i);
+            seat.x = pos.x;
+            seat.y = pos.y;
+            this.addChild(seat);
+            this.seatViews.push(seat);
         }
     }
 
     private createCommunityCards(): void {
         this.communityCards = new Container();
         this.communityCards.x = DESIGN_WIDTH / 2;
-        this.communityCards.y = 450;
+        this.communityCards.y = 530; // Moved down to accommodate pot display change
         this.addChild(this.communityCards);
     }
 
     private createActionPanel(): void {
-        // Bottom action panel
         this.actionPanel = new Container();
-        this.actionPanel.y = DESIGN_HEIGHT - 380;
+        // actionPanel matches the taller console height
+        this.actionPanel.y = DESIGN_HEIGHT - 680;
         this.addChild(this.actionPanel);
 
-        // Panel background with rounded top
-        const panelBg = new Graphics();
-        panelBg.roundRect(0, 0, DESIGN_WIDTH, 380, 40);
-        panelBg.fill({ color: COLORS.bgPanel });
-        panelBg.stroke({ color: COLORS.primary, width: 1, alpha: 0.2 });
-        this.actionPanel.addChild(panelBg);
-
-        // My hole cards (positioned above panel)
+        // myCards will sit "on top" of the console
         this.myCards = new Container();
         this.myCards.x = DESIGN_WIDTH / 2;
-        this.myCards.y = -40;
+        this.myCards.y = 180; // Centered in the taller console space
         this.actionPanel.addChild(this.myCards);
     }
 
     private setupHandlers(): void {
         this.unsubscribeStore = useGameStore.subscribe((state, prev) => {
             this.myChair = state.myChair;
-            if (state.streamSeq === prev.streamSeq || !state.lastEvent) {
-                return;
-            }
+            if (state.streamSeq === prev.streamSeq || !state.lastEvent) return;
             const event = state.lastEvent;
             switch (event.type) {
-                case 'snapshot':
-                    this.handleSnapshot(event.value);
-                    break;
-                case 'handStart':
-                    this.handleHandStart(event.value);
-                    break;
-                case 'holeCards':
-                    this.handleHoleCards(event.value);
-                    break;
-                case 'board':
-                    this.handleBoard(event.value);
-                    break;
-                case 'potUpdate':
-                    this.handlePotUpdate(event.value);
-                    break;
-                case 'phaseChange':
-                    this.handlePhaseChange(event.value);
-                    break;
-                case 'actionPrompt':
-                    this.handleActionPrompt(event.value);
-                    break;
+                case 'snapshot': this.handleSnapshot(event.value); break;
+                case 'handStart': this.handleHandStart(event.value); break;
+                case 'holeCards': this.handleHoleCards(event.value); break;
+                case 'board': this.handleBoard(event.value); break;
+                case 'potUpdate': this.handlePotUpdate(event.value); break;
+                case 'phaseChange': this.handlePhaseChange(event.value); break;
+                case 'actionPrompt': this.handleActionPrompt(event.value); break;
                 case 'actionResult':
-                    console.log('[TableScene] Action result:', event.value);
                     this.handleActionResult(event.value);
                     this.updatePot(event.value.newPotTotal);
                     break;
-                case 'handEnd':
-                    this.handleHandEnd(event.value);
-                    break;
-                case 'seatUpdate':
-                    this.handleSeatUpdate(event.value);
-                    break;
-                case 'showdown':
-                    this.handleShowdown(event.value);
-                    break;
-                case 'winByFold':
-                    this.handleWinByFold(event.value);
-                    break;
-                case 'error':
-                    console.error('[TableScene] Error:', event.code, event.message);
-                    break;
-                case 'connect':
-                case 'disconnect':
-                    break;
+                case 'handEnd': this.handleHandEnd(event.value); break;
+                case 'seatUpdate': this.handleSeatUpdate(event.value); break;
+                case 'showdown': this.handleShowdown(event.value); break;
+                case 'winByFold': this.handleWinByFold(event.value); break;
             }
         });
     }
@@ -302,152 +299,89 @@ export class TableScene extends Container {
     private applyCachedState(): void {
         const state = useGameStore.getState();
         this.myChair = state.myChair;
-        if (state.snapshot) {
-            this.handleSnapshot(state.snapshot);
-        }
-        if (state.handStart) {
-            this.handleHandStart(state.handStart);
-        }
-        if (state.holeCards) {
-            this.handleHoleCards(state.holeCards);
-        }
-        if (state.actionPrompt) {
-            this.handleActionPrompt(state.actionPrompt);
-        }
-        if (state.phaseChange) {
-            this.handlePhaseChange(state.phaseChange);
-        }
-        if (state.potUpdate) {
-            this.handlePotUpdate(state.potUpdate);
-        }
+        if (state.snapshot) this.handleSnapshot(state.snapshot);
+        if (state.handStart) this.handleHandStart(state.handStart);
+        if (state.holeCards) this.handleHoleCards(state.holeCards);
+        if (state.actionPrompt) this.handleActionPrompt(state.actionPrompt);
+        if (state.phaseChange) this.handlePhaseChange(state.phaseChange);
+        if (state.potUpdate) this.handlePotUpdate(state.potUpdate);
     }
 
     private handleSnapshot(snap: TableSnapshot): void {
-        console.log('[TableScene] Snapshot:', snap);
-
-        // Clear and populate players map
         this.players.clear();
         for (const player of snap.players) {
             this.players.set(player.chair, player);
         }
-
-        // Find my chair
-        if (this.myChair !== -1) {
-            const myPlayer = this.players.get(this.myChair);
-            if (!myPlayer) {
-                console.warn('[TableScene] My chair not found in snapshot players');
-            }
-        } else {
-            const storeChair = useGameStore.getState().myChair;
-            if (storeChair !== -1) {
-                this.myChair = storeChair;
-            }
-        }
-
-        // Update pot
+        this.myChair = useGameStore.getState().myChair;
+        const totalPot = snap.pots.reduce((acc, p) => acc + p.amount, 0n);
+        this._potTickerValue.val = Number(totalPot); // Set initial value without animation
         this.updatePotFromPots(snap.pots);
-
-        // Update seats logic
         this.updateSeats();
-
-        // Update community cards
+        this.updateActivePlayer(snap.actionChair);
         this.boardCards = [...snap.communityCards];
         this.updateCommunityCards(this.boardCards);
 
-        // Active player highlight
-        this.updateActivePlayer(snap.actionChair);
+        // Show my cards if I'm already in a hand
+        const me = this.players.get(this.myChair);
+        if (me && me.handCards && me.handCards.length > 0 && !me.folded) {
+            this.showMyCards(me.handCards);
+        }
     }
 
     private handleSeatUpdate(update: SeatUpdate): void {
-        console.log('[TableScene] Seat update:', update);
-
         const chair = update.chair;
-
         switch (update.update.case) {
             case 'playerJoined':
-                const player = update.update.value;
-                this.players.set(chair, player);
-                if (chair === useGameStore.getState().myChair) {
-                    this.myChair = chair;
-                }
+                this.players.set(chair, update.update.value);
+                if (chair === useGameStore.getState().myChair) this.myChair = chair;
                 break;
-
             case 'playerLeftUserId':
                 this.players.delete(chair);
-                // Clear any view showing this chair
-                this.updateSeats();
                 break;
-
             case 'stackChange':
-                // Update stack in map
-                const pStack = this.players.get(chair);
-                if (pStack) {
-                    pStack.stack = update.update.value;
-                }
+                const p = this.players.get(chair);
+                if (p) p.stack = update.update.value;
                 break;
         }
-
         this.updateSeats();
     }
 
-    // Core function to map players to views
     private updateSeats(): void {
-        // Clear all opponent views first
-        for (const ov of this.opponentViews) {
-            ov.clear();
-        }
-
-        // Iterate through all players
+        for (const sv of this.seatViews) sv.clear();
         for (const [chair, player] of this.players) {
-            if (chair === this.myChair) {
-                // Hero cards
-                if (player.handCards.length > 0) {
-                    this.showMyCards(player.handCards);
-                }
+            let viewIndex = -1;
+            if (this.myChair !== -1) {
+                viewIndex = (chair - this.myChair + 6) % 6;
             } else {
-                // Opponent
-                let viewIndex = -1;
-
-                if (this.myChair !== -1) {
-                    // Calculate relative index: 1-5 (clockwise from hero)
-                    const relative = (chair - this.myChair + 6) % 6;
-                    // Map to 5 views (relative 1 -> view 0, ..., relative 5 -> view 4)
-                    if (relative >= 1 && relative <= 5) {
-                        viewIndex = relative - 1;
-                    }
-                } else {
-                    // Spectator mode or just filling by chair
-                    if (chair < 5) viewIndex = chair;
-                }
-
-                if (viewIndex >= 0 && viewIndex < this.opponentViews.length) {
-                    this.opponentViews[viewIndex].setPlayer(player);
-                }
+                viewIndex = chair % 6;
+            }
+            if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
+                this.seatViews[viewIndex].setPlayer(player, chair === this.myChair);
             }
         }
     }
 
     private updateActivePlayer(actionChair: number): void {
-        this.opponentViews.forEach(ov => ov.setActive(false));
-
+        this.seatViews.forEach(sv => sv.setActive(false));
         const activePlayer = this.players.get(actionChair);
-        if (activePlayer && activePlayer.chair !== this.myChair) {
-            for (const ov of this.opponentViews) {
-                if (ov.userId === activePlayer.userId) {
-                    ov.setActive(true);
-                }
+        if (activePlayer) {
+            let viewIndex = -1;
+            if (this.myChair !== -1) {
+                viewIndex = (activePlayer.chair - this.myChair + 6) % 6;
+            } else {
+                viewIndex = activePlayer.chair % 6;
+            }
+            if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
+                this.seatViews[viewIndex].setActive(true);
             }
         }
     }
 
     private handleHandStart(start: HandStart): void {
-        console.log('[TableScene] Hand started:', start);
         this.myCards.removeChildren();
         this.communityCards.removeChildren();
         this.boardCards = [];
         this.updatePot(0n);
-
-        // Reset per-hand player state so updateSeats() can immediately render opponent backs.
         for (const player of this.players.values()) {
             player.bet = 0n;
             player.folded = false;
@@ -455,168 +389,104 @@ export class TableScene extends Container {
             player.lastAction = ActionType.ACTION_UNSPECIFIED;
             player.handCards = [];
         }
-
-        // Clear opponent cards
-        for (const ov of this.opponentViews) {
-            ov.clearCards();
-        }
-
-        // Re-render seat state right away so opponents show card backs before first action.
+        for (const sv of this.seatViews) sv.clearCards();
         this.updateSeats();
         this.updateActivePlayer(-1);
     }
 
     private handleHoleCards(deal: DealHoleCards): void {
-        console.log('[TableScene] Hole cards:', deal.cards);
         this.showMyCards(deal.cards);
-
-        // Also update my cards in player state
         if (this.myChair !== -1) {
             const me = this.players.get(this.myChair);
-            if (me) {
-                me.handCards = deal.cards;
-            }
+            if (me) me.handCards = deal.cards;
         }
     }
 
     private handleBoard(board: DealBoard): void {
-        console.log('[TableScene] Board dealt:', board.phase, board.cards);
         if (board.phase === Phase.FLOP) {
             this.boardCards = [...board.cards];
         } else {
             this.boardCards = [...this.boardCards, ...board.cards];
-            if (board.phase === Phase.TURN) {
-                this.boardCards = this.boardCards.slice(0, 4);
-            } else if (board.phase === Phase.RIVER) {
-                this.boardCards = this.boardCards.slice(0, 5);
-            }
+            if (board.phase === Phase.TURN) this.boardCards = this.boardCards.slice(0, 4);
+            else if (board.phase === Phase.RIVER) this.boardCards = this.boardCards.slice(0, 5);
         }
         this.updateCommunityCards(this.boardCards);
     }
 
     private handlePotUpdate(update: PotUpdate): void {
-        console.log('[TableScene] Pot update:', update);
         this.updatePotFromPots(update.pots);
     }
 
     private handlePhaseChange(phaseChange: PhaseChange): void {
-        console.log('[TableScene] Phase change:', phaseChange.phase, phaseChange);
         this.boardCards = [...phaseChange.communityCards];
         this.updateCommunityCards(this.boardCards);
         this.updatePotFromPots(phaseChange.pots);
-
-        if (phaseChange.myHandRank !== undefined) {
-            const handLabel = this.getHandRankLabel(phaseChange.myHandRank);
-            const handValue = phaseChange.myHandValue !== undefined ? ` value=${phaseChange.myHandValue}` : '';
-            console.log(`[TableScene] My hand: ${handLabel}${handValue}`);
-        }
     }
 
     private handleActionResult(result: ActionResult): void {
         const player = this.players.get(result.chair);
-        if (!player) {
-            return;
-        }
+        if (!player) return;
         player.stack = result.newStack;
         player.lastAction = result.action;
         if (result.action === ActionType.ACTION_FOLD) {
             player.folded = true;
+            if (result.chair === this.myChair) {
+                this.myCards.removeChildren();
+            }
         }
-        if (result.action === ActionType.ACTION_ALLIN) {
-            player.allIn = true;
-        }
+        if (result.action === ActionType.ACTION_ALLIN) player.allIn = true;
         this.updateSeats();
     }
 
     private handleActionPrompt(prompt: ActionPrompt): void {
-        console.log('[TableScene] Action prompt:', prompt);
-
         if (this.myChair === -1) {
             const storeChair = useGameStore.getState().myChair;
             this.myChair = storeChair !== -1 ? storeChair : prompt.chair;
-            // re-update seats now that we know who we are
             this.updateSeats();
         }
-
         this.updateActivePlayer(prompt.chair);
     }
 
     private handleShowdown(showdown: Showdown): void {
-        console.log('[TableScene] Showdown:', showdown);
-
-        // Show opponent cards
         for (const hand of showdown.hands) {
             if (hand.chair !== this.myChair) {
-                // Find view for chair
                 let viewIndex = -1;
                 if (this.myChair !== -1) {
-                    const relative = (hand.chair - this.myChair + 6) % 6;
-                    if (relative >= 1 && relative <= 5) viewIndex = relative - 1;
+                    viewIndex = (hand.chair - this.myChair + 6) % 6;
                 } else {
-                    if (hand.chair < 5) viewIndex = hand.chair;
+                    viewIndex = hand.chair % 6;
                 }
-
-                if (viewIndex >= 0 && viewIndex < this.opponentViews.length) {
-                    this.opponentViews[viewIndex].showCards(hand.holeCards);
+                if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
+                    this.seatViews[viewIndex].showCards(hand.holeCards);
                 }
-            }
-        }
-
-        // Log winners (UI animation could be added here)
-        for (const pr of showdown.potResults) {
-            for (const winner of pr.winners) {
-                console.log(`[TableScene] Pot Winner: Chair ${winner.chair} wins ${winner.winAmount}`);
-            }
-        }
-
-        if (showdown.excessRefund) {
-            console.log(`[TableScene] Excess refund: Chair ${showdown.excessRefund.chair} +${showdown.excessRefund.amount}`);
-        }
-        for (const net of showdown.netResults) {
-            if (net.isWinner || net.winAmount !== 0n) {
-                console.log(`[TableScene] Net result: chair=${net.chair} win=${net.winAmount} winner=${net.isWinner}`);
             }
         }
     }
 
     private handleHandEnd(end: HandEnd): void {
-        console.log('[TableScene] Hand ended:', end);
         this.updateActivePlayer(-1);
-
         for (const stackDelta of end.stackDeltas) {
             const player = this.players.get(stackDelta.chair);
-            if (!player) {
-                continue;
+            if (player) {
+                player.stack = stackDelta.newStack;
+                player.bet = 0n;
+                player.folded = false;
+                player.allIn = false;
+                player.lastAction = ActionType.ACTION_UNSPECIFIED;
+                player.handCards = [];
             }
-            player.stack = stackDelta.newStack;
-            player.bet = 0n;
-            player.folded = false;
-            player.allIn = false;
-            player.lastAction = ActionType.ACTION_UNSPECIFIED;
         }
         this.updateSeats();
-
-        if (end.excessRefund) {
-            console.log(`[TableScene] HandEnd excess refund: Chair ${end.excessRefund.chair} +${end.excessRefund.amount}`);
-        }
-        for (const net of end.netResults) {
-            if (net.isWinner || net.winAmount !== 0n) {
-                console.log(`[TableScene] HandEnd net: chair=${net.chair} win=${net.winAmount} winner=${net.isWinner}`);
-            }
-        }
     }
 
     private handleWinByFold(winByFold: WinByFold): void {
-        console.log('[TableScene] Win by fold:', winByFold);
         this.updateActivePlayer(-1);
         this.updatePot(winByFold.potTotal);
     }
 
     private updatePotFromPots(pots: Pot[]): void {
         let potTotal = 0n;
-        for (const pot of pots) {
-            potTotal += pot.amount;
-        }
+        for (const pot of pots) potTotal += pot.amount;
         this.updatePot(potTotal);
     }
 
@@ -637,15 +507,22 @@ export class TableScene extends Container {
     }
 
     private updatePot(amount: bigint): void {
-        this.potAmount.text = amount.toLocaleString();
+        const target = Number(amount);
+        gsap.to(this._potTickerValue, {
+            val: target,
+            duration: 1.2,
+            ease: 'power4.out',
+            onUpdate: () => {
+                this.potAmount.text = Math.floor(this._potTickerValue.val).toLocaleString();
+            }
+        });
     }
 
     private showMyCards(cards: Card[]): void {
         this.myCards.removeChildren();
-
-        const cardW = 90;
-        const cardH = 130;
-        const gap = 20;
+        const cardW = 100;
+        const cardH = 145;
+        const gap = 16;
         const totalWidth = cards.length * cardW + (cards.length - 1) * gap;
         const startX = -totalWidth / 2;
 
@@ -653,37 +530,27 @@ export class TableScene extends Container {
             const cardView = this.createHeroCard(card, cardW, cardH);
             cardView.x = startX + i * (cardW + gap) + cardW / 2;
             cardView.y = 0;
-            cardView.rotation = (i - 0.5) * 0.05; // Slight tilt
+            cardView.rotation = (i - 0.5) * 0.12;
             cardView.scale.set(0);
             this.myCards.addChild(cardView);
-
-            gsap.to(cardView.scale, {
-                x: 1,
-                y: 1,
-                duration: 0.4,
-                delay: i * 0.1,
-                ease: 'back.out',
-            });
+            // Animate scale to 1.4 for extra "Hero" feel
+            gsap.to(cardView.scale, { x: 1.4, y: 1.4, duration: 0.5, delay: i * 0.15, ease: 'back.out' });
         });
     }
 
     private createHeroCard(card: Card, width: number, height: number): Container {
         const container = new Container();
-
-        // High intensity card glow
         const glow = new Graphics();
         glow.roundRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16, 18);
         glow.fill({ color: COLORS.primary, alpha: 0.4 });
         container.addChild(glow);
 
-        // Card background
         const bg = new Graphics();
         bg.roundRect(-width / 2, -height / 2, width, height, 15);
         bg.fill({ color: 0x050205 });
         bg.stroke({ color: COLORS.primary, width: 3, alpha: 0.8 });
         container.addChild(bg);
 
-        // Subtle highlight
         const highlight = new Graphics();
         highlight.roundRect(-width / 2, -height / 2, width, height / 2.5, 15);
         highlight.fill({ color: COLORS.primary, alpha: 0.15 });
@@ -692,39 +559,26 @@ export class TableScene extends Container {
         const isRed = card.suit === Suit.HEART || card.suit === Suit.DIAMOND;
         const color = isRed ? COLORS.cardRed : 0xffffff;
 
-        // Rank
         const rankText = new Text({
             text: this.getRankString(card.rank),
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 40,
-                fontWeight: '900',
-                fill: color,
-            },
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 40, fontWeight: '900', fill: color },
         });
         rankText.anchor.set(0.5);
         rankText.y = -20;
         container.addChild(rankText);
 
-        // Suit
         const suitText = new Text({
             text: this.getSuitSymbol(card.suit),
-            style: {
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 48,
-                fill: color,
-            },
+            style: { fontFamily: 'Inter, sans-serif', fontSize: 48, fill: color },
         });
         suitText.anchor.set(0.5);
         suitText.y = 35;
         container.addChild(suitText);
-
         return container;
     }
 
     private updateCommunityCards(cards: Card[]): void {
         this.communityCards.removeChildren();
-
         const cardW = 55;
         const cardH = 85;
         const gap = 8;
@@ -738,7 +592,6 @@ export class TableScene extends Container {
                 cardView.x = startX + i * (cardW + gap) + cardW / 2;
                 this.communityCards.addChild(cardView);
             } else {
-                // Empty placeholder
                 const placeholder = new Graphics();
                 placeholder.roundRect(startX + i * (cardW + gap), -cardH / 2, cardW, cardH, 8);
                 placeholder.fill({ color: 0x000000, alpha: 0.3 });
@@ -750,7 +603,6 @@ export class TableScene extends Container {
 
     private createCommunityCard(card: Card, width: number, height: number): Container {
         const container = new Container();
-
         const bg = new Graphics();
         bg.roundRect(-width / 2, -height / 2, width, height, 10);
         bg.fill({ color: 0x120810 });
@@ -762,12 +614,7 @@ export class TableScene extends Container {
 
         const rankText = new Text({
             text: this.getRankString(card.rank),
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 24,
-                fontWeight: '800',
-                fill: color,
-            },
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 24, fontWeight: '800', fill: color },
         });
         rankText.anchor.set(0.5);
         rankText.y = -15;
@@ -775,16 +622,11 @@ export class TableScene extends Container {
 
         const suitText = new Text({
             text: this.getSuitSymbol(card.suit),
-            style: {
-                fontFamily: 'Inter, sans-serif',
-                fontSize: 28,
-                fill: color,
-            },
+            style: { fontFamily: 'Inter, sans-serif', fontSize: 28, fill: color },
         });
         suitText.anchor.set(0.5);
         suitText.y = 18;
         container.addChild(suitText);
-
         return container;
     }
 
@@ -825,8 +667,8 @@ export class TableScene extends Container {
     }
 }
 
-// Opponent view with state
-class OpponentView extends Container {
+// Seat view with state
+class SeatView extends Container {
     private avatarFrame: Graphics;
     private avatarContainer: Container;
     private avatarPlaceholder: Graphics;
@@ -836,54 +678,43 @@ class OpponentView extends Container {
     private statusText: Text;
     private cardBacks: Container;
     private shownCards: Container;
+    private lightPoint: Graphics;
+    private _orbitTween: gsap.core.Tween | null = null;
     private _index: number;
-    public userId: number = -1; // Track which user is here
+    public userId: number = -1;
 
     constructor(index: number) {
         super();
         this._index = index;
 
-        // Hexagon avatar frame
         this.avatarFrame = new Graphics();
         this.addChild(this.avatarFrame);
 
-        // Avatar Image Container (clipped by hexagon)
         this.avatarContainer = new Container();
         this.addChild(this.avatarContainer);
 
-        // Placeholder Avatar (Procedural)
         this.avatarPlaceholder = new Graphics();
         this.avatarPlaceholder.circle(0, 0, 30);
         this.avatarPlaceholder.fill({ color: 0x222222 });
         this.avatarPlaceholder.stroke({ color: 0x444444, width: 2.5 });
-        // Head
         this.avatarPlaceholder.circle(0, -6, 11);
         this.avatarPlaceholder.fill({ color: 0x444444 });
-        // Body
         this.avatarPlaceholder.ellipse(0, 16, 18, 12);
         this.avatarPlaceholder.fill({ color: 0x444444 });
         this.avatarContainer.addChild(this.avatarPlaceholder);
 
-        // Empty Icon (+)
         this.emptyIcon = new Text({
             text: '+',
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 24,
-                fill: 0x333333,
-                fontWeight: '400'
-            }
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 24, fill: 0x333333, fontWeight: '400' }
         });
         this.emptyIcon.anchor.set(0.5);
         this.addChild(this.emptyIcon);
 
-        // Card backs (small, shown above avatar)
         this.cardBacks = new Container();
         this.cardBacks.y = -65;
         this.cardBacks.visible = false;
         this.addChild(this.cardBacks);
 
-        // Create mini card backs
         for (let i = 0; i < 2; i++) {
             const cardBack = new Graphics();
             cardBack.roundRect((i - 1) * 24 + 2, -20, 28, 40, 4);
@@ -892,58 +723,47 @@ class OpponentView extends Container {
             this.cardBacks.addChild(cardBack);
         }
 
-        // Shown cards
         this.shownCards = new Container();
         this.shownCards.y = -65;
         this.addChild(this.shownCards);
 
-        // Name
         this.nameText = new Text({
             text: 'EMPTY',
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 11,
-                fontWeight: '700',
-                fill: 0x888888,
-            },
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 11, fontWeight: '700', fill: 0x888888 },
         });
         this.nameText.anchor.set(0.5);
         this.nameText.y = 52;
         this.addChild(this.nameText);
 
-        // Stack
         this.stackText = new Text({
             text: '',
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 10,
-                fill: COLORS.cyan,
-            },
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 10, fill: COLORS.cyan },
         });
         this.stackText.anchor.set(0.5);
         this.stackText.y = 66;
         this.addChild(this.stackText);
 
-        // Status (THINKING, FOLDED, etc.)
         this.statusText = new Text({
             text: '',
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 9,
-                fontWeight: '700',
-                fill: COLORS.cyan,
-            },
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 10, fontWeight: '700', fill: COLORS.cyan },
         });
         this.statusText.anchor.set(0.5);
         this.statusText.y = 66;
         this.statusText.visible = false;
         this.addChild(this.statusText);
 
-        // Apply masking or clipping to avatar container if needed
-        // For now, just a centered placeholder
-        this.avatarContainer.visible = false;
+        this.lightPoint = new Graphics();
+        this.lightPoint.circle(0, 0, 5);
+        this.lightPoint.fill({ color: 0xffffff });
+        // Larger, softer glow for the "white halo" effect
+        this.lightPoint.circle(0, 0, 12);
+        this.lightPoint.fill({ color: 0xffffff, alpha: 0.2 });
+        this.lightPoint.circle(0, 0, 20);
+        this.lightPoint.fill({ color: 0xffffff, alpha: 0.1 });
+        this.lightPoint.visible = false;
+        this.addChild(this.lightPoint);
 
-        // Default empty state
+        this.avatarContainer.visible = false;
         this.clear();
     }
 
@@ -957,8 +777,6 @@ class OpponentView extends Container {
         g.poly(points);
         g.fill({ color, alpha });
         g.stroke({ color: 0x444444, width: 3, alpha: 0.8 });
-
-        // Add an inner faint hexagon for tech look
         for (let i = 0; i < 6; i++) {
             const angle = (Math.PI / 3) * i - Math.PI / 2;
             points[i * 2] *= 0.85;
@@ -968,14 +786,13 @@ class OpponentView extends Container {
         g.stroke({ color: 0xffffff, width: 1, alpha: 0.1 });
     }
 
-    setPlayer(player: PlayerState): void {
+    setPlayer(player: PlayerState, isMe: boolean): void {
         this.userId = player.userId;
         this.visible = true;
         this.emptyIcon.visible = false;
         this.avatarContainer.visible = true;
-
-        this.nameText.text = `PLAYER_${player.userId}`;
-        this.nameText.style.fill = 0xcccccc;
+        this.nameText.text = isMe ? 'YOU' : `PLAYER_${player.userId}`;
+        this.nameText.style.fill = isMe ? COLORS.primary : 0xcccccc;
         this.stackText.text = `$${player.stack}`;
         this.stackText.visible = !player.folded;
 
@@ -989,14 +806,14 @@ class OpponentView extends Container {
             this.cardBacks.visible = false;
         } else {
             this.statusText.visible = false;
-            this.statusText.y = 52;
+            this.statusText.y = 66;
             this.avatarContainer.alpha = 1;
             this.avatarFrame.alpha = 1;
-            this.cardBacks.visible = this.shownCards.children.length === 0;
+            this.cardBacks.visible = !isMe && this.shownCards.children.length === 0;
         }
 
         this.avatarFrame.clear();
-        const frameColor = player.folded ? 0x333333 : COLORS.primary;
+        const frameColor = player.folded ? 0x333333 : (isMe ? COLORS.cyan : COLORS.primary);
         this.drawHexagon(this.avatarFrame, 40, 0x0a0609, 1);
         this.avatarFrame.stroke({ color: frameColor, width: 2, alpha: player.folded ? 0.3 : 0.8 });
     }
@@ -1004,59 +821,82 @@ class OpponentView extends Container {
     showCards(cards: Card[]): void {
         this.cardBacks.visible = false;
         this.shownCards.removeChildren();
-
-        const cardW = 30;
-        const cardH = 45;
-        const gap = 4;
-
+        const cardW = 36;
+        const cardH = 54;
+        const gap = 6;
         cards.forEach((card, i) => {
             const container = new Container();
             container.x = (i - 0.5) * (cardW + gap);
-
-            // bg
             const bg = new Graphics();
-            bg.roundRect(-cardW / 2, -cardH / 2, cardW, cardH, 4);
+            bg.roundRect(-cardW / 2, -cardH / 2, cardW, cardH, 5);
             bg.fill({ color: 0x1a1a1a });
             bg.stroke({ color: 0x888888, width: 1 });
             container.addChild(bg);
-
-            // rank (simple text)
             const isRed = card.suit === Suit.HEART || card.suit === Suit.DIAMOND;
             const color = isRed ? 0xff4444 : 0xcccccc;
-
-            const text = new Text({
-                text: this.getRankString(card.rank),
-                style: { fontFamily: 'Arial', fontSize: 14, fill: color, fontWeight: 'bold' }
-            });
+            const text = new Text({ text: this.getRankString(card.rank), style: { fontFamily: 'Arial', fontSize: 16, fill: color, fontWeight: 'bold' } });
             text.anchor.set(0.5);
             container.addChild(text);
-
             this.shownCards.addChild(container);
         });
     }
 
     setActive(isActive: boolean): void {
+        if (this._orbitTween) {
+            this._orbitTween.kill();
+            this._orbitTween = null;
+        }
+
         if (isActive) {
             this.statusText.text = 'THINKING...';
             this.statusText.style.fill = COLORS.cyan;
             this.statusText.visible = true;
+            this.statusText.y = 86; // Lowered to avoid overlap with stack at 66
             this.stackText.visible = true;
-
-            // Redraw with cyan glow
             this.avatarFrame.clear();
             this.drawHexagon(this.avatarFrame, 40, 0x1a1a1a);
             this.avatarFrame.stroke({ color: COLORS.cyan, width: 3 });
+
+            this.lightPoint.visible = true;
+            const size = 40;
+            const vertices: { x: number, y: number }[] = [];
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i - Math.PI / 2;
+                vertices.push({ x: Math.cos(angle) * size, y: Math.sin(angle) * size });
+            }
+            // Add first vertex again to complete the loop
+            vertices.push(vertices[0]);
+
+            const obj = { t: 0 };
+            this._orbitTween = gsap.to(obj, {
+                t: 6,
+                duration: 8, // Significantly slowed down for a calmer, premium feel
+                repeat: -1,
+                ease: 'none',
+                onUpdate: () => {
+                    const i = Math.floor(obj.t);
+                    const f = obj.t - i;
+                    const p1 = vertices[i];
+                    const p2 = vertices[i + 1];
+                    this.lightPoint.x = p1.x + (p2.x - p1.x) * f;
+                    this.lightPoint.y = p1.y + (p2.y - p1.y) * f;
+                }
+            });
+        } else {
+            this.lightPoint.visible = false;
+            // Restore normal frame if not seated/folded handled by setPlayer usually
+            // but here we just clear the active state
         }
     }
 
     clearCards(): void {
-        this.cardBacks.visible = false; // Hide backs
-        this.shownCards.removeChildren(); // Hide shown
+        this.cardBacks.visible = false;
+        this.shownCards.removeChildren();
     }
 
     clear(): void {
         this.userId = -1;
-        this.visible = true; // Stay visible for empty slots
+        this.visible = true;
         this.nameText.text = 'EMPTY';
         this.nameText.style.fill = 0x444444;
         this.stackText.text = '';
@@ -1065,16 +905,12 @@ class OpponentView extends Container {
         this.shownCards.removeChildren();
         this.avatarContainer.visible = false;
         this.emptyIcon.visible = true;
-
-        // Draw greyed out empty frame
         this.avatarFrame.clear();
         this.drawHexagon(this.avatarFrame, 40, 0x0a0609, 0.5);
         this.avatarFrame.stroke({ color: 0x333333, width: 1.5, alpha: 0.4 });
     }
 
-    // Helper for simple rank string (duplicate of TableScene method basically)
     private getRankString(rank: Rank): string {
-        // Minimal impl
         switch (rank) {
             case 14: return 'A';
             case 13: return 'K';
@@ -1085,7 +921,3 @@ class OpponentView extends Container {
         }
     }
 }
-
-
-
-

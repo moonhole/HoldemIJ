@@ -271,3 +271,185 @@
         padding-right: 0;
     }
 }
+
+/* NPC Chat Box Styles */
+.npc-chat-box {
+    background: rgba(10, 6, 9, 0.85);
+    border: 1px solid rgba(244, 37, 175, 0.3);
+    border-radius: 20px;
+    display: flex;
+    padding: 16px;
+    gap: 16px;
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), inset 0 0 20px rgba(244, 37, 175, 0.05);
+    animation: npc-slide-in 0.4s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    min-height: 100px;
+}
+
+.npc-avatar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.npc-avatar-box {
+    width: 64px;
+    height: 64px;
+    background: #1a0c16;
+    border: 2px solid #f425af;
+    border-radius: 12px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 15px rgba(244, 37, 175, 0.4);
+}
+
+.npc-avatar-scanline {
+    position: absolute;
+    width: 100%;
+    height: 2px;
+    background: rgba(244, 37, 175, 0.4);
+    top: 0;
+    animation: scanline 2s linear infinite;
+    z-index: 1;
+}
+
+.npc-avatar-noise {
+    position: absolute;
+    inset: 0;
+    background: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAADIAAAAyBAMAAAD9tt+fAAAAElBMVEUAAAD8/Pz09PT///8AAAAAAAAsv69UAAAABXRSTlMABggKEp8S7OAAAAA8SURBVDjLY2AYBYMWAAGGBgaG/wwMDR8YGBgYWBgYWBgYWBgYWBgYWBgYWBgYWBgYWBgYWBgYWBgYWBgYDAAtCw/Xp52jUAAAAABJRU5ErkJggg==");
+    opacity: 0.1;
+    pointer-events: none;
+}
+
+.npc-placeholder {
+    font-size: 32px;
+    color: #f425af;
+    opacity: 0.8;
+}
+
+.npc-name-tag {
+    background: #f425af;
+    color: #ffffff;
+    font-size: 9px;
+    font-weight: 900;
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.1em;
+}
+
+.npc-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    position: relative;
+    padding-top: 4px;
+}
+
+.npc-text-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    padding-bottom: 6px;
+}
+
+.npc-status-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.npc-stack-mini {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+}
+
+.npc-stack-mini .label {
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.3);
+    letter-spacing: 0.1em;
+    font-weight: 700;
+}
+
+.npc-stack-mini .value {
+    font-size: 14px;
+    color: #ffffff;
+    font-weight: 900;
+    font-style: italic;
+}
+
+.npc-status-dot {
+    width: 6px;
+    height: 6px;
+    background: #00f3ff;
+    border-radius: 50%;
+    box-shadow: 0 0 8px #00f3ff;
+    animation: blink 1s ease-in-out infinite;
+}
+
+.npc-status-text {
+    font-size: 10px;
+    color: #00f3ff;
+    font-weight: 800;
+    letter-spacing: 0.2em;
+    opacity: 0.8;
+}
+
+.npc-text-body {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 13px;
+    line-height: 1.6;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+}
+
+.npc-cursor {
+    width: 8px;
+    height: 14px;
+    background: #f425af;
+    display: inline-block;
+    vertical-align: middle;
+    margin-left: 4px;
+    animation: blink 0.8s step-end infinite;
+}
+
+@keyframes npc-slide-in {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@keyframes scanline {
+    from {
+        top: -2px;
+    }
+
+    to {
+        top: 100%;
+    }
+}
+
+@keyframes blink {
+
+    0%,
+    100% {
+        opacity: 1;
+    }
+
+    50% {
+        opacity: 0.3;
+    }
+}

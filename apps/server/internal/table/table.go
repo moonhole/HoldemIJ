@@ -168,6 +168,17 @@ func (t *Table) handleJoinTable(userID uint32) error {
 		Chair:  holdem.InvalidChair,
 	}
 	log.Printf("[Table %s] Player %d joined", t.ID, userID)
+
+	// Automatic sit-down if not seated
+	for i := uint16(0); i < t.Config.MaxPlayers; i++ {
+		if t.seats[i] == 0 {
+			// Found empty seat
+			log.Printf("[Table %s] Auto-sitting player %d at chair %d", t.ID, userID, i)
+			t.handleSitDown(userID, i, t.Config.MaxBuyIn) // Use MaxBuyIn for demo
+			break
+		}
+	}
+
 	t.sendSnapshot(userID)
 	return nil
 }
@@ -565,7 +576,7 @@ func (t *Table) sendActionPrompt(chair uint16) {
 			},
 		},
 	}
-	t.sendToUser(userID, env)
+	t.broadcastToAll(env)
 }
 
 func (t *Table) broadcastActionResult(

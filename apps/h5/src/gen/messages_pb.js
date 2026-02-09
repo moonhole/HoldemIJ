@@ -8,7 +8,7 @@ import { enumDesc, fileDesc, messageDesc, tsEnum } from "@bufbuild/protobuf/code
  * Describes the file messages.proto.
  */
 export const file_messages = /*@__PURE__*/
-  fileDesc("Cg5tZXNzYWdlcy5wcm90bxIJaG9sZGVtLnYxIsACCg5DbGllbnRFbnZlbG9wZRIQCgh0YWJsZV9pZBgBIAEoCRIPCgd1c2VyX2lkGAIgASgNEgsKA3NlcRgDIAEoBBILCgNhY2sYBCABKAQSMQoKam9pbl90YWJsZRgKIAEoCzIbLmhvbGRlbS52MS5Kb2luVGFibGVSZXF1ZXN0SAASLQoIc2l0X2Rvd24YCyABKAsyGS5ob2xkZW0udjEuU2l0RG93blJlcXVlc3RIABItCghzdGFuZF91cBgMIAEoCzIZLmhvbGRlbS52MS5TdGFuZFVwUmVxdWVzdEgAEikKBmJ1eV9pbhgNIAEoCzIXLmhvbGRlbS52MS5CdXlJblJlcXVlc3RIABIqCgZhY3Rpb24YDiABKAsyGC5ob2xkZW0udjEuQWN0aW9uUmVxdWVzdEgAQgkKB3BheWxvYWQirwUKDlNlcnZlckVudmVsb3BlEhAKCHRhYmxlX2lkGAEgASgJEhIKCnNlcnZlcl9zZXEYAiABKAQSFAoMc2VydmVyX3RzX21zGAMgASgDEikKBWVycm9yGAogASgLMhguaG9sZGVtLnYxLkVycm9yUmVzcG9uc2VIABIyCg50YWJsZV9zbmFwc2hvdBgLIAEoCzIYLmhvbGRlbS52MS5UYWJsZVNuYXBzaG90SAASLAoLc2VhdF91cGRhdGUYDCABKAsyFS5ob2xkZW0udjEuU2VhdFVwZGF0ZUgAEioKCmhhbmRfc3RhcnQYDSABKAsyFC5ob2xkZW0udjEuSGFuZFN0YXJ0SAASMwoPZGVhbF9ob2xlX2NhcmRzGA4gASgLMhguaG9sZGVtLnYxLkRlYWxIb2xlQ2FyZHNIABIqCgpkZWFsX2JvYXJkGA8gASgLMhQuaG9sZGVtLnYxLkRlYWxCb2FyZEgAEjAKDWFjdGlvbl9wcm9tcHQYECABKAsyFy5ob2xkZW0udjEuQWN0aW9uUHJvbXB0SAASMAoNYWN0aW9uX3Jlc3VsdBgRIAEoCzIXLmhvbGRlbS52MS5BY3Rpb25SZXN1bHRIABIqCgpwb3RfdXBkYXRlGBIgASgLMhQuaG9sZGVtLnYxLlBvdFVwZGF0ZUgAEicKCHNob3dkb3duGBMgASgLMhMuaG9sZGVtLnYxLlNob3dkb3duSAASJgoIaGFuZF9lbmQYFCABKAsyEi5ob2xkZW0udjEuSGFuZEVuZEgAEi4KDHBoYXNlX2NoYW5nZRgVIAEoCzIWLmhvbGRlbS52MS5QaGFzZUNoYW5nZUgAEisKC3dpbl9ieV9mb2xkGBYgASgLMhQuaG9sZGVtLnYxLldpbkJ5Rm9sZEgAQgkKB3BheWxvYWQiEgoQSm9pblRhYmxlUmVxdWVzdCI2Cg5TaXREb3duUmVxdWVzdBINCgVjaGFpchgBIAEoDRIVCg1idXlfaW5fYW1vdW50GAIgASgDIhAKDlN0YW5kVXBSZXF1ZXN0Ih4KDEJ1eUluUmVxdWVzdBIOCgZhbW91bnQYASABKAMiRgoNQWN0aW9uUmVxdWVzdBIlCgZhY3Rpb24YASABKA4yFS5ob2xkZW0udjEuQWN0aW9uVHlwZRIOCgZhbW91bnQYAiABKAMiLgoNRXJyb3JSZXNwb25zZRIMCgRjb2RlGAEgASgFEg8KB21lc3NhZ2UYAiABKAki4gIKDVRhYmxlU25hcHNob3QSJgoGY29uZmlnGAEgASgLMhYuaG9sZGVtLnYxLlRhYmxlQ29uZmlnEh8KBXBoYXNlGAIgASgOMhAuaG9sZGVtLnYxLlBoYXNlEg0KBXJvdW5kGAMgASgNEhQKDGRlYWxlcl9jaGFpchgEIAEoDRIZChFzbWFsbF9ibGluZF9jaGFpchgFIAEoDRIXCg9iaWdfYmxpbmRfY2hhaXIYBiABKA0SFAoMYWN0aW9uX2NoYWlyGAcgASgNEg8KB2N1cl9iZXQYCCABKAMSFwoPbWluX3JhaXNlX2RlbHRhGAkgASgDEigKD2NvbW11bml0eV9jYXJkcxgKIAMoCzIPLmhvbGRlbS52MS5DYXJkEhwKBHBvdHMYCyADKAsyDi5ob2xkZW0udjEuUG90EicKB3BsYXllcnMYDCADKAsyFi5ob2xkZW0udjEuUGxheWVyU3RhdGUigAEKC1RhYmxlQ29uZmlnEhMKC21heF9wbGF5ZXJzGAEgASgNEhMKC3NtYWxsX2JsaW5kGAIgASgDEhEKCWJpZ19ibGluZBgDIAEoAxIMCgRhbnRlGAQgASgDEhIKCm1pbl9idXlfaW4YBSABKAMSEgoKbWF4X2J1eV9pbhgGIAEoAyLMAQoLUGxheWVyU3RhdGUSDwoHdXNlcl9pZBgBIAEoDRINCgVjaGFpchgCIAEoDRIQCghuaWNrbmFtZRgDIAEoCRINCgVzdGFjaxgEIAEoAxILCgNiZXQYBSABKAMSDgoGZm9sZGVkGAYgASgIEg4KBmFsbF9pbhgHIAEoCBIqCgtsYXN0X2FjdGlvbhgIIAEoDjIVLmhvbGRlbS52MS5BY3Rpb25UeXBlEiMKCmhhbmRfY2FyZHMYCSADKAsyDy5ob2xkZW0udjEuQ2FyZCIuCgNQb3QSDgoGYW1vdW50GAEgASgDEhcKD2VsaWdpYmxlX2NoYWlycxgCIAMoDSKNAQoKU2VhdFVwZGF0ZRINCgVjaGFpchgBIAEoDRIvCg1wbGF5ZXJfam9pbmVkGAIgASgLMhYuaG9sZGVtLnYxLlBsYXllclN0YXRlSAASHQoTcGxheWVyX2xlZnRfdXNlcl9pZBgDIAEoDUgAEhYKDHN0YWNrX2NoYW5nZRgEIAEoA0gAQggKBnVwZGF0ZSKaAQoJSGFuZFN0YXJ0Eg0KBXJvdW5kGAEgASgNEhQKDGRlYWxlcl9jaGFpchgCIAEoDRIZChFzbWFsbF9ibGluZF9jaGFpchgDIAEoDRIXCg9iaWdfYmxpbmRfY2hhaXIYBCABKA0SGgoSc21hbGxfYmxpbmRfYW1vdW50GAUgASgDEhgKEGJpZ19ibGluZF9hbW91bnQYBiABKAMiLwoNRGVhbEhvbGVDYXJkcxIeCgVjYXJkcxgBIAMoCzIPLmhvbGRlbS52MS5DYXJkIkwKCURlYWxCb2FyZBIfCgVwaGFzZRgBIAEoDjIQLmhvbGRlbS52MS5QaGFzZRIeCgVjYXJkcxgCIAMoCzIPLmhvbGRlbS52MS5DYXJkIuUBCgtQaGFzZUNoYW5nZRIfCgVwaGFzZRgBIAEoDjIQLmhvbGRlbS52MS5QaGFzZRIoCg9jb21tdW5pdHlfY2FyZHMYAiADKAsyDy5ob2xkZW0udjEuQ2FyZBIcCgRwb3RzGAMgAygLMg4uaG9sZGVtLnYxLlBvdBIuCgxteV9oYW5kX3JhbmsYBCABKA4yEy5ob2xkZW0udjEuSGFuZFJhbmtIAIgBARIaCg1teV9oYW5kX3ZhbHVlGAUgASgNSAGIAQFCDwoNX215X2hhbmRfcmFua0IQCg5fbXlfaGFuZF92YWx1ZSKOAQoMQWN0aW9uUHJvbXB0Eg0KBWNoYWlyGAEgASgNEiwKDWxlZ2FsX2FjdGlvbnMYAiADKA4yFS5ob2xkZW0udjEuQWN0aW9uVHlwZRIUCgxtaW5fcmFpc2VfdG8YAyABKAMSEwoLY2FsbF9hbW91bnQYBCABKAMSFgoOdGltZV9saW1pdF9zZWMYBSABKAUifgoMQWN0aW9uUmVzdWx0Eg0KBWNoYWlyGAEgASgNEiUKBmFjdGlvbhgCIAEoDjIVLmhvbGRlbS52MS5BY3Rpb25UeXBlEg4KBmFtb3VudBgDIAEoAxIRCgluZXdfc3RhY2sYBCABKAMSFQoNbmV3X3BvdF90b3RhbBgFIAEoAyIpCglQb3RVcGRhdGUSHAoEcG90cxgBIAMoCzIOLmhvbGRlbS52MS5Qb3QiuAEKCFNob3dkb3duEiYKBWhhbmRzGAEgAygLMhcuaG9sZGVtLnYxLlNob3dkb3duSGFuZBIpCgtwb3RfcmVzdWx0cxgCIAMoCzIULmhvbGRlbS52MS5Qb3RSZXN1bHQSLgoNZXhjZXNzX3JlZnVuZBgDIAEoCzIXLmhvbGRlbS52MS5FeGNlc3NSZWZ1bmQSKQoLbmV0X3Jlc3VsdHMYBCADKAsyFC5ob2xkZW0udjEuTmV0UmVzdWx0IokBCgxTaG93ZG93bkhhbmQSDQoFY2hhaXIYASABKA0SIwoKaG9sZV9jYXJkcxgCIAMoCzIPLmhvbGRlbS52MS5DYXJkEiIKCWJlc3RfZml2ZRgDIAMoCzIPLmhvbGRlbS52MS5DYXJkEiEKBHJhbmsYBCABKA4yEy5ob2xkZW0udjEuSGFuZFJhbmsiQwoJUG90UmVzdWx0EhIKCnBvdF9hbW91bnQYASABKAMSIgoHd2lubmVycxgCIAMoCzIRLmhvbGRlbS52MS5XaW5uZXIiKwoGV2lubmVyEg0KBWNoYWlyGAEgASgNEhIKCndpbl9hbW91bnQYAiABKAMioAEKB0hhbmRFbmQSDQoFcm91bmQYASABKA0SKwoMc3RhY2tfZGVsdGFzGAIgAygLMhUuaG9sZGVtLnYxLlN0YWNrRGVsdGESLgoNZXhjZXNzX3JlZnVuZBgDIAEoCzIXLmhvbGRlbS52MS5FeGNlc3NSZWZ1bmQSKQoLbmV0X3Jlc3VsdHMYBCADKAsyFC5ob2xkZW0udjEuTmV0UmVzdWx0Ij0KClN0YWNrRGVsdGESDQoFY2hhaXIYASABKA0SDQoFZGVsdGEYAiABKAMSEQoJbmV3X3N0YWNrGAMgASgDImQKCVdpbkJ5Rm9sZBIUCgx3aW5uZXJfY2hhaXIYASABKA0SEQoJcG90X3RvdGFsGAIgASgDEi4KDWV4Y2Vzc19yZWZ1bmQYAyABKAsyFy5ob2xkZW0udjEuRXhjZXNzUmVmdW5kIi0KDEV4Y2Vzc1JlZnVuZBINCgVjaGFpchgBIAEoDRIOCgZhbW91bnQYAiABKAMiQQoJTmV0UmVzdWx0Eg0KBWNoYWlyGAEgASgNEhIKCndpbl9hbW91bnQYAiABKAMSEQoJaXNfd2lubmVyGAMgASgIIkQKBENhcmQSHQoEc3VpdBgBIAEoDjIPLmhvbGRlbS52MS5TdWl0Eh0KBHJhbmsYAiABKA4yDy5ob2xkZW0udjEuUmFuayqGAQoFUGhhc2USFQoRUEhBU0VfVU5TUEVDSUZJRUQQABIOCgpQSEFTRV9BTlRFEAESEQoNUEhBU0VfUFJFRkxPUBACEg4KClBIQVNFX0ZMT1AQAxIOCgpQSEFTRV9UVVJOEAQSDwoLUEhBU0VfUklWRVIQBRISCg5QSEFTRV9TSE9XRE9XThAGKowBCgpBY3Rpb25UeXBlEhYKEkFDVElPTl9VTlNQRUNJRklFRBAAEhAKDEFDVElPTl9DSEVDSxABEg4KCkFDVElPTl9CRVQQAhIPCgtBQ1RJT05fQ0FMTBADEhAKDEFDVElPTl9SQUlTRRAEEg8KC0FDVElPTl9GT0xEEAUSEAoMQUNUSU9OX0FMTElOEAYqpwIKCEhhbmRSYW5rEhkKFUhBTkRfUkFOS19VTlNQRUNJRklFRBAAEhcKE0hBTkRfUkFOS19ISUdIX0NBUkQQARIWChJIQU5EX1JBTktfT05FX1BBSVIQAhIWChJIQU5EX1JBTktfVFdPX1BBSVIQAxIbChdIQU5EX1JBTktfVEhSRUVfT0ZfS0lORBAEEhYKEkhBTkRfUkFOS19TVFJBSUdIVBAFEhMKD0hBTkRfUkFOS19GTFVTSBAGEhgKFEhBTkRfUkFOS19GVUxMX0hPVVNFEAcSGgoWSEFORF9SQU5LX0ZPVVJfT0ZfS0lORBAIEhwKGEhBTkRfUkFOS19TVFJBSUdIVF9GTFVTSBAJEhkKFUhBTkRfUkFOS19ST1lBTF9GTFVTSBAKKl0KBFN1aXQSFAoQU1VJVF9VTlNQRUNJRklFRBAAEg4KClNVSVRfU1BBREUQARIOCgpTVUlUX0hFQVJUEAISDQoJU1VJVF9DTFVCEAMSEAoMU1VJVF9ESUFNT05EEAQquQEKBFJhbmsSFAoQUkFOS19VTlNQRUNJRklFRBAAEgoKBlJBTktfMhACEgoKBlJBTktfMxADEgoKBlJBTktfNBAEEgoKBlJBTktfNRAFEgoKBlJBTktfNhAGEgoKBlJBTktfNxAHEgoKBlJBTktfOBAIEgoKBlJBTktfORAJEgsKB1JBTktfMTAQChIKCgZSQU5LX0oQCxIKCgZSQU5LX1EQDBIKCgZSQU5LX0sQDRIKCgZSQU5LX0EQDkKJAQoNY29tLmhvbGRlbS52MUINTWVzc2FnZXNQcm90b1ABWiRob2xkZW0tbGl0ZS9hcHBzL3NlcnZlci9nZW47aG9sZGVtdjGiAgNIWFiqAglIb2xkZW0uVjHKAglIb2xkZW1cVjHiAhVIb2xkZW1cVjFcR1BCTWV0YWRhdGHqAgpIb2xkZW06OlYxYgZwcm90bzM");
+  fileDesc("Cg5tZXNzYWdlcy5wcm90bxIJaG9sZGVtLnYxIsACCg5DbGllbnRFbnZlbG9wZRIQCgh0YWJsZV9pZBgBIAEoCRIPCgd1c2VyX2lkGAIgASgNEgsKA3NlcRgDIAEoBBILCgNhY2sYBCABKAQSMQoKam9pbl90YWJsZRgKIAEoCzIbLmhvbGRlbS52MS5Kb2luVGFibGVSZXF1ZXN0SAASLQoIc2l0X2Rvd24YCyABKAsyGS5ob2xkZW0udjEuU2l0RG93blJlcXVlc3RIABItCghzdGFuZF91cBgMIAEoCzIZLmhvbGRlbS52MS5TdGFuZFVwUmVxdWVzdEgAEikKBmJ1eV9pbhgNIAEoCzIXLmhvbGRlbS52MS5CdXlJblJlcXVlc3RIABIqCgZhY3Rpb24YDiABKAsyGC5ob2xkZW0udjEuQWN0aW9uUmVxdWVzdEgAQgkKB3BheWxvYWQi4wUKDlNlcnZlckVudmVsb3BlEhAKCHRhYmxlX2lkGAEgASgJEhIKCnNlcnZlcl9zZXEYAiABKAQSFAoMc2VydmVyX3RzX21zGAMgASgDEikKBWVycm9yGAogASgLMhguaG9sZGVtLnYxLkVycm9yUmVzcG9uc2VIABIyCg50YWJsZV9zbmFwc2hvdBgLIAEoCzIYLmhvbGRlbS52MS5UYWJsZVNuYXBzaG90SAASLAoLc2VhdF91cGRhdGUYDCABKAsyFS5ob2xkZW0udjEuU2VhdFVwZGF0ZUgAEioKCmhhbmRfc3RhcnQYDSABKAsyFC5ob2xkZW0udjEuSGFuZFN0YXJ0SAASMwoPZGVhbF9ob2xlX2NhcmRzGA4gASgLMhguaG9sZGVtLnYxLkRlYWxIb2xlQ2FyZHNIABIqCgpkZWFsX2JvYXJkGA8gASgLMhQuaG9sZGVtLnYxLkRlYWxCb2FyZEgAEjAKDWFjdGlvbl9wcm9tcHQYECABKAsyFy5ob2xkZW0udjEuQWN0aW9uUHJvbXB0SAASMAoNYWN0aW9uX3Jlc3VsdBgRIAEoCzIXLmhvbGRlbS52MS5BY3Rpb25SZXN1bHRIABIqCgpwb3RfdXBkYXRlGBIgASgLMhQuaG9sZGVtLnYxLlBvdFVwZGF0ZUgAEicKCHNob3dkb3duGBMgASgLMhMuaG9sZGVtLnYxLlNob3dkb3duSAASJgoIaGFuZF9lbmQYFCABKAsyEi5ob2xkZW0udjEuSGFuZEVuZEgAEi4KDHBoYXNlX2NoYW5nZRgVIAEoCzIWLmhvbGRlbS52MS5QaGFzZUNoYW5nZUgAEisKC3dpbl9ieV9mb2xkGBYgASgLMhQuaG9sZGVtLnYxLldpbkJ5Rm9sZEgAEjIKDmxvZ2luX3Jlc3BvbnNlGBcgASgLMhguaG9sZGVtLnYxLkxvZ2luUmVzcG9uc2VIAEIJCgdwYXlsb2FkIiAKDUxvZ2luUmVzcG9uc2USDwoHdXNlcl9pZBgBIAEoDSISChBKb2luVGFibGVSZXF1ZXN0IjYKDlNpdERvd25SZXF1ZXN0Eg0KBWNoYWlyGAEgASgNEhUKDWJ1eV9pbl9hbW91bnQYAiABKAMiEAoOU3RhbmRVcFJlcXVlc3QiHgoMQnV5SW5SZXF1ZXN0Eg4KBmFtb3VudBgBIAEoAyJGCg1BY3Rpb25SZXF1ZXN0EiUKBmFjdGlvbhgBIAEoDjIVLmhvbGRlbS52MS5BY3Rpb25UeXBlEg4KBmFtb3VudBgCIAEoAyIuCg1FcnJvclJlc3BvbnNlEgwKBGNvZGUYASABKAUSDwoHbWVzc2FnZRgCIAEoCSLiAgoNVGFibGVTbmFwc2hvdBImCgZjb25maWcYASABKAsyFi5ob2xkZW0udjEuVGFibGVDb25maWcSHwoFcGhhc2UYAiABKA4yEC5ob2xkZW0udjEuUGhhc2USDQoFcm91bmQYAyABKA0SFAoMZGVhbGVyX2NoYWlyGAQgASgNEhkKEXNtYWxsX2JsaW5kX2NoYWlyGAUgASgNEhcKD2JpZ19ibGluZF9jaGFpchgGIAEoDRIUCgxhY3Rpb25fY2hhaXIYByABKA0SDwoHY3VyX2JldBgIIAEoAxIXCg9taW5fcmFpc2VfZGVsdGEYCSABKAMSKAoPY29tbXVuaXR5X2NhcmRzGAogAygLMg8uaG9sZGVtLnYxLkNhcmQSHAoEcG90cxgLIAMoCzIOLmhvbGRlbS52MS5Qb3QSJwoHcGxheWVycxgMIAMoCzIWLmhvbGRlbS52MS5QbGF5ZXJTdGF0ZSKAAQoLVGFibGVDb25maWcSEwoLbWF4X3BsYXllcnMYASABKA0SEwoLc21hbGxfYmxpbmQYAiABKAMSEQoJYmlnX2JsaW5kGAMgASgDEgwKBGFudGUYBCABKAMSEgoKbWluX2J1eV9pbhgFIAEoAxISCgptYXhfYnV5X2luGAYgASgDIswBCgtQbGF5ZXJTdGF0ZRIPCgd1c2VyX2lkGAEgASgNEg0KBWNoYWlyGAIgASgNEhAKCG5pY2tuYW1lGAMgASgJEg0KBXN0YWNrGAQgASgDEgsKA2JldBgFIAEoAxIOCgZmb2xkZWQYBiABKAgSDgoGYWxsX2luGAcgASgIEioKC2xhc3RfYWN0aW9uGAggASgOMhUuaG9sZGVtLnYxLkFjdGlvblR5cGUSIwoKaGFuZF9jYXJkcxgJIAMoCzIPLmhvbGRlbS52MS5DYXJkIi4KA1BvdBIOCgZhbW91bnQYASABKAMSFwoPZWxpZ2libGVfY2hhaXJzGAIgAygNIo0BCgpTZWF0VXBkYXRlEg0KBWNoYWlyGAEgASgNEi8KDXBsYXllcl9qb2luZWQYAiABKAsyFi5ob2xkZW0udjEuUGxheWVyU3RhdGVIABIdChNwbGF5ZXJfbGVmdF91c2VyX2lkGAMgASgNSAASFgoMc3RhY2tfY2hhbmdlGAQgASgDSABCCAoGdXBkYXRlIpoBCglIYW5kU3RhcnQSDQoFcm91bmQYASABKA0SFAoMZGVhbGVyX2NoYWlyGAIgASgNEhkKEXNtYWxsX2JsaW5kX2NoYWlyGAMgASgNEhcKD2JpZ19ibGluZF9jaGFpchgEIAEoDRIaChJzbWFsbF9ibGluZF9hbW91bnQYBSABKAMSGAoQYmlnX2JsaW5kX2Ftb3VudBgGIAEoAyIvCg1EZWFsSG9sZUNhcmRzEh4KBWNhcmRzGAEgAygLMg8uaG9sZGVtLnYxLkNhcmQiTAoJRGVhbEJvYXJkEh8KBXBoYXNlGAEgASgOMhAuaG9sZGVtLnYxLlBoYXNlEh4KBWNhcmRzGAIgAygLMg8uaG9sZGVtLnYxLkNhcmQi5QEKC1BoYXNlQ2hhbmdlEh8KBXBoYXNlGAEgASgOMhAuaG9sZGVtLnYxLlBoYXNlEigKD2NvbW11bml0eV9jYXJkcxgCIAMoCzIPLmhvbGRlbS52MS5DYXJkEhwKBHBvdHMYAyADKAsyDi5ob2xkZW0udjEuUG90Ei4KDG15X2hhbmRfcmFuaxgEIAEoDjITLmhvbGRlbS52MS5IYW5kUmFua0gAiAEBEhoKDW15X2hhbmRfdmFsdWUYBSABKA1IAYgBAUIPCg1fbXlfaGFuZF9yYW5rQhAKDl9teV9oYW5kX3ZhbHVlIo4BCgxBY3Rpb25Qcm9tcHQSDQoFY2hhaXIYASABKA0SLAoNbGVnYWxfYWN0aW9ucxgCIAMoDjIVLmhvbGRlbS52MS5BY3Rpb25UeXBlEhQKDG1pbl9yYWlzZV90bxgDIAEoAxITCgtjYWxsX2Ftb3VudBgEIAEoAxIWCg50aW1lX2xpbWl0X3NlYxgFIAEoBSJ+CgxBY3Rpb25SZXN1bHQSDQoFY2hhaXIYASABKA0SJQoGYWN0aW9uGAIgASgOMhUuaG9sZGVtLnYxLkFjdGlvblR5cGUSDgoGYW1vdW50GAMgASgDEhEKCW5ld19zdGFjaxgEIAEoAxIVCg1uZXdfcG90X3RvdGFsGAUgASgDIikKCVBvdFVwZGF0ZRIcCgRwb3RzGAEgAygLMg4uaG9sZGVtLnYxLlBvdCK4AQoIU2hvd2Rvd24SJgoFaGFuZHMYASADKAsyFy5ob2xkZW0udjEuU2hvd2Rvd25IYW5kEikKC3BvdF9yZXN1bHRzGAIgAygLMhQuaG9sZGVtLnYxLlBvdFJlc3VsdBIuCg1leGNlc3NfcmVmdW5kGAMgASgLMhcuaG9sZGVtLnYxLkV4Y2Vzc1JlZnVuZBIpCgtuZXRfcmVzdWx0cxgEIAMoCzIULmhvbGRlbS52MS5OZXRSZXN1bHQiiQEKDFNob3dkb3duSGFuZBINCgVjaGFpchgBIAEoDRIjCgpob2xlX2NhcmRzGAIgAygLMg8uaG9sZGVtLnYxLkNhcmQSIgoJYmVzdF9maXZlGAMgAygLMg8uaG9sZGVtLnYxLkNhcmQSIQoEcmFuaxgEIAEoDjITLmhvbGRlbS52MS5IYW5kUmFuayJDCglQb3RSZXN1bHQSEgoKcG90X2Ftb3VudBgBIAEoAxIiCgd3aW5uZXJzGAIgAygLMhEuaG9sZGVtLnYxLldpbm5lciIrCgZXaW5uZXISDQoFY2hhaXIYASABKA0SEgoKd2luX2Ftb3VudBgCIAEoAyKgAQoHSGFuZEVuZBINCgVyb3VuZBgBIAEoDRIrCgxzdGFja19kZWx0YXMYAiADKAsyFS5ob2xkZW0udjEuU3RhY2tEZWx0YRIuCg1leGNlc3NfcmVmdW5kGAMgASgLMhcuaG9sZGVtLnYxLkV4Y2Vzc1JlZnVuZBIpCgtuZXRfcmVzdWx0cxgEIAMoCzIULmhvbGRlbS52MS5OZXRSZXN1bHQiPQoKU3RhY2tEZWx0YRINCgVjaGFpchgBIAEoDRINCgVkZWx0YRgCIAEoAxIRCgluZXdfc3RhY2sYAyABKAMiZAoJV2luQnlGb2xkEhQKDHdpbm5lcl9jaGFpchgBIAEoDRIRCglwb3RfdG90YWwYAiABKAMSLgoNZXhjZXNzX3JlZnVuZBgDIAEoCzIXLmhvbGRlbS52MS5FeGNlc3NSZWZ1bmQiLQoMRXhjZXNzUmVmdW5kEg0KBWNoYWlyGAEgASgNEg4KBmFtb3VudBgCIAEoAyJBCglOZXRSZXN1bHQSDQoFY2hhaXIYASABKA0SEgoKd2luX2Ftb3VudBgCIAEoAxIRCglpc193aW5uZXIYAyABKAgiRAoEQ2FyZBIdCgRzdWl0GAEgASgOMg8uaG9sZGVtLnYxLlN1aXQSHQoEcmFuaxgCIAEoDjIPLmhvbGRlbS52MS5SYW5rKoYBCgVQaGFzZRIVChFQSEFTRV9VTlNQRUNJRklFRBAAEg4KClBIQVNFX0FOVEUQARIRCg1QSEFTRV9QUkVGTE9QEAISDgoKUEhBU0VfRkxPUBADEg4KClBIQVNFX1RVUk4QBBIPCgtQSEFTRV9SSVZFUhAFEhIKDlBIQVNFX1NIT1dET1dOEAYqjAEKCkFjdGlvblR5cGUSFgoSQUNUSU9OX1VOU1BFQ0lGSUVEEAASEAoMQUNUSU9OX0NIRUNLEAESDgoKQUNUSU9OX0JFVBACEg8KC0FDVElPTl9DQUxMEAMSEAoMQUNUSU9OX1JBSVNFEAQSDwoLQUNUSU9OX0ZPTEQQBRIQCgxBQ1RJT05fQUxMSU4QBiqnAgoISGFuZFJhbmsSGQoVSEFORF9SQU5LX1VOU1BFQ0lGSUVEEAASFwoTSEFORF9SQU5LX0hJR0hfQ0FSRBABEhYKEkhBTkRfUkFOS19PTkVfUEFJUhACEhYKEkhBTkRfUkFOS19UV09fUEFJUhADEhsKF0hBTkRfUkFOS19USFJFRV9PRl9LSU5EEAQSFgoSSEFORF9SQU5LX1NUUkFJR0hUEAUSEwoPSEFORF9SQU5LX0ZMVVNIEAYSGAoUSEFORF9SQU5LX0ZVTExfSE9VU0UQBxIaChZIQU5EX1JBTktfRk9VUl9PRl9LSU5EEAgSHAoYSEFORF9SQU5LX1NUUkFJR0hUX0ZMVVNIEAkSGQoVSEFORF9SQU5LX1JPWUFMX0ZMVVNIEAoqXQoEU3VpdBIUChBTVUlUX1VOU1BFQ0lGSUVEEAASDgoKU1VJVF9TUEFERRABEg4KClNVSVRfSEVBUlQQAhINCglTVUlUX0NMVUIQAxIQCgxTVUlUX0RJQU1PTkQQBCq5AQoEUmFuaxIUChBSQU5LX1VOU1BFQ0lGSUVEEAASCgoGUkFOS18yEAISCgoGUkFOS18zEAMSCgoGUkFOS180EAQSCgoGUkFOS181EAUSCgoGUkFOS182EAYSCgoGUkFOS183EAcSCgoGUkFOS184EAgSCgoGUkFOS185EAkSCwoHUkFOS18xMBAKEgoKBlJBTktfShALEgoKBlJBTktfURAMEgoKBlJBTktfSxANEgoKBlJBTktfQRAOQokBCg1jb20uaG9sZGVtLnYxQg1NZXNzYWdlc1Byb3RvUAFaJGhvbGRlbS1saXRlL2FwcHMvc2VydmVyL2dlbjtob2xkZW12MaICA0hYWKoCCUhvbGRlbS5WMcoCCUhvbGRlbVxWMeICFUhvbGRlbVxWMVxHUEJNZXRhZGF0YeoCCkhvbGRlbTo6VjFiBnByb3RvMw");
 
 /**
  * Describes the message holdem.v1.ClientEnvelope.
@@ -25,200 +25,207 @@ export const ServerEnvelopeSchema = /*@__PURE__*/
   messageDesc(file_messages, 1);
 
 /**
+ * Describes the message holdem.v1.LoginResponse.
+ * Use `create(LoginResponseSchema)` to create a new message.
+ */
+export const LoginResponseSchema = /*@__PURE__*/
+  messageDesc(file_messages, 2);
+
+/**
  * Describes the message holdem.v1.JoinTableRequest.
  * Use `create(JoinTableRequestSchema)` to create a new message.
  */
 export const JoinTableRequestSchema = /*@__PURE__*/
-  messageDesc(file_messages, 2);
+  messageDesc(file_messages, 3);
 
 /**
  * Describes the message holdem.v1.SitDownRequest.
  * Use `create(SitDownRequestSchema)` to create a new message.
  */
 export const SitDownRequestSchema = /*@__PURE__*/
-  messageDesc(file_messages, 3);
+  messageDesc(file_messages, 4);
 
 /**
  * Describes the message holdem.v1.StandUpRequest.
  * Use `create(StandUpRequestSchema)` to create a new message.
  */
 export const StandUpRequestSchema = /*@__PURE__*/
-  messageDesc(file_messages, 4);
+  messageDesc(file_messages, 5);
 
 /**
  * Describes the message holdem.v1.BuyInRequest.
  * Use `create(BuyInRequestSchema)` to create a new message.
  */
 export const BuyInRequestSchema = /*@__PURE__*/
-  messageDesc(file_messages, 5);
+  messageDesc(file_messages, 6);
 
 /**
  * Describes the message holdem.v1.ActionRequest.
  * Use `create(ActionRequestSchema)` to create a new message.
  */
 export const ActionRequestSchema = /*@__PURE__*/
-  messageDesc(file_messages, 6);
+  messageDesc(file_messages, 7);
 
 /**
  * Describes the message holdem.v1.ErrorResponse.
  * Use `create(ErrorResponseSchema)` to create a new message.
  */
 export const ErrorResponseSchema = /*@__PURE__*/
-  messageDesc(file_messages, 7);
+  messageDesc(file_messages, 8);
 
 /**
  * Describes the message holdem.v1.TableSnapshot.
  * Use `create(TableSnapshotSchema)` to create a new message.
  */
 export const TableSnapshotSchema = /*@__PURE__*/
-  messageDesc(file_messages, 8);
+  messageDesc(file_messages, 9);
 
 /**
  * Describes the message holdem.v1.TableConfig.
  * Use `create(TableConfigSchema)` to create a new message.
  */
 export const TableConfigSchema = /*@__PURE__*/
-  messageDesc(file_messages, 9);
+  messageDesc(file_messages, 10);
 
 /**
  * Describes the message holdem.v1.PlayerState.
  * Use `create(PlayerStateSchema)` to create a new message.
  */
 export const PlayerStateSchema = /*@__PURE__*/
-  messageDesc(file_messages, 10);
+  messageDesc(file_messages, 11);
 
 /**
  * Describes the message holdem.v1.Pot.
  * Use `create(PotSchema)` to create a new message.
  */
 export const PotSchema = /*@__PURE__*/
-  messageDesc(file_messages, 11);
+  messageDesc(file_messages, 12);
 
 /**
  * Describes the message holdem.v1.SeatUpdate.
  * Use `create(SeatUpdateSchema)` to create a new message.
  */
 export const SeatUpdateSchema = /*@__PURE__*/
-  messageDesc(file_messages, 12);
+  messageDesc(file_messages, 13);
 
 /**
  * Describes the message holdem.v1.HandStart.
  * Use `create(HandStartSchema)` to create a new message.
  */
 export const HandStartSchema = /*@__PURE__*/
-  messageDesc(file_messages, 13);
+  messageDesc(file_messages, 14);
 
 /**
  * Describes the message holdem.v1.DealHoleCards.
  * Use `create(DealHoleCardsSchema)` to create a new message.
  */
 export const DealHoleCardsSchema = /*@__PURE__*/
-  messageDesc(file_messages, 14);
+  messageDesc(file_messages, 15);
 
 /**
  * Describes the message holdem.v1.DealBoard.
  * Use `create(DealBoardSchema)` to create a new message.
  */
 export const DealBoardSchema = /*@__PURE__*/
-  messageDesc(file_messages, 15);
+  messageDesc(file_messages, 16);
 
 /**
  * Describes the message holdem.v1.PhaseChange.
  * Use `create(PhaseChangeSchema)` to create a new message.
  */
 export const PhaseChangeSchema = /*@__PURE__*/
-  messageDesc(file_messages, 16);
+  messageDesc(file_messages, 17);
 
 /**
  * Describes the message holdem.v1.ActionPrompt.
  * Use `create(ActionPromptSchema)` to create a new message.
  */
 export const ActionPromptSchema = /*@__PURE__*/
-  messageDesc(file_messages, 17);
+  messageDesc(file_messages, 18);
 
 /**
  * Describes the message holdem.v1.ActionResult.
  * Use `create(ActionResultSchema)` to create a new message.
  */
 export const ActionResultSchema = /*@__PURE__*/
-  messageDesc(file_messages, 18);
+  messageDesc(file_messages, 19);
 
 /**
  * Describes the message holdem.v1.PotUpdate.
  * Use `create(PotUpdateSchema)` to create a new message.
  */
 export const PotUpdateSchema = /*@__PURE__*/
-  messageDesc(file_messages, 19);
+  messageDesc(file_messages, 20);
 
 /**
  * Describes the message holdem.v1.Showdown.
  * Use `create(ShowdownSchema)` to create a new message.
  */
 export const ShowdownSchema = /*@__PURE__*/
-  messageDesc(file_messages, 20);
+  messageDesc(file_messages, 21);
 
 /**
  * Describes the message holdem.v1.ShowdownHand.
  * Use `create(ShowdownHandSchema)` to create a new message.
  */
 export const ShowdownHandSchema = /*@__PURE__*/
-  messageDesc(file_messages, 21);
+  messageDesc(file_messages, 22);
 
 /**
  * Describes the message holdem.v1.PotResult.
  * Use `create(PotResultSchema)` to create a new message.
  */
 export const PotResultSchema = /*@__PURE__*/
-  messageDesc(file_messages, 22);
+  messageDesc(file_messages, 23);
 
 /**
  * Describes the message holdem.v1.Winner.
  * Use `create(WinnerSchema)` to create a new message.
  */
 export const WinnerSchema = /*@__PURE__*/
-  messageDesc(file_messages, 23);
+  messageDesc(file_messages, 24);
 
 /**
  * Describes the message holdem.v1.HandEnd.
  * Use `create(HandEndSchema)` to create a new message.
  */
 export const HandEndSchema = /*@__PURE__*/
-  messageDesc(file_messages, 24);
+  messageDesc(file_messages, 25);
 
 /**
  * Describes the message holdem.v1.StackDelta.
  * Use `create(StackDeltaSchema)` to create a new message.
  */
 export const StackDeltaSchema = /*@__PURE__*/
-  messageDesc(file_messages, 25);
+  messageDesc(file_messages, 26);
 
 /**
  * Describes the message holdem.v1.WinByFold.
  * Use `create(WinByFoldSchema)` to create a new message.
  */
 export const WinByFoldSchema = /*@__PURE__*/
-  messageDesc(file_messages, 26);
+  messageDesc(file_messages, 27);
 
 /**
  * Describes the message holdem.v1.ExcessRefund.
  * Use `create(ExcessRefundSchema)` to create a new message.
  */
 export const ExcessRefundSchema = /*@__PURE__*/
-  messageDesc(file_messages, 27);
+  messageDesc(file_messages, 28);
 
 /**
  * Describes the message holdem.v1.NetResult.
  * Use `create(NetResultSchema)` to create a new message.
  */
 export const NetResultSchema = /*@__PURE__*/
-  messageDesc(file_messages, 28);
+  messageDesc(file_messages, 29);
 
 /**
  * Describes the message holdem.v1.Card.
  * Use `create(CardSchema)` to create a new message.
  */
 export const CardSchema = /*@__PURE__*/
-  messageDesc(file_messages, 29);
+  messageDesc(file_messages, 30);
 
 /**
  * Describes the enum holdem.v1.Phase.

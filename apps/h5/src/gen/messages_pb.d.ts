@@ -184,6 +184,12 @@ export declare type ServerEnvelope = Message<"holdem.v1.ServerEnvelope"> & {
      */
     value: WinByFold;
     case: "winByFold";
+  } | {
+    /**
+     * @generated from field: holdem.v1.LoginResponse login_response = 23;
+     */
+    value: LoginResponse;
+    case: "loginResponse";
   } | { case: undefined; value?: undefined };
 };
 
@@ -192,6 +198,22 @@ export declare type ServerEnvelope = Message<"holdem.v1.ServerEnvelope"> & {
  * Use `create(ServerEnvelopeSchema)` to create a new message.
  */
 export declare const ServerEnvelopeSchema: GenMessage<ServerEnvelope>;
+
+/**
+ * @generated from message holdem.v1.LoginResponse
+ */
+export declare type LoginResponse = Message<"holdem.v1.LoginResponse"> & {
+  /**
+   * @generated from field: uint32 user_id = 1;
+   */
+  userId: number;
+};
+
+/**
+ * Describes the message holdem.v1.LoginResponse.
+ * Use `create(LoginResponseSchema)` to create a new message.
+ */
+export declare const LoginResponseSchema: GenMessage<LoginResponse>;
 
 /**
  * Empty for now, table_id is in envelope

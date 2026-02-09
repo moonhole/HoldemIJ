@@ -134,101 +134,108 @@ export class GameClient {
             switch (env.payload.case) {
                 case 'tableSnapshot':
                     {
-                    const value = env.payload.value;
-                    this.lastSnapshot = value;
-                    this.lastPotUpdate = null;
-                    this.lastPhaseChange = null;
-                    this.syncHeroFromSnapshot(value);
-                    this.notify((h) => h.onSnapshot?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.lastSnapshot = value;
+                        this.lastPotUpdate = null;
+                        this.lastPhaseChange = null;
+                        this.syncHeroFromSnapshot(value);
+                        this.notify((h) => h.onSnapshot?.(value));
+                        break;
                     }
                 case 'actionPrompt':
                     {
-                    const value = env.payload.value;
-                    this.lastActionPrompt = value;
-                    this.notify((h) => h.onActionPrompt?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.lastActionPrompt = value;
+                        this.notify((h) => h.onActionPrompt?.(value));
+                        break;
                     }
                 case 'handStart':
                     {
-                    const value = env.payload.value;
-                    this.lastHandStart = value;
-                    // Clear hole cards on new hand
-                    this.lastHoleCards = null;
-                    this.lastActionPrompt = null;
-                    this.lastPotUpdate = null;
-                    this.lastPhaseChange = null;
-                    this.resetHeroRoundState();
-                    this.notify((h) => h.onHandStart?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.lastHandStart = value;
+                        // Clear hole cards on new hand
+                        this.lastHoleCards = null;
+                        this.lastActionPrompt = null;
+                        this.lastPotUpdate = null;
+                        this.lastPhaseChange = null;
+                        this.resetHeroRoundState();
+                        this.notify((h) => h.onHandStart?.(value));
+                        break;
                     }
                 case 'dealHoleCards':
                     {
-                    const value = env.payload.value;
-                    this.lastHoleCards = value;
-                    this.notify((h) => h.onHoleCards?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.lastHoleCards = value;
+                        this.notify((h) => h.onHoleCards?.(value));
+                        break;
                     }
                 case 'dealBoard':
                     {
-                    const value = env.payload.value;
-                    this.notify((h) => h.onBoard?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.notify((h) => h.onBoard?.(value));
+                        break;
                     }
                 case 'potUpdate':
                     {
-                    const value = env.payload.value;
-                    this.lastPotUpdate = value;
-                    this.notify((h) => h.onPotUpdate?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.lastPotUpdate = value;
+                        this.notify((h) => h.onPotUpdate?.(value));
+                        break;
                     }
                 case 'phaseChange':
                     {
-                    const value = env.payload.value;
-                    this.lastPhaseChange = value;
-                    this.resetHeroRoundState();
-                    this.notify((h) => h.onPhaseChange?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.lastPhaseChange = value;
+                        this.resetHeroRoundState();
+                        this.notify((h) => h.onPhaseChange?.(value));
+                        break;
                     }
                 case 'actionResult':
                     {
-                    const value = env.payload.value;
-                    this.updateHeroBetFromAction(value);
-                    this.notify((h) => h.onActionResult?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.updateHeroBetFromAction(value);
+                        this.notify((h) => h.onActionResult?.(value));
+                        break;
                     }
                 case 'showdown':
                     {
-                    const value = env.payload.value;
-                    this.notify((h) => h.onShowdown?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.notify((h) => h.onShowdown?.(value));
+                        break;
                     }
                 case 'winByFold':
                     {
-                    const value = env.payload.value;
-                    this.resetHeroRoundState();
-                    this.notify((h) => h.onWinByFold?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.resetHeroRoundState();
+                        this.notify((h) => h.onWinByFold?.(value));
+                        break;
                     }
                 case 'handEnd':
                     {
-                    const value = env.payload.value;
-                    this.resetHeroRoundState();
-                    this.notify((h) => h.onHandEnd?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.resetHeroRoundState();
+                        this.notify((h) => h.onHandEnd?.(value));
+                        break;
                     }
                 case 'seatUpdate':
                     {
-                    const value = env.payload.value;
-                    this.notify((h) => h.onSeatUpdate?.(value));
-                    break;
+                        const value = env.payload.value;
+                        this.notify((h) => h.onSeatUpdate?.(value));
+                        break;
+                    }
+                case 'loginResponse':
+                    {
+                        const value = env.payload.value;
+                        this.userId = value.userId;
+                        console.log('[GameClient] Logged in as user', this.userId);
+                        break;
                     }
                 case 'error':
                     {
-                    const value = env.payload.value;
-                    console.error('[GameClient] Server error', value.code, value.message);
-                    this.notify((h) => h.onError?.(value.code, value.message));
-                    break;
+                        const value = env.payload.value;
+                        console.error('[GameClient] Server error', value.code, value.message);
+                        this.notify((h) => h.onError?.(value.code, value.message));
+                        break;
                     }
             }
         } catch (error) {
@@ -340,6 +347,10 @@ export class GameClient {
 
     call(amount: bigint): void {
         this.action(ActionType.ACTION_CALL, amount);
+    }
+
+    bet(amount: bigint): void {
+        this.action(ActionType.ACTION_BET, amount);
     }
 
     raise(amount: bigint): void {

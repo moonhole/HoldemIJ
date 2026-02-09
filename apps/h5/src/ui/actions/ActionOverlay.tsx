@@ -3,6 +3,7 @@ import { ActionType } from '@gen/messages_pb';
 import { gameClient } from '../../network/GameClient';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
+import { NumberTicker } from '../common/NumberTicker';
 import './action-overlay.css';
 
 function sumPots(pots: Array<{ amount: bigint }> | undefined): bigint {
@@ -52,27 +53,31 @@ export function ActionOverlay(): JSX.Element | null {
         return new Set(prompt?.legalActions ?? []);
     }, [prompt]);
 
+    const hasCheck = legalActions.has(ActionType.ACTION_CHECK);
+    const hasCall = legalActions.has(ActionType.ACTION_CALL);
+    const hasFold = legalActions.has(ActionType.ACTION_FOLD);
+    const hasBet = legalActions.has(ActionType.ACTION_BET);
+    const hasRaiseOnly = legalActions.has(ActionType.ACTION_RAISE);
+    const hasRaise = hasBet || hasRaiseOnly || legalActions.has(ActionType.ACTION_ALLIN);
+    const canAllIn = legalActions.has(ActionType.ACTION_ALLIN);
+
+    const isMyTurn = !!prompt && prompt.chair === myChair;
+    const canFold = isMyTurn && hasFold;
+    const canPrimary = isMyTurn && (hasCheck || hasCall);
+    const canRaiseTile = isMyTurn && (hasRaise || canAllIn);
+    const canQuickRaise = isMyTurn && hasRaise;
+    const canQuickAllIn = isMyTurn && canAllIn;
+
     if (currentScene !== 'table') {
         return errorMessage ? <div className="action-toast">{errorMessage}</div> : null;
     }
 
-    const hasCheck = legalActions.has(ActionType.ACTION_CHECK);
-    const hasCall = legalActions.has(ActionType.ACTION_CALL);
-    const hasFold = legalActions.has(ActionType.ACTION_FOLD);
-    const hasRaise =
-        legalActions.has(ActionType.ACTION_RAISE) ||
-        legalActions.has(ActionType.ACTION_BET) ||
-        legalActions.has(ActionType.ACTION_ALLIN);
-
-    const canAllIn = legalActions.has(ActionType.ACTION_ALLIN);
-    const canFold = !!prompt && hasFold;
-    const canPrimary = !!prompt && (hasCheck || hasCall);
-    const canRaiseTile = !!prompt && (hasRaise || canAllIn);
-    const canQuickRaise = !!prompt && hasRaise;
-    const canQuickAllIn = !!prompt && canAllIn;
+    if (!isMyTurn && !errorMessage) {
+        return <NpcChat prompt={prompt} snapshot={snapshot} myChair={myChair} myStack={myStack} />;
+    }
 
     const primaryLabel = hasCall && !hasCheck ? 'CALL' : 'CHECK';
-    const tertiaryLabel = hasRaise ? 'RAISE' : 'ALL IN';
+    const tertiaryLabel = hasRaiseOnly ? 'RAISE' : (hasBet ? 'BET' : 'ALL IN');
     const callToMatch = prompt?.callAmount ?? 0n;
     const minRaiseTo = prompt?.minRaiseTo ?? 0n;
     const halfPotRaiseTo = prompt
@@ -82,6 +87,18 @@ export function ActionOverlay(): JSX.Element | null {
             return target > prompt.minRaiseTo ? target : prompt.minRaiseTo;
         })()
         : 0n;
+
+    const submitSmartRaise = (amount: bigint) => {
+        if (!prompt) return;
+        if (hasRaiseOnly) {
+            gameClient.raise(amount);
+        } else if (hasBet) {
+            gameClient.bet(amount);
+        } else if (canAllIn) {
+            gameClient.allIn();
+        }
+        dismissActionPrompt();
+    };
 
     const submitFold = (): void => {
         if (!canFold) {
@@ -105,39 +122,24 @@ export function ActionOverlay(): JSX.Element | null {
     };
 
     const submitRaiseTile = (): void => {
-        if (!prompt || !canRaiseTile) {
-            return;
-        }
-        if (hasRaise) {
-            gameClient.raise(prompt.minRaiseTo);
-        } else if (canAllIn) {
-            gameClient.allIn();
-        }
-        dismissActionPrompt();
+        if (!prompt || !canRaiseTile) return;
+        submitSmartRaise(prompt.minRaiseTo);
     };
 
     const submitAllIn = (): void => {
-        if (!canQuickAllIn) {
-            return;
-        }
+        if (!canQuickAllIn) return;
         gameClient.allIn();
         dismissActionPrompt();
     };
 
     const submitHalfPot = (): void => {
-        if (!canQuickRaise || !prompt) {
-            return;
-        }
-        gameClient.raise(halfPotRaiseTo);
-        dismissActionPrompt();
+        if (!canQuickRaise || !prompt) return;
+        submitSmartRaise(halfPotRaiseTo);
     };
 
     const submitMinQuick = (): void => {
-        if (!canQuickRaise || !prompt) {
-            return;
-        }
-        gameClient.raise(prompt.minRaiseTo);
-        dismissActionPrompt();
+        if (!canQuickRaise || !prompt) return;
+        submitSmartRaise(prompt.minRaiseTo);
     };
 
     return (
@@ -153,17 +155,17 @@ export function ActionOverlay(): JSX.Element | null {
                         </div>
                         <div className="bet-pill">
                             <p className="bet-pill-label">BET AMOUNT</p>
-                            <p className="bet-pill-value">${minRaiseTo.toString()}</p>
+                            <p className="bet-pill-value">$<NumberTicker value={minRaiseTo} /></p>
                         </div>
                     </div>
                     <div className="action-stats">
                         <div className="action-stat is-left">
                             <span className="label">YOUR STACK</span>
-                            <span className="value">${myStack.toString()}</span>
+                            <span className="value">$<NumberTicker value={myStack} /></span>
                         </div>
                         <div className="action-stat is-right">
                             <span className="label">CALL TO MATCH</span>
-                            <span className="value value-cyan">${callToMatch.toString()}</span>
+                            <span className="value value-cyan">$<NumberTicker value={callToMatch} /></span>
                         </div>
                     </div>
                     <div className="action-buttons">
@@ -194,5 +196,42 @@ export function ActionOverlay(): JSX.Element | null {
                 </div>
             </div>
         </>
+    );
+}
+
+function NpcChat({ prompt, snapshot, myChair, myStack }: { prompt: any; snapshot: any; myChair: number; myStack: bigint }): JSX.Element {
+    const activeChair = prompt?.chair ?? -1;
+    const activePlayer = snapshot?.players.find((p: any) => p.chair === activeChair);
+    const playerName = activePlayer ? `PLAYER_${activePlayer.userId}` : 'SYSTEM';
+
+    return (
+        <div className="action-overlay">
+            <div className="npc-chat-box">
+                <div className="npc-avatar-wrap">
+                    <div className="npc-avatar-box">
+                        <div className="npc-avatar-scanline" />
+                        <div className="npc-avatar-noise" />
+                        <span className="material-symbols-outlined npc-placeholder">person</span>
+                    </div>
+                    <div className="npc-name-tag">{playerName}</div>
+                </div>
+                <div className="npc-content">
+                    <div className="npc-text-header">
+                        <div className="npc-status-left">
+                            <span className="npc-status-dot" />
+                            <span className="npc-status-text">THINKING_PROMPT_WAIT</span>
+                        </div>
+                        <div className="npc-stack-mini">
+                            <span className="label">YOUR STACK</span>
+                            <span className="value">$<NumberTicker value={myStack} /></span>
+                        </div>
+                    </div>
+                    <div className="npc-text-body">
+                        分析数据流中... 当前胜率计算结果偏向保守。正在评估对局者的心理博弈权重。系统建议：保持观察。
+                    </div>
+                    <div className="npc-cursor" />
+                </div>
+            </div>
+        </div>
     );
 }

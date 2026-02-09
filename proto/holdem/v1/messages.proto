@@ -42,7 +42,12 @@ message ServerEnvelope {
     HandEnd hand_end = 20;
     PhaseChange phase_change = 21;
     WinByFold win_by_fold = 22;
+    LoginResponse login_response = 23;
   }
+}
+
+message LoginResponse {
+  uint32 user_id = 1;
 }
 
 // ============================================================

@@ -66,10 +66,10 @@ export const useUiStore = create<UiStoreState>((set) => ({
         }
 
         set((prev) => ({
-                ...prev,
-                quickStartPhase: 'connecting',
-                quickStartLabel: 'Connecting...',
-                quickStartError: '',
+            ...prev,
+            quickStartPhase: 'connecting',
+            quickStartLabel: 'Connecting...',
+            quickStartError: '',
         }));
 
         try {
@@ -83,11 +83,6 @@ export const useUiStore = create<UiStoreState>((set) => ({
                 quickStartPhase: 'sitting',
                 quickStartLabel: 'Joining table...',
             }));
-
-            const randomSeat = Math.floor(Math.random() * 6);
-            gameClient.myChair = randomSeat;
-            useGameStore.getState().setExpectedHeroChair(randomSeat);
-            gameClient.sitDown(randomSeat, 10000n);
 
             await delay(500);
 

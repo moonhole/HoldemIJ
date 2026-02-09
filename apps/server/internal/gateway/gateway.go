@@ -85,8 +85,29 @@ func (g *Gateway) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("[Gateway] Client connected: %s (userID=%d), total: %d", connID, userID, len(g.connections))
 
+	// Send initial LoginResponse
+	c.SendLoginResponse()
+
 	go c.readPump()
 	go c.writePump()
+}
+
+func (c *Connection) SendLoginResponse() {
+	env := &pb.ServerEnvelope{
+		ServerSeq:  0, // Special seq for handshake
+		ServerTsMs: time.Now().UnixMilli(),
+		Payload: &pb.ServerEnvelope_LoginResponse{
+			LoginResponse: &pb.LoginResponse{
+				UserId: c.UserID,
+			},
+		},
+	}
+	data, err := proto.Marshal(env)
+	if err != nil {
+		log.Printf("[Gateway] Failed to marshal login response: %v", err)
+		return
+	}
+	c.Send <- data
 }
 
 func (c *Connection) readPump() {
