@@ -1,0 +1,14 @@
+{
+  "name": "holdem-lite-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "pnpm --filter h5 dev",
+    "dev:server": "cd apps/server && go run .",
+    "build": "pnpm --filter h5 build",
+    "proto": "cd proto && buf generate"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

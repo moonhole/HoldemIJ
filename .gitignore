@@ -1,0 +1,44 @@
+﻿# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Node / frontend build outputs
+node_modules/
+**/node_modules/
+dist/
+build/
+coverage/
+.next/
+.vite/
+
+# Go / build outputs
+bin/
+*.exe
+*.dll
+*.so
+*.dylib
+*.out
+*.test
+coverage.out
+
+# Generated / local caches
+.gocache/
+.bufcache/
+
+# Temp
+tmp/
+temp/

@@ -1,0 +1,16 @@
+version: v2
+managed:
+  enabled: true
+  override:
+    - file_option: go_package_prefix
+      value: holdem-lite/apps/server/gen
+plugins:
+  # Go generation
+  - remote: buf.build/protocolbuffers/go
+    out: ../apps/server/gen
+    opt: paths=source_relative
+  # TypeScript generation (bufbuild/es)
+  - remote: buf.build/bufbuild/es
+    out: ../apps/h5/src/gen
+inputs:
+  - directory: holdem/v1

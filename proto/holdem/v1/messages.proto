@@ -1,0 +1,306 @@
+syntax = "proto3";
+
+package holdem.v1;
+
+option go_package = "holdem-lite/apps/server/gen/holdem/v1;holdemv1";
+
+// ============================================================
+// Envelope messages (wrap all payloads)
+// ============================================================
+
+message ClientEnvelope {
+  string table_id = 1;
+  uint32 user_id = 2;
+  uint64 seq = 3;          // Client-incrementing sequence number
+  uint64 ack = 4;          // Last server_seq acknowledged by client
+
+  oneof payload {
+    JoinTableRequest join_table = 10;
+    SitDownRequest sit_down = 11;
+    StandUpRequest stand_up = 12;
+    BuyInRequest buy_in = 13;
+    ActionRequest action = 14;
+  }
+}
+
+message ServerEnvelope {
+  string table_id = 1;
+  uint64 server_seq = 2;   // Server-incrementing sequence number
+  int64 server_ts_ms = 3;  // Server timestamp (for animation sync)
+
+  oneof payload {
+    ErrorResponse error = 10;
+    TableSnapshot table_snapshot = 11;
+    SeatUpdate seat_update = 12;
+    HandStart hand_start = 13;
+    DealHoleCards deal_hole_cards = 14;
+    DealBoard deal_board = 15;
+    ActionPrompt action_prompt = 16;
+    ActionResult action_result = 17;
+    PotUpdate pot_update = 18;
+    Showdown showdown = 19;
+    HandEnd hand_end = 20;
+    PhaseChange phase_change = 21;
+    WinByFold win_by_fold = 22;
+  }
+}
+
+// ============================================================
+// Client -> Server requests
+// ============================================================
+
+message JoinTableRequest {
+  // Empty for now, table_id is in envelope
+}
+
+message SitDownRequest {
+  uint32 chair = 1;
+  int64 buy_in_amount = 2;
+}
+
+message StandUpRequest {}
+
+message BuyInRequest {
+  int64 amount = 1;
+}
+
+message ActionRequest {
+  ActionType action = 1;
+  int64 amount = 2;  // Total bet amount for this round (for RAISE/BET)
+}
+
+// ============================================================
+// Server -> Client events
+// ============================================================
+
+message ErrorResponse {
+  int32 code = 1;
+  string message = 2;
+}
+
+message TableSnapshot {
+  TableConfig config = 1;
+  Phase phase = 2;
+  uint32 round = 3;
+  uint32 dealer_chair = 4;
+  uint32 small_blind_chair = 5;
+  uint32 big_blind_chair = 6;
+  uint32 action_chair = 7;
+  int64 cur_bet = 8;
+  int64 min_raise_delta = 9;
+  repeated Card community_cards = 10;
+  repeated Pot pots = 11;
+  repeated PlayerState players = 12;
+}
+
+message TableConfig {
+  uint32 max_players = 1;
+  int64 small_blind = 2;
+  int64 big_blind = 3;
+  int64 ante = 4;
+  int64 min_buy_in = 5;
+  int64 max_buy_in = 6;
+}
+
+message PlayerState {
+  uint32 user_id = 1;
+  uint32 chair = 2;
+  string nickname = 3;
+  int64 stack = 4;
+  int64 bet = 5;
+  bool folded = 6;
+  bool all_in = 7;
+  ActionType last_action = 8;
+  // hand_cards only sent to the player themselves
+  repeated Card hand_cards = 9;
+}
+
+message Pot {
+  int64 amount = 1;
+  repeated uint32 eligible_chairs = 2;
+}
+
+message SeatUpdate {
+  uint32 chair = 1;
+  oneof update {
+    PlayerState player_joined = 2;
+    uint32 player_left_user_id = 3;
+    int64 stack_change = 4;
+  }
+}
+
+message HandStart {
+  uint32 round = 1;
+  uint32 dealer_chair = 2;
+  uint32 small_blind_chair = 3;
+  uint32 big_blind_chair = 4;
+  int64 small_blind_amount = 5;
+  int64 big_blind_amount = 6;
+}
+
+message DealHoleCards {
+  // Cards are only sent to the receiving player
+  repeated Card cards = 1;
+}
+
+message DealBoard {
+  Phase phase = 1;  // FLOP, TURN, or RIVER
+  repeated Card cards = 2;
+}
+
+// PhaseChange is a full street-state event for clients that need old-protocol semantics.
+message PhaseChange {
+  // Current phase after transition.
+  Phase phase = 1;
+  // Full board cards visible at this phase.
+  repeated Card community_cards = 2;
+  // Current pot layout (main/side pots).
+  repeated Pot pots = 3;
+  // Only sent to the target player; maps old MyHandType.
+  optional HandRank my_hand_rank = 4;
+  // Only sent to the target player; maps old MyHandValue.
+  optional uint32 my_hand_value = 5;
+}
+
+message ActionPrompt {
+  uint32 chair = 1;
+  repeated ActionType legal_actions = 2;
+  int64 min_raise_to = 3;
+  int64 call_amount = 4;
+  int32 time_limit_sec = 5;
+}
+
+message ActionResult {
+  uint32 chair = 1;
+  ActionType action = 2;
+  int64 amount = 3;
+  int64 new_stack = 4;
+  int64 new_pot_total = 5;
+}
+
+message PotUpdate {
+  repeated Pot pots = 1;
+}
+
+message Showdown {
+  repeated ShowdownHand hands = 1;
+  repeated PotResult pot_results = 2;
+  ExcessRefund excess_refund = 3;
+  repeated NetResult net_results = 4;
+}
+
+message ShowdownHand {
+  uint32 chair = 1;
+  repeated Card hole_cards = 2;
+  repeated Card best_five = 3;
+  HandRank rank = 4;
+}
+
+message PotResult {
+  int64 pot_amount = 1;
+  repeated Winner winners = 2;
+}
+
+message Winner {
+  uint32 chair = 1;
+  int64 win_amount = 2;
+}
+
+message HandEnd {
+  uint32 round = 1;
+  // Summary of stack changes
+  repeated StackDelta stack_deltas = 2;
+  ExcessRefund excess_refund = 3;
+  repeated NetResult net_results = 4;
+}
+
+message StackDelta {
+  uint32 chair = 1;
+  int64 delta = 2;
+  int64 new_stack = 3;
+}
+
+message WinByFold {
+  uint32 winner_chair = 1;
+  int64 pot_total = 2;
+  ExcessRefund excess_refund = 3;
+}
+
+message ExcessRefund {
+  uint32 chair = 1;
+  int64 amount = 2;
+}
+
+message NetResult {
+  uint32 chair = 1;
+  int64 win_amount = 2;
+  bool is_winner = 3;
+}
+
+// ============================================================
+// Common types
+// ============================================================
+
+enum Phase {
+  PHASE_UNSPECIFIED = 0;
+  PHASE_ANTE = 1;
+  PHASE_PREFLOP = 2;
+  PHASE_FLOP = 3;
+  PHASE_TURN = 4;
+  PHASE_RIVER = 5;
+  PHASE_SHOWDOWN = 6;
+}
+
+enum ActionType {
+  ACTION_UNSPECIFIED = 0;
+  ACTION_CHECK = 1;
+  ACTION_BET = 2;
+  ACTION_CALL = 3;
+  ACTION_RAISE = 4;
+  ACTION_FOLD = 5;
+  ACTION_ALLIN = 6;
+}
+
+enum HandRank {
+  HAND_RANK_UNSPECIFIED = 0;
+  HAND_RANK_HIGH_CARD = 1;
+  HAND_RANK_ONE_PAIR = 2;
+  HAND_RANK_TWO_PAIR = 3;
+  HAND_RANK_THREE_OF_KIND = 4;
+  HAND_RANK_STRAIGHT = 5;
+  HAND_RANK_FLUSH = 6;
+  HAND_RANK_FULL_HOUSE = 7;
+  HAND_RANK_FOUR_OF_KIND = 8;
+  HAND_RANK_STRAIGHT_FLUSH = 9;
+  HAND_RANK_ROYAL_FLUSH = 10;
+}
+
+message Card {
+  Suit suit = 1;
+  Rank rank = 2;
+}
+
+enum Suit {
+  SUIT_UNSPECIFIED = 0;
+  SUIT_SPADE = 1;
+  SUIT_HEART = 2;
+  SUIT_CLUB = 3;
+  SUIT_DIAMOND = 4;
+}
+
+enum Rank {
+  RANK_UNSPECIFIED = 0;
+  RANK_2 = 2;
+  RANK_3 = 3;
+  RANK_4 = 4;
+  RANK_5 = 5;
+  RANK_6 = 6;
+  RANK_7 = 7;
+  RANK_8 = 8;
+  RANK_9 = 9;
+  RANK_10 = 10;
+  RANK_J = 11;
+  RANK_Q = 12;
+  RANK_K = 13;
+  RANK_A = 14;
+}
