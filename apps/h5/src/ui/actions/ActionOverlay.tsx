@@ -168,15 +168,15 @@ export function ActionOverlay(): JSX.Element | null {
                     </div>
                     <div className="action-buttons">
                         <button className="btn-tile btn-fold" disabled={!canFold} onClick={submitFold}>
-                            <span className="btn-icon">×</span>
+                            <span className="btn-icon">⊘</span>
                             <span className="btn-label">FOLD</span>
                         </button>
                         <button className="btn-tile btn-check" disabled={!canPrimary} onClick={submitPrimary}>
-                            <span className="btn-icon">{hasCall && !hasCheck ? '◯' : '✓'}</span>
+                            <span className="btn-icon">{hasCall && !hasCheck ? '◯' : '✓✓'}</span>
                             <span className="btn-label">{primaryLabel}</span>
                         </button>
                         <button className="btn-tile btn-raise" disabled={!canRaiseTile} onClick={submitRaiseTile}>
-                            <span className="btn-icon">{hasRaise ? '↑' : '↟'}</span>
+                            <span className="btn-icon">{hasRaise ? '↗' : '↑↑'}</span>
                             <span className="btn-label">{tertiaryLabel}</span>
                         </button>
                     </div>

@@ -18,12 +18,13 @@ const COLORS = {
     cardBlack: 0xffffff,    // White for spades/clubs
 };
 
-// Opponent positions (top area, 2x2 grid style)
+// Opponent positions (clockwise relative to Hero)
 const OPPONENT_POSITIONS = [
-    { x: DESIGN_WIDTH * 0.25, y: 180 },   // Top left
-    { x: DESIGN_WIDTH * 0.75, y: 180 },   // Top right
-    { x: DESIGN_WIDTH * 0.25, y: 320 },   // Mid left
-    { x: DESIGN_WIDTH * 0.75, y: 320 },   // Mid right
+    { x: DESIGN_WIDTH * 0.15, y: 680 },   // [0] Bottom Left
+    { x: DESIGN_WIDTH * 0.15, y: 340 },   // [1] Top Left
+    { x: DESIGN_WIDTH * 0.50, y: 220 },   // [2] Opposite (Top Center)
+    { x: DESIGN_WIDTH * 0.85, y: 340 },   // [3] Top Right
+    { x: DESIGN_WIDTH * 0.85, y: 680 },   // [4] Bottom Right
 ];
 
 export class TableScene extends Container {
@@ -83,14 +84,16 @@ export class TableScene extends Container {
 
         // Signal indicator
         const signal = new Text({
-            text: '\u25AE\u25AE\u25AE\u25AE',
+            text: '\u25AE \u25AE \u25AE \u25AE',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 10,
+                fontSize: 8,
                 fill: COLORS.cyan,
+                dropShadow: { color: COLORS.cyan, alpha: 0.5, blur: 5, distance: 0 }
             },
         });
         signal.x = 30;
+        signal.y = -2;
         topBar.addChild(signal);
 
         // Table name
@@ -98,59 +101,57 @@ export class TableScene extends Container {
             text: 'TABLE_402_CORE',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 10,
-                letterSpacing: 3,
-                fill: 0x666666,
+                fontSize: 11,
+                letterSpacing: 4,
+                fill: 0x555555,
+                fontWeight: '600',
             },
         });
-        tableName.x = 60;
+        tableName.x = 85;
+        tableName.y = -2;
         topBar.addChild(tableName);
 
         // Settings button
         const settingsBtn = new Graphics();
-        settingsBtn.circle(DESIGN_WIDTH - 80, 0, 16);
-        settingsBtn.fill({ color: 0x331122 });
-        settingsBtn.stroke({ color: COLORS.primary, width: 1, alpha: 0.3 });
+        settingsBtn.circle(DESIGN_WIDTH - 85, 0, 18);
+        settingsBtn.fill({ color: 0x2a0818 });
+        settingsBtn.stroke({ color: COLORS.primary, width: 2, alpha: 0.5 });
         topBar.addChild(settingsBtn);
         const settingsIcon = new Text({
-            text: '\u2699',
+            text: '\u2699', // Gear
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 16,
-                fontWeight: '400',
+                fontSize: 18,
                 fill: COLORS.primary,
             },
         });
         settingsIcon.anchor.set(0.5);
-        settingsIcon.x = DESIGN_WIDTH - 80;
-        settingsIcon.y = 0;
+        settingsIcon.x = DESIGN_WIDTH - 85;
         topBar.addChild(settingsIcon);
 
         // Chat button
         const chatBtn = new Graphics();
-        chatBtn.circle(DESIGN_WIDTH - 40, 0, 16);
-        chatBtn.fill({ color: 0x003333 });
-        chatBtn.stroke({ color: COLORS.cyan, width: 1, alpha: 0.3 });
+        chatBtn.circle(DESIGN_WIDTH - 40, 0, 18);
+        chatBtn.fill({ color: 0x061a1a });
+        chatBtn.stroke({ color: COLORS.cyan, width: 2, alpha: 0.5 });
         topBar.addChild(chatBtn);
         const chatIcon = new Text({
-            text: '\u{1F5E8}',
+            text: '\u{1F5E8}', // Speech bubble
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 14,
-                fontWeight: '400',
+                fontSize: 16,
                 fill: COLORS.cyan,
             },
         });
         chatIcon.anchor.set(0.5);
         chatIcon.x = DESIGN_WIDTH - 40;
-        chatIcon.y = 0;
         topBar.addChild(chatIcon);
     }
 
     private createPotDisplay(): void {
         const potContainer = new Container();
         potContainer.x = DESIGN_WIDTH / 2;
-        potContainer.y = 90;
+        potContainer.y = 330; // Below the opposite player (y=220) and above the board (y=450)
         this.addChild(potContainer);
 
         // "TOTAL POT" label
@@ -165,27 +166,47 @@ export class TableScene extends Container {
             },
         });
         this.potText.anchor.set(0.5);
-        this.potText.y = -20;
+        this.potText.y = -35;
         potContainer.addChild(this.potText);
 
-        // Pot amount with glow effect
-        this.potAmount = new Text({
-            text: '$0',
+        const potValueContainer = new Container();
+        potValueContainer.y = 10;
+        potContainer.addChild(potValueContainer);
+
+        // Pink $ symbol
+        const currencySymbol = new Text({
+            text: '$',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 36,
-                fontWeight: '700',
+                fontSize: 34,
+                fontWeight: '900',
                 fontStyle: 'italic',
-                fill: 0xffffff,
+                fill: COLORS.primary,
             },
         });
-        this.potAmount.anchor.set(0.5);
-        potContainer.addChild(this.potAmount);
+        currencySymbol.anchor.set(1, 0.5);
+        currencySymbol.x = -8;
+        potValueContainer.addChild(currencySymbol);
+
+        // Pot amount
+        this.potAmount = new Text({
+            text: '0',
+            style: {
+                fontFamily: 'Space Grotesk, Inter, sans-serif',
+                fontSize: 54,
+                fontWeight: '900',
+                fontStyle: 'italic',
+                fill: 0xffffff,
+                letterSpacing: 2,
+            },
+        });
+        this.potAmount.anchor.set(0, 0.5);
+        potValueContainer.addChild(this.potAmount);
     }
 
     private createOpponentGrid(): void {
-        // Create 4 opponent views in a 2x2 grid
-        for (let i = 0; i < 4; i++) {
+        // Create 5 opponent views clockwise
+        for (let i = 0; i < 5; i++) {
             const pos = OPPONENT_POSITIONS[i];
             const opponent = new OpponentView(i);
             opponent.x = pos.x;
@@ -388,15 +409,15 @@ export class TableScene extends Container {
                 let viewIndex = -1;
 
                 if (this.myChair !== -1) {
-                    // Calculate relative index: 1-5
+                    // Calculate relative index: 1-5 (clockwise from hero)
                     const relative = (chair - this.myChair + 6) % 6;
-                    // Limit to first 4 right-hand opponents (indices 1,2,3,4)
-                    if (relative >= 1 && relative <= 4) {
+                    // Map to 5 views (relative 1 -> view 0, ..., relative 5 -> view 4)
+                    if (relative >= 1 && relative <= 5) {
                         viewIndex = relative - 1;
                     }
                 } else {
-                    // Just fill by chair ID mapping to 0..3
-                    if (chair < 4) viewIndex = chair;
+                    // Spectator mode or just filling by chair
+                    if (chair < 5) viewIndex = chair;
                 }
 
                 if (viewIndex >= 0 && viewIndex < this.opponentViews.length) {
@@ -530,9 +551,9 @@ export class TableScene extends Container {
                 let viewIndex = -1;
                 if (this.myChair !== -1) {
                     const relative = (hand.chair - this.myChair + 6) % 6;
-                    if (relative >= 1 && relative <= 4) viewIndex = relative - 1;
+                    if (relative >= 1 && relative <= 5) viewIndex = relative - 1;
                 } else {
-                    if (hand.chair < 4) viewIndex = hand.chair;
+                    if (hand.chair < 5) viewIndex = hand.chair;
                 }
 
                 if (viewIndex >= 0 && viewIndex < this.opponentViews.length) {
@@ -616,7 +637,7 @@ export class TableScene extends Container {
     }
 
     private updatePot(amount: bigint): void {
-        this.potAmount.text = `$${amount.toLocaleString()}`;
+        this.potAmount.text = amount.toLocaleString();
     }
 
     private showMyCards(cards: Card[]): void {
@@ -649,40 +670,40 @@ export class TableScene extends Container {
     private createHeroCard(card: Card, width: number, height: number): Container {
         const container = new Container();
 
-        // Card glow
+        // High intensity card glow
         const glow = new Graphics();
-        glow.roundRect(-width / 2 - 5, -height / 2 - 5, width + 10, height + 10, 15);
-        glow.fill({ color: COLORS.primary, alpha: 0.3 });
+        glow.roundRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16, 18);
+        glow.fill({ color: COLORS.primary, alpha: 0.4 });
         container.addChild(glow);
 
         // Card background
         const bg = new Graphics();
-        bg.roundRect(-width / 2, -height / 2, width, height, 12);
-        bg.fill({ color: 0x1a1a1a, alpha: 0.8 });
-        bg.stroke({ color: COLORS.primary, width: 2 });
+        bg.roundRect(-width / 2, -height / 2, width, height, 15);
+        bg.fill({ color: 0x050205 });
+        bg.stroke({ color: COLORS.primary, width: 3, alpha: 0.8 });
         container.addChild(bg);
 
-        // Gradient overlay
-        const overlay = new Graphics();
-        overlay.roundRect(-width / 2, -height / 2, width, height / 2, 12);
-        overlay.fill({ color: COLORS.primary, alpha: 0.1 });
-        container.addChild(overlay);
+        // Subtle highlight
+        const highlight = new Graphics();
+        highlight.roundRect(-width / 2, -height / 2, width, height / 2.5, 15);
+        highlight.fill({ color: COLORS.primary, alpha: 0.15 });
+        container.addChild(highlight);
 
         const isRed = card.suit === Suit.HEART || card.suit === Suit.DIAMOND;
-        const color = isRed ? COLORS.cardRed : COLORS.cardBlack;
+        const color = isRed ? COLORS.cardRed : 0xffffff;
 
         // Rank
         const rankText = new Text({
             text: this.getRankString(card.rank),
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 32,
-                fontWeight: '700',
+                fontSize: 40,
+                fontWeight: '900',
                 fill: color,
             },
         });
         rankText.anchor.set(0.5);
-        rankText.y = -15;
+        rankText.y = -20;
         container.addChild(rankText);
 
         // Suit
@@ -690,12 +711,12 @@ export class TableScene extends Container {
             text: this.getSuitSymbol(card.suit),
             style: {
                 fontFamily: 'Inter, sans-serif',
-                fontSize: 40,
+                fontSize: 48,
                 fill: color,
             },
         });
         suitText.anchor.set(0.5);
-        suitText.y = 30;
+        suitText.y = 35;
         container.addChild(suitText);
 
         return container;
@@ -731,37 +752,37 @@ export class TableScene extends Container {
         const container = new Container();
 
         const bg = new Graphics();
-        bg.roundRect(-width / 2, -height / 2, width, height, 8);
-        bg.fill({ color: 0x1a1a1a, alpha: 0.8 });
-        bg.stroke({ color: 0x444444, width: 1 });
+        bg.roundRect(-width / 2, -height / 2, width, height, 10);
+        bg.fill({ color: 0x120810 });
+        bg.stroke({ color: 0x333333, width: 1.5 });
         container.addChild(bg);
 
         const isRed = card.suit === Suit.HEART || card.suit === Suit.DIAMOND;
-        const color = isRed ? COLORS.cardRed : COLORS.cardBlack;
+        const color = isRed ? COLORS.cardRed : 0xdddddd;
 
         const rankText = new Text({
             text: this.getRankString(card.rank),
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 20,
-                fontWeight: '700',
+                fontSize: 24,
+                fontWeight: '800',
                 fill: color,
             },
         });
         rankText.anchor.set(0.5);
-        rankText.y = -12;
+        rankText.y = -15;
         container.addChild(rankText);
 
         const suitText = new Text({
             text: this.getSuitSymbol(card.suit),
             style: {
                 fontFamily: 'Inter, sans-serif',
-                fontSize: 24,
+                fontSize: 28,
                 fill: color,
             },
         });
         suitText.anchor.set(0.5);
-        suitText.y = 15;
+        suitText.y = 18;
         container.addChild(suitText);
 
         return container;
@@ -807,6 +828,9 @@ export class TableScene extends Container {
 // Opponent view with state
 class OpponentView extends Container {
     private avatarFrame: Graphics;
+    private avatarContainer: Container;
+    private avatarPlaceholder: Graphics;
+    private emptyIcon: Text;
     private nameText: Text;
     private stackText: Text;
     private statusText: Text;
@@ -821,27 +845,56 @@ class OpponentView extends Container {
 
         // Hexagon avatar frame
         this.avatarFrame = new Graphics();
-        this.drawHexagon(this.avatarFrame, 30, 0x333333, 0.5);
         this.addChild(this.avatarFrame);
+
+        // Avatar Image Container (clipped by hexagon)
+        this.avatarContainer = new Container();
+        this.addChild(this.avatarContainer);
+
+        // Placeholder Avatar (Procedural)
+        this.avatarPlaceholder = new Graphics();
+        this.avatarPlaceholder.circle(0, 0, 30);
+        this.avatarPlaceholder.fill({ color: 0x222222 });
+        this.avatarPlaceholder.stroke({ color: 0x444444, width: 2.5 });
+        // Head
+        this.avatarPlaceholder.circle(0, -6, 11);
+        this.avatarPlaceholder.fill({ color: 0x444444 });
+        // Body
+        this.avatarPlaceholder.ellipse(0, 16, 18, 12);
+        this.avatarPlaceholder.fill({ color: 0x444444 });
+        this.avatarContainer.addChild(this.avatarPlaceholder);
+
+        // Empty Icon (+)
+        this.emptyIcon = new Text({
+            text: '+',
+            style: {
+                fontFamily: 'Space Grotesk, Inter, sans-serif',
+                fontSize: 24,
+                fill: 0x333333,
+                fontWeight: '400'
+            }
+        });
+        this.emptyIcon.anchor.set(0.5);
+        this.addChild(this.emptyIcon);
 
         // Card backs (small, shown above avatar)
         this.cardBacks = new Container();
-        this.cardBacks.y = -50;
+        this.cardBacks.y = -65;
         this.cardBacks.visible = false;
         this.addChild(this.cardBacks);
 
         // Create mini card backs
         for (let i = 0; i < 2; i++) {
             const cardBack = new Graphics();
-            cardBack.roundRect((i - 1) * 18 + 2, -15, 20, 30, 3);
+            cardBack.roundRect((i - 1) * 24 + 2, -20, 28, 40, 4);
             cardBack.fill({ color: 0x1e40af });
-            cardBack.stroke({ color: 0x3b82f6, width: 1 });
+            cardBack.stroke({ color: 0x3b82f6, width: 1.5 });
             this.cardBacks.addChild(cardBack);
         }
 
         // Shown cards
         this.shownCards = new Container();
-        this.shownCards.y = -50;
+        this.shownCards.y = -65;
         this.addChild(this.shownCards);
 
         // Name
@@ -849,13 +902,13 @@ class OpponentView extends Container {
             text: 'EMPTY',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: '700',
                 fill: 0x888888,
             },
         });
         this.nameText.anchor.set(0.5);
-        this.nameText.y = 40;
+        this.nameText.y = 52;
         this.addChild(this.nameText);
 
         // Stack
@@ -863,12 +916,12 @@ class OpponentView extends Container {
             text: '',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 9,
+                fontSize: 10,
                 fill: COLORS.cyan,
             },
         });
         this.stackText.anchor.set(0.5);
-        this.stackText.y = 52;
+        this.stackText.y = 66;
         this.addChild(this.stackText);
 
         // Status (THINKING, FOLDED, etc.)
@@ -882,9 +935,13 @@ class OpponentView extends Container {
             },
         });
         this.statusText.anchor.set(0.5);
-        this.statusText.y = 52;
+        this.statusText.y = 66;
         this.statusText.visible = false;
         this.addChild(this.statusText);
+
+        // Apply masking or clipping to avatar container if needed
+        // For now, just a centered placeholder
+        this.avatarContainer.visible = false;
 
         // Default empty state
         this.clear();
@@ -899,14 +956,26 @@ class OpponentView extends Container {
         }
         g.poly(points);
         g.fill({ color, alpha });
-        g.stroke({ color: 0x444444, width: 2 });
+        g.stroke({ color: 0x444444, width: 3, alpha: 0.8 });
+
+        // Add an inner faint hexagon for tech look
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i - Math.PI / 2;
+            points[i * 2] *= 0.85;
+            points[i * 2 + 1] *= 0.85;
+        }
+        g.poly(points);
+        g.stroke({ color: 0xffffff, width: 1, alpha: 0.1 });
     }
 
     setPlayer(player: PlayerState): void {
         this.userId = player.userId;
-        this.visible = true; // Make sure view is visible
+        this.visible = true;
+        this.emptyIcon.visible = false;
+        this.avatarContainer.visible = true;
 
         this.nameText.text = `PLAYER_${player.userId}`;
+        this.nameText.style.fill = 0xcccccc;
         this.stackText.text = `$${player.stack}`;
         this.stackText.visible = !player.folded;
 
@@ -914,20 +983,22 @@ class OpponentView extends Container {
             this.statusText.text = 'FOLDED';
             this.statusText.style.fill = 0x666666;
             this.statusText.visible = true;
-            this.avatarFrame.alpha = 0.5;
+            this.statusText.y = 0;
+            this.avatarContainer.alpha = 0.3;
+            this.avatarFrame.alpha = 0.4;
             this.cardBacks.visible = false;
         } else {
             this.statusText.visible = false;
+            this.statusText.y = 52;
+            this.avatarContainer.alpha = 1;
             this.avatarFrame.alpha = 1;
-            // Only show card backs if we don't have shown cards yet
             this.cardBacks.visible = this.shownCards.children.length === 0;
         }
 
-        // Redraw avatar frame with active color
         this.avatarFrame.clear();
         const frameColor = player.folded ? 0x333333 : COLORS.primary;
-        this.drawHexagon(this.avatarFrame, 30, 0x1a1a1a, 1);
-        this.avatarFrame.stroke({ color: frameColor, width: 2, alpha: player.folded ? 0.3 : 0.6 });
+        this.drawHexagon(this.avatarFrame, 40, 0x0a0609, 1);
+        this.avatarFrame.stroke({ color: frameColor, width: 2, alpha: player.folded ? 0.3 : 0.8 });
     }
 
     showCards(cards: Card[]): void {
@@ -973,7 +1044,7 @@ class OpponentView extends Container {
 
             // Redraw with cyan glow
             this.avatarFrame.clear();
-            this.drawHexagon(this.avatarFrame, 30, 0x1a1a1a);
+            this.drawHexagon(this.avatarFrame, 40, 0x1a1a1a);
             this.avatarFrame.stroke({ color: COLORS.cyan, width: 3 });
         }
     }
@@ -985,9 +1056,20 @@ class OpponentView extends Container {
 
     clear(): void {
         this.userId = -1;
+        this.visible = true; // Stay visible for empty slots
         this.nameText.text = 'EMPTY';
+        this.nameText.style.fill = 0x444444;
         this.stackText.text = '';
-        this.visible = false; // Hide empty seats
+        this.statusText.visible = false;
+        this.cardBacks.visible = false;
+        this.shownCards.removeChildren();
+        this.avatarContainer.visible = false;
+        this.emptyIcon.visible = true;
+
+        // Draw greyed out empty frame
+        this.avatarFrame.clear();
+        this.drawHexagon(this.avatarFrame, 40, 0x0a0609, 0.5);
+        this.avatarFrame.stroke({ color: 0x333333, width: 1.5, alpha: 0.4 });
     }
 
     // Helper for simple rank string (duplicate of TableScene method basically)
