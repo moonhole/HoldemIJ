@@ -3,11 +3,9 @@ import type { GameApp } from '../main';
 import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../main';
 
 export class LobbyScene extends Container {
-    private game: GameApp;
-
     constructor(game: GameApp) {
         super();
-        this.game = game;
+        void game;
 
         // Background
         const bg = new Graphics();
@@ -44,8 +42,6 @@ export class LobbyScene extends Container {
         btn.fill({ color: 0x22c55e });
         btn.x = (DESIGN_WIDTH - btnWidth) / 2;
         btn.y = DESIGN_HEIGHT / 2 - btnHeight / 2;
-        btn.eventMode = 'static';
-        btn.cursor = 'pointer';
         this.addChild(btn);
 
         const btnText = new Text({
@@ -61,54 +57,6 @@ export class LobbyScene extends Container {
         btnText.x = btn.x + btnWidth / 2;
         btnText.y = btn.y + btnHeight / 2;
         this.addChild(btnText);
-
-        // Button press effect
-        btn.on('pointerdown', () => {
-            btn.scale.set(0.95);
-            btnText.scale.set(0.95);
-        });
-
-        btn.on('pointerup', async () => {
-            btn.scale.set(1);
-            btnText.scale.set(1);
-
-            // Update button text to show connecting
-            btnText.text = 'Connecting...';
-            btn.eventMode = 'none';
-
-            try {
-                // Import and connect
-                const { gameClient } = await import('../network/GameClient');
-                await gameClient.connect();
-
-                // Join table
-                gameClient.joinTable();
-
-                // Wait for join, then auto sit down
-                setTimeout(() => {
-                    btnText.text = 'Sitting down...';
-                    // Sit at a random seat (0-5) with 10000 chips
-                    // TODO: In future, let user choose seat or server assigns
-                    const randomSeat = Math.floor(Math.random() * 6);
-                    gameClient.myChair = randomSeat;
-                    gameClient.sitDown(randomSeat, 10000n);
-
-                    // Transition to table scene
-                    setTimeout(() => {
-                        this.game.loadScene('table');
-                    }, 500);
-                }, 300);
-            } catch (error) {
-                console.error('Failed to connect:', error);
-                btnText.text = 'Connection Failed - Retry';
-                btn.eventMode = 'static';
-            }
-        });
-
-        btn.on('pointerupoutside', () => {
-            btn.scale.set(1);
-            btnText.scale.set(1);
-        });
 
         // Room info
         const roomInfo = new Text({

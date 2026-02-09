@@ -1,0 +1,43 @@
+.lobby-overlay {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    width: min(620px, calc(100vw - 32px));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    pointer-events: auto;
+}
+
+.lobby-quick-start-btn {
+    width: 100%;
+    min-height: 68px;
+    border: 0;
+    border-radius: 14px;
+    background: #22c55e;
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 16px 30px rgba(34, 197, 94, 0.28);
+}
+
+.lobby-quick-start-btn:disabled {
+    cursor: default;
+    opacity: 0.86;
+}
+
+.lobby-quick-start-error {
+    color: #ff9d9d;
+    font-size: 13px;
+    text-align: center;
+}
+
+@media (max-width: 560px) {
+    .lobby-quick-start-btn {
+        min-height: 56px;
+        font-size: 19px;
+    }
+}

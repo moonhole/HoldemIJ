@@ -106,6 +106,10 @@ func WrapServerEnvelope(tableID string, serverSeq uint64, payload interface{}) *
 		env.Payload = &pb.ServerEnvelope_Showdown{Showdown: p}
 	case *pb.HandEnd:
 		env.Payload = &pb.ServerEnvelope_HandEnd{HandEnd: p}
+	case *pb.PhaseChange:
+		env.Payload = &pb.ServerEnvelope_PhaseChange{PhaseChange: p}
+	case *pb.WinByFold:
+		env.Payload = &pb.ServerEnvelope_WinByFold{WinByFold: p}
 	}
 
 	return env

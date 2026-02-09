@@ -3,6 +3,7 @@ package table
 import (
 	"fmt"
 	"log"
+	"sort"
 	"sync"
 	"time"
 
@@ -23,6 +24,8 @@ type Table struct {
 	players map[uint32]*PlayerConn // userID -> connection
 	seats   map[uint16]uint32      // chair -> userID
 	round   uint32
+	// Stack baseline at hand start for delta/net settlement messages.
+	handStartStacks map[uint16]int64
 
 	// Event channel for actor pattern
 	events chan Event
@@ -81,13 +84,14 @@ type Event struct {
 // New creates a new table
 func New(id string, cfg TableConfig, broadcastFn func(userID uint32, data []byte)) *Table {
 	t := &Table{
-		ID:        id,
-		Config:    cfg,
-		players:   make(map[uint32]*PlayerConn),
-		seats:     make(map[uint16]uint32),
-		events:    make(chan Event, 256),
-		done:      make(chan struct{}),
-		broadcast: broadcastFn,
+		ID:              id,
+		Config:          cfg,
+		players:         make(map[uint32]*PlayerConn),
+		seats:           make(map[uint16]uint32),
+		handStartStacks: make(map[uint16]int64),
+		events:          make(chan Event, 256),
+		done:            make(chan struct{}),
+		broadcast:       broadcastFn,
 	}
 
 	// Create game engine
@@ -239,8 +243,8 @@ func (t *Table) handleAction(userID uint32, action holdem.ActionType, amount int
 		return fmt.Errorf("player not seated")
 	}
 
-	snap := t.game.Snapshot()
-	if snap.ActionChair != player.Chair {
+	before := t.game.Snapshot()
+	if before.ActionChair != player.Chair {
 		return fmt.Errorf("not your turn")
 	}
 
@@ -248,20 +252,25 @@ func (t *Table) handleAction(userID uint32, action holdem.ActionType, amount int
 	if err != nil {
 		return err
 	}
+	after := t.game.Snapshot()
+	t.syncPlayerStacksFromSnapshot(after)
 
 	log.Printf("[Table %s] Player %d action: %v amount: %d", t.ID, userID, action, amount)
 
 	// Broadcast action result
-	t.broadcastActionResult(player.Chair, action, amount)
+	t.broadcastActionResult(player.Chair, action, amount, before, after, result)
+	t.broadcastStreetStateTransitions(before, after)
+	if potsChanged(before.Pots, after.Pots) {
+		t.broadcastPotUpdate(after.Pots)
+	}
 
 	// Check if hand ended
 	if result != nil {
 		t.handleHandEnd(result)
 	} else {
 		// Prompt next player
-		newSnap := t.game.Snapshot()
-		if newSnap.ActionChair != holdem.InvalidChair {
-			t.sendActionPrompt(newSnap.ActionChair)
+		if after.ActionChair != holdem.InvalidChair {
+			t.sendActionPrompt(after.ActionChair)
 		}
 	}
 
@@ -270,6 +279,12 @@ func (t *Table) handleAction(userID uint32, action holdem.ActionType, amount int
 
 func (t *Table) handleStartHand() error {
 	log.Printf("[Table %s] handleStartHand called, seats=%d", t.ID, len(t.seats))
+	before := t.game.Snapshot()
+	t.handStartStacks = make(map[uint16]int64, len(before.Players))
+	for _, ps := range before.Players {
+		t.handStartStacks[ps.Chair] = ps.Stack
+	}
+
 	if err := t.game.StartHand(); err != nil {
 		log.Printf("[Table %s] StartHand failed: %v", t.ID, err)
 		return err
@@ -277,6 +292,7 @@ func (t *Table) handleStartHand() error {
 	t.round++
 
 	snap := t.game.Snapshot()
+	t.syncPlayerStacksFromSnapshot(snap)
 	log.Printf("[Table %s] Hand %d started. Dealer: %d, Action: %d", t.ID, t.round, snap.DealerChair, snap.ActionChair)
 
 	// Broadcast hand start
@@ -552,19 +568,30 @@ func (t *Table) sendActionPrompt(chair uint16) {
 	t.sendToUser(userID, env)
 }
 
-func (t *Table) broadcastActionResult(chair uint16, action holdem.ActionType, amount int64) {
-	snap := t.game.Snapshot()
+func (t *Table) broadcastActionResult(
+	chair uint16,
+	action holdem.ActionType,
+	amount int64,
+	before holdem.Snapshot,
+	after holdem.Snapshot,
+	result *holdem.SettlementResult,
+) {
 	var newStack int64
-	for _, ps := range snap.Players {
+	for _, ps := range after.Players {
 		if ps.Chair == chair {
 			newStack = ps.Stack
 			break
 		}
 	}
 
-	var potTotal int64
-	for _, pot := range snap.Pots {
-		potTotal += pot.Amount
+	potTotal := totalPotAmount(after)
+	if result != nil {
+		if beforeTotal := totalPotAmount(before); beforeTotal > potTotal {
+			potTotal = beforeTotal
+		}
+		if settledTotal := totalPotResultAmount(result); settledTotal > potTotal {
+			potTotal = settledTotal
+		}
 	}
 
 	env := &pb.ServerEnvelope{
@@ -586,80 +613,29 @@ func (t *Table) broadcastActionResult(chair uint16, action holdem.ActionType, am
 
 func (t *Table) broadcastHandEnd(result *holdem.SettlementResult) {
 	log.Printf("[Table %s] Broadcasting hand end", t.ID)
-
-	// Check if any player has a valid hand type (implies actual showdown/cards revealed)
-	isShowdown := false
-	for _, pr := range result.PlayerResults {
-		if pr.HandType > 0 {
-			isShowdown = true
-			break
-		}
-	}
-
-	// Always construct Showdown message if there are winners/pot results
-	// This ensures clients know who won even if everyone else folded
-	var showdown *pb.Showdown
-	if len(result.PotResults) > 0 {
-		showdown = &pb.Showdown{}
-
-		// Pot Results
-		for _, pr := range result.PotResults {
-			winners := make([]*pb.Winner, len(pr.Winners))
-			for i, chair := range pr.Winners {
-				winners[i] = &pb.Winner{
-					Chair:     uint32(chair),
-					WinAmount: pr.WinAmounts[i],
-				}
-			}
-			showdown.PotResults = append(showdown.PotResults, &pb.PotResult{
-				PotAmount: pr.Amount,
-				Winners:   winners,
-			})
-		}
-
-		// Hands (only if actual showdown)
-		if isShowdown {
-			for _, pr := range result.PlayerResults {
-				holeCards := make([]*pb.Card, len(pr.HandCards))
-				for i, c := range pr.HandCards {
-					holeCards[i] = cardToProto(c)
-				}
-				bestFive := make([]*pb.Card, len(pr.BestFiveCards))
-				for i, c := range pr.BestFiveCards {
-					bestFive[i] = cardToProto(c)
-				}
-				showdown.Hands = append(showdown.Hands, &pb.ShowdownHand{
-					Chair:     uint32(pr.Chair),
-					HoleCards: holeCards,
-					BestFive:  bestFive,
-					Rank:      handRankToProto(pr.HandType),
-				})
-			}
-		}
-	}
-
-	// Construct StackDeltas from current state
 	snap := t.game.Snapshot()
-	var stackDeltas []*pb.StackDelta
+	t.syncPlayerStacksFromSnapshot(snap)
+	isShowdown := hasShowdownHands(result)
+	excessRefund := toExcessRefund(result)
+	netResults := buildNetResults(result, snap)
+	stackDeltas := t.buildStackDeltas(snap)
 
-	for _, ps := range snap.Players {
-		stackDeltas = append(stackDeltas, &pb.StackDelta{
-			Chair:    uint32(ps.Chair),
-			NewStack: ps.Stack,
-		})
-	}
-
-	// Send Showdown first if valid
-	if showdown != nil {
-		envShowdown := &pb.ServerEnvelope{
-			TableId:    t.ID,
-			ServerSeq:  t.nextSeq(),
-			ServerTsMs: time.Now().UnixMilli(),
-			Payload: &pb.ServerEnvelope_Showdown{
-				Showdown: showdown,
-			},
+	if isShowdown {
+		t.broadcastPhaseChange(holdem.PhaseTypeShowdown, snap.CommunityCards, snap.Pots, snap)
+		showdown := buildShowdown(result, excessRefund, netResults)
+		if showdown != nil {
+			envShowdown := &pb.ServerEnvelope{
+				TableId:    t.ID,
+				ServerSeq:  t.nextSeq(),
+				ServerTsMs: time.Now().UnixMilli(),
+				Payload: &pb.ServerEnvelope_Showdown{
+					Showdown: showdown,
+				},
+			}
+			t.broadcastToAll(envShowdown)
 		}
-		t.broadcastToAll(envShowdown)
+	} else {
+		t.broadcastWinByFold(result, excessRefund)
 	}
 
 	// Send HandEnd
@@ -669,12 +645,347 @@ func (t *Table) broadcastHandEnd(result *holdem.SettlementResult) {
 		ServerTsMs: time.Now().UnixMilli(),
 		Payload: &pb.ServerEnvelope_HandEnd{
 			HandEnd: &pb.HandEnd{
-				Round:       t.round,
-				StackDeltas: stackDeltas,
+				Round:        t.round,
+				StackDeltas:  stackDeltas,
+				ExcessRefund: excessRefund,
+				NetResults:   netResults,
 			},
 		},
 	}
 	t.broadcastToAll(envEnd)
+}
+
+func (t *Table) syncPlayerStacksFromSnapshot(snap holdem.Snapshot) {
+	for _, ps := range snap.Players {
+		userID := t.seats[ps.Chair]
+		if userID == 0 {
+			continue
+		}
+		if pc := t.players[userID]; pc != nil {
+			pc.Stack = ps.Stack
+		}
+	}
+}
+
+func (t *Table) broadcastStreetStateTransitions(before, after holdem.Snapshot) {
+	beforeCount := len(before.CommunityCards)
+	afterCount := len(after.CommunityCards)
+
+	if beforeCount < 3 && afterCount >= 3 {
+		flop := after.CommunityCards[:3]
+		t.broadcastDealBoard(pb.Phase_PHASE_FLOP, flop)
+		t.broadcastPhaseChange(holdem.PhaseTypeFlop, flop, after.Pots, after)
+	}
+	if beforeCount < 4 && afterCount >= 4 {
+		turnBoard := after.CommunityCards[:4]
+		t.broadcastDealBoard(pb.Phase_PHASE_TURN, after.CommunityCards[3:4])
+		t.broadcastPhaseChange(holdem.PhaseTypeTurn, turnBoard, after.Pots, after)
+	}
+	if beforeCount < 5 && afterCount >= 5 {
+		riverBoard := after.CommunityCards[:5]
+		t.broadcastDealBoard(pb.Phase_PHASE_RIVER, after.CommunityCards[4:5])
+		t.broadcastPhaseChange(holdem.PhaseTypeRiver, riverBoard, after.Pots, after)
+	}
+}
+
+func (t *Table) broadcastDealBoard(phase pb.Phase, cards []card.Card) {
+	board := &pb.DealBoard{
+		Phase: phase,
+		Cards: cardsToProto(cards),
+	}
+	env := &pb.ServerEnvelope{
+		TableId:    t.ID,
+		ServerSeq:  t.nextSeq(),
+		ServerTsMs: time.Now().UnixMilli(),
+		Payload: &pb.ServerEnvelope_DealBoard{
+			DealBoard: board,
+		},
+	}
+	t.broadcastToAll(env)
+}
+
+func (t *Table) broadcastPotUpdate(pots []holdem.PotSnapshot) {
+	update := &pb.PotUpdate{
+		Pots: potsToProto(pots),
+	}
+	env := &pb.ServerEnvelope{
+		TableId:    t.ID,
+		ServerSeq:  t.nextSeq(),
+		ServerTsMs: time.Now().UnixMilli(),
+		Payload: &pb.ServerEnvelope_PotUpdate{
+			PotUpdate: update,
+		},
+	}
+	t.broadcastToAll(env)
+}
+
+func (t *Table) broadcastPhaseChange(phase holdem.Phase, board []card.Card, pots []holdem.PotSnapshot, snap holdem.Snapshot) {
+	communityCards := cardsToProto(board)
+	potProtos := potsToProto(pots)
+	base := &pb.PhaseChange{
+		Phase:          phaseToProto(phase),
+		CommunityCards: communityCards,
+		Pots:           potProtos,
+	}
+
+	// my_hand_rank/my_hand_value are only meaningful when 5 board cards are available.
+	if len(board) < 5 {
+		env := &pb.ServerEnvelope{
+			TableId:    t.ID,
+			ServerSeq:  t.nextSeq(),
+			ServerTsMs: time.Now().UnixMilli(),
+			Payload: &pb.ServerEnvelope_PhaseChange{
+				PhaseChange: base,
+			},
+		}
+		t.broadcastToAll(env)
+		return
+	}
+
+	for userID, pc := range t.players {
+		msg := &pb.PhaseChange{
+			Phase:          base.Phase,
+			CommunityCards: base.CommunityCards,
+			Pots:           base.Pots,
+		}
+		if pc != nil && pc.Chair != holdem.InvalidChair {
+			if rank, value, ok := evaluateMyHand(snap, pc.Chair); ok {
+				msg.MyHandRank = &rank
+				msg.MyHandValue = &value
+			}
+		}
+		env := &pb.ServerEnvelope{
+			TableId:    t.ID,
+			ServerSeq:  t.nextSeq(),
+			ServerTsMs: time.Now().UnixMilli(),
+			Payload: &pb.ServerEnvelope_PhaseChange{
+				PhaseChange: msg,
+			},
+		}
+		t.sendToUser(userID, env)
+	}
+}
+
+func (t *Table) broadcastWinByFold(result *holdem.SettlementResult, excessRefund *pb.ExcessRefund) {
+	var winnerChair uint16
+	var found bool
+	var winnerWinAmount int64
+	for _, pr := range result.PlayerResults {
+		if pr.IsWinner {
+			winnerChair = pr.Chair
+			winnerWinAmount = pr.WinAmount
+			found = true
+			break
+		}
+	}
+	if !found {
+		return
+	}
+	potTotal := totalPotResultAmount(result)
+	if potTotal == 0 {
+		potTotal = winnerWinAmount
+	}
+
+	env := &pb.ServerEnvelope{
+		TableId:    t.ID,
+		ServerSeq:  t.nextSeq(),
+		ServerTsMs: time.Now().UnixMilli(),
+		Payload: &pb.ServerEnvelope_WinByFold{
+			WinByFold: &pb.WinByFold{
+				WinnerChair:  uint32(winnerChair),
+				PotTotal:     potTotal,
+				ExcessRefund: excessRefund,
+			},
+		},
+	}
+	t.broadcastToAll(env)
+}
+
+func (t *Table) buildStackDeltas(snap holdem.Snapshot) []*pb.StackDelta {
+	stackDeltas := make([]*pb.StackDelta, 0, len(snap.Players))
+	for _, ps := range snap.Players {
+		start := ps.Stack
+		if stack, ok := t.handStartStacks[ps.Chair]; ok {
+			start = stack
+		}
+		stackDeltas = append(stackDeltas, &pb.StackDelta{
+			Chair:    uint32(ps.Chair),
+			Delta:    ps.Stack - start,
+			NewStack: ps.Stack,
+		})
+	}
+	return stackDeltas
+}
+
+func buildShowdown(result *holdem.SettlementResult, excessRefund *pb.ExcessRefund, netResults []*pb.NetResult) *pb.Showdown {
+	showdown := &pb.Showdown{
+		ExcessRefund: excessRefund,
+		NetResults:   netResults,
+	}
+
+	for _, pr := range result.PotResults {
+		winners := make([]*pb.Winner, 0, len(pr.Winners))
+		for i, chair := range pr.Winners {
+			amount := int64(0)
+			if i < len(pr.WinAmounts) {
+				amount = pr.WinAmounts[i]
+			}
+			winners = append(winners, &pb.Winner{
+				Chair:     uint32(chair),
+				WinAmount: amount,
+			})
+		}
+		showdown.PotResults = append(showdown.PotResults, &pb.PotResult{
+			PotAmount: pr.Amount,
+			Winners:   winners,
+		})
+	}
+
+	for _, pr := range result.PlayerResults {
+		if pr.HandType == 0 {
+			continue
+		}
+		showdown.Hands = append(showdown.Hands, &pb.ShowdownHand{
+			Chair:     uint32(pr.Chair),
+			HoleCards: cardsToProto(pr.HandCards),
+			BestFive:  cardsToProto(pr.BestFiveCards),
+			Rank:      handRankToProto(pr.HandType),
+		})
+	}
+
+	if len(showdown.PotResults) == 0 && len(showdown.Hands) == 0 && len(showdown.NetResults) == 0 && showdown.ExcessRefund == nil {
+		return nil
+	}
+	return showdown
+}
+
+func buildNetResults(result *holdem.SettlementResult, snap holdem.Snapshot) []*pb.NetResult {
+	perChair := make(map[uint16]holdem.ShowdownPlayerResult, len(result.PlayerResults))
+	for _, pr := range result.PlayerResults {
+		perChair[pr.Chair] = pr
+	}
+
+	netResults := make([]*pb.NetResult, 0, len(snap.Players))
+	for _, ps := range snap.Players {
+		net := &pb.NetResult{Chair: uint32(ps.Chair)}
+		if pr, ok := perChair[ps.Chair]; ok {
+			net.WinAmount = pr.WinAmount
+			net.IsWinner = pr.IsWinner
+		}
+		netResults = append(netResults, net)
+	}
+	return netResults
+}
+
+func toExcessRefund(result *holdem.SettlementResult) *pb.ExcessRefund {
+	if result.ExcessAmount <= 0 {
+		return nil
+	}
+	if result.ExcessChair == holdem.InvalidChair {
+		return nil
+	}
+	return &pb.ExcessRefund{
+		Chair:  uint32(result.ExcessChair),
+		Amount: result.ExcessAmount,
+	}
+}
+
+func hasShowdownHands(result *holdem.SettlementResult) bool {
+	for _, pr := range result.PlayerResults {
+		if pr.HandType > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func totalPotAmount(snap holdem.Snapshot) int64 {
+	var potTotal int64
+	for _, pot := range snap.Pots {
+		potTotal += pot.Amount
+	}
+	for _, ps := range snap.Players {
+		potTotal += ps.Bet
+	}
+	return potTotal
+}
+
+func totalPotResultAmount(result *holdem.SettlementResult) int64 {
+	var total int64
+	for _, pot := range result.PotResults {
+		total += pot.Amount
+	}
+	return total
+}
+
+func cardsToProto(cards []card.Card) []*pb.Card {
+	protoCards := make([]*pb.Card, 0, len(cards))
+	for _, c := range cards {
+		protoCards = append(protoCards, cardToProto(c))
+	}
+	return protoCards
+}
+
+func potsToProto(pots []holdem.PotSnapshot) []*pb.Pot {
+	protoPots := make([]*pb.Pot, 0, len(pots))
+	for _, pot := range pots {
+		p := &pb.Pot{Amount: pot.Amount}
+		eligible := append([]uint16{}, pot.EligiblePlayers...)
+		sort.Slice(eligible, func(i, j int) bool { return eligible[i] < eligible[j] })
+		for _, chair := range eligible {
+			p.EligibleChairs = append(p.EligibleChairs, uint32(chair))
+		}
+		protoPots = append(protoPots, p)
+	}
+	return protoPots
+}
+
+func evaluateMyHand(snap holdem.Snapshot, chair uint16) (pb.HandRank, uint32, bool) {
+	if len(snap.CommunityCards) != 5 {
+		return pb.HandRank_HAND_RANK_UNSPECIFIED, 0, false
+	}
+	var holeCards []card.Card
+	for _, ps := range snap.Players {
+		if ps.Chair == chair {
+			holeCards = ps.HandCards
+			break
+		}
+	}
+	if len(holeCards) != 2 {
+		return pb.HandRank_HAND_RANK_UNSPECIFIED, 0, false
+	}
+	allCards := make([]card.Card, 0, 7)
+	allCards = append(allCards, holeCards...)
+	allCards = append(allCards, snap.CommunityCards...)
+	eval := holdem.EvalBestOf7(allCards)
+	if eval == nil {
+		return pb.HandRank_HAND_RANK_UNSPECIFIED, 0, false
+	}
+	return handRankToProto(eval.HandType), eval.Score, true
+}
+
+func potsChanged(before, after []holdem.PotSnapshot) bool {
+	if len(before) != len(after) {
+		return true
+	}
+	for i := range before {
+		if before[i].Amount != after[i].Amount {
+			return true
+		}
+		if len(before[i].EligiblePlayers) != len(after[i].EligiblePlayers) {
+			return true
+		}
+		b1 := append([]uint16{}, before[i].EligiblePlayers...)
+		b2 := append([]uint16{}, after[i].EligiblePlayers...)
+		sort.Slice(b1, func(x, y int) bool { return b1[x] < b1[y] })
+		sort.Slice(b2, func(x, y int) bool { return b2[x] < b2[y] })
+		for j := range b1 {
+			if b1[j] != b2[j] {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // --- Proto conversion helpers ---

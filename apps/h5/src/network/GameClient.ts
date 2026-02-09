@@ -13,20 +13,26 @@ import {
     type DealHoleCards,
     type DealBoard,
     type ActionResult,
+    type PotUpdate,
+    type PhaseChange,
     type Showdown,
     type HandEnd,
+    type WinByFold,
     type SeatUpdate,
 } from '@gen/messages_pb';
 
-type MessageHandler = {
+export type MessageHandler = {
     onSnapshot?: (snapshot: TableSnapshot) => void;
     onActionPrompt?: (prompt: ActionPrompt) => void;
     onHandStart?: (start: HandStart) => void;
     onHoleCards?: (cards: DealHoleCards) => void;
     onBoard?: (board: DealBoard) => void;
+    onPotUpdate?: (update: PotUpdate) => void;
+    onPhaseChange?: (phaseChange: PhaseChange) => void;
     onActionResult?: (result: ActionResult) => void;
     onShowdown?: (showdown: Showdown) => void;
     onHandEnd?: (end: HandEnd) => void;
+    onWinByFold?: (winByFold: WinByFold) => void;
     onError?: (code: number, message: string) => void;
     onConnect?: () => void;
     onDisconnect?: () => void;
@@ -40,7 +46,7 @@ export class GameClient {
     private ack = 0n;
     private tableId = '';
     public userId = 0;
-    private handlers: MessageHandler = {};
+    private listeners = new Set<MessageHandler>();
     private reconnectTimer: number | null = null;
 
     // Track which chair we're sitting at
@@ -51,6 +57,9 @@ export class GameClient {
     public lastHoleCards: DealHoleCards | null = null;
     public lastActionPrompt: ActionPrompt | null = null;
     public lastHandStart: HandStart | null = null;
+    public lastPotUpdate: PotUpdate | null = null;
+    public lastPhaseChange: PhaseChange | null = null;
+    private myBet: bigint = 0n;
 
     constructor(url: string = '/ws') {
         // Use relative URL for dev proxy
@@ -59,8 +68,17 @@ export class GameClient {
             : url;
     }
 
-    setHandlers(handlers: MessageHandler): void {
-        this.handlers = handlers;
+    subscribe(handlers: MessageHandler): () => void {
+        this.listeners.add(handlers);
+        return () => {
+            this.listeners.delete(handlers);
+        };
+    }
+
+    private notify(run: (h: MessageHandler) => void): void {
+        for (const listener of this.listeners) {
+            run(listener);
+        }
     }
 
     connect(): Promise<void> {
@@ -71,13 +89,13 @@ export class GameClient {
 
                 this.ws.onopen = () => {
                     console.log('[GameClient] Connected');
-                    this.handlers.onConnect?.();
+                    this.notify((h) => h.onConnect?.());
                     resolve();
                 };
 
                 this.ws.onclose = (event) => {
                     console.log('[GameClient] Disconnected', event.code, event.reason);
-                    this.handlers.onDisconnect?.();
+                    this.notify((h) => h.onDisconnect?.());
                     this.scheduleReconnect();
                 };
 
@@ -115,46 +133,151 @@ export class GameClient {
 
             switch (env.payload.case) {
                 case 'tableSnapshot':
-                    this.lastSnapshot = env.payload.value;
-                    this.handlers.onSnapshot?.(env.payload.value);
+                    {
+                    const value = env.payload.value;
+                    this.lastSnapshot = value;
+                    this.lastPotUpdate = null;
+                    this.lastPhaseChange = null;
+                    this.syncHeroFromSnapshot(value);
+                    this.notify((h) => h.onSnapshot?.(value));
                     break;
+                    }
                 case 'actionPrompt':
-                    this.lastActionPrompt = env.payload.value;
-                    this.handlers.onActionPrompt?.(env.payload.value);
+                    {
+                    const value = env.payload.value;
+                    this.lastActionPrompt = value;
+                    this.notify((h) => h.onActionPrompt?.(value));
                     break;
+                    }
                 case 'handStart':
-                    this.lastHandStart = env.payload.value;
+                    {
+                    const value = env.payload.value;
+                    this.lastHandStart = value;
                     // Clear hole cards on new hand
                     this.lastHoleCards = null;
                     this.lastActionPrompt = null;
-                    this.handlers.onHandStart?.(env.payload.value);
+                    this.lastPotUpdate = null;
+                    this.lastPhaseChange = null;
+                    this.resetHeroRoundState();
+                    this.notify((h) => h.onHandStart?.(value));
                     break;
+                    }
                 case 'dealHoleCards':
-                    this.lastHoleCards = env.payload.value;
-                    this.handlers.onHoleCards?.(env.payload.value);
+                    {
+                    const value = env.payload.value;
+                    this.lastHoleCards = value;
+                    this.notify((h) => h.onHoleCards?.(value));
                     break;
+                    }
                 case 'dealBoard':
-                    this.handlers.onBoard?.(env.payload.value);
+                    {
+                    const value = env.payload.value;
+                    this.notify((h) => h.onBoard?.(value));
                     break;
+                    }
+                case 'potUpdate':
+                    {
+                    const value = env.payload.value;
+                    this.lastPotUpdate = value;
+                    this.notify((h) => h.onPotUpdate?.(value));
+                    break;
+                    }
+                case 'phaseChange':
+                    {
+                    const value = env.payload.value;
+                    this.lastPhaseChange = value;
+                    this.resetHeroRoundState();
+                    this.notify((h) => h.onPhaseChange?.(value));
+                    break;
+                    }
                 case 'actionResult':
-                    this.handlers.onActionResult?.(env.payload.value);
+                    {
+                    const value = env.payload.value;
+                    this.updateHeroBetFromAction(value);
+                    this.notify((h) => h.onActionResult?.(value));
                     break;
+                    }
                 case 'showdown':
-                    this.handlers.onShowdown?.(env.payload.value);
+                    {
+                    const value = env.payload.value;
+                    this.notify((h) => h.onShowdown?.(value));
                     break;
+                    }
+                case 'winByFold':
+                    {
+                    const value = env.payload.value;
+                    this.resetHeroRoundState();
+                    this.notify((h) => h.onWinByFold?.(value));
+                    break;
+                    }
                 case 'handEnd':
-                    this.handlers.onHandEnd?.(env.payload.value);
+                    {
+                    const value = env.payload.value;
+                    this.resetHeroRoundState();
+                    this.notify((h) => h.onHandEnd?.(value));
                     break;
+                    }
                 case 'seatUpdate':
-                    this.handlers.onSeatUpdate?.(env.payload.value);
+                    {
+                    const value = env.payload.value;
+                    this.notify((h) => h.onSeatUpdate?.(value));
                     break;
+                    }
                 case 'error':
-                    console.error('[GameClient] Server error', env.payload.value.code, env.payload.value.message);
-                    this.handlers.onError?.(env.payload.value.code, env.payload.value.message);
+                    {
+                    const value = env.payload.value;
+                    console.error('[GameClient] Server error', value.code, value.message);
+                    this.notify((h) => h.onError?.(value.code, value.message));
                     break;
+                    }
             }
         } catch (error) {
             console.error('[GameClient] Failed to parse message', error);
+        }
+    }
+
+    private syncHeroFromSnapshot(snapshot: TableSnapshot): void {
+        if (this.userId !== 0) {
+            for (const player of snapshot.players) {
+                if (player.userId === this.userId) {
+                    this.myChair = player.chair;
+                    this.myBet = player.bet;
+                    return;
+                }
+            }
+        }
+
+        for (const player of snapshot.players) {
+            if (this.myChair !== -1 && player.chair === this.myChair) {
+                this.myBet = player.bet;
+                return;
+            }
+        }
+    }
+
+    private resetHeroRoundState(): void {
+        this.myBet = 0n;
+    }
+
+    private updateHeroBetFromAction(result: ActionResult): void {
+        if (this.myChair === -1) {
+            return;
+        }
+        if (result.chair !== this.myChair) {
+            return;
+        }
+        switch (result.action) {
+            case ActionType.ACTION_BET:
+            case ActionType.ACTION_RAISE:
+            case ActionType.ACTION_CALL:
+            case ActionType.ACTION_ALLIN:
+                this.myBet = result.amount;
+                break;
+            case ActionType.ACTION_CHECK:
+            case ActionType.ACTION_FOLD:
+                break;
+            default:
+                break;
         }
     }
 
@@ -225,6 +348,10 @@ export class GameClient {
 
     allIn(): void {
         this.action(ActionType.ACTION_ALLIN);
+    }
+
+    getMyBet(): bigint {
+        return this.myBet;
     }
 
     disconnect(): void {

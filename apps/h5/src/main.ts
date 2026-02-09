@@ -1,4 +1,10 @@
 import { Application, Container } from 'pixi.js';
+import { createElement } from 'react';
+import { createRoot, type Root } from 'react-dom/client';
+import { requireCanvas, requireUiRoot } from './architecture/boundary';
+import { bindGameClientToStore } from './store/gameStore';
+import { useUiStore, type SceneName } from './store/uiStore';
+import { UiLayerApp } from './ui/UiLayerApp';
 
 // Design dimensions (mobile-first, portrait orientation)
 const DESIGN_WIDTH = 750;
@@ -7,13 +13,32 @@ const DESIGN_HEIGHT = 1334;
 class GameApp {
     private app: Application;
     private currentScene: Container | null = null;
+    private currentSceneName: SceneName = 'boot';
+    private uiRoot: Root | null = null;
+    private unsubscribeUiStore: (() => void) | null = null;
 
     constructor() {
         this.app = new Application();
     }
 
     async init(): Promise<void> {
-        const canvas = document.getElementById('game-canvas') as HTMLCanvasElement;
+        // Pixi and React mount points are separated by boundary contract.
+        const canvas = requireCanvas();
+        const uiLayer = requireUiRoot();
+        bindGameClientToStore();
+
+        this.uiRoot = createRoot(uiLayer);
+        this.uiRoot.render(createElement(UiLayerApp));
+
+        this.unsubscribeUiStore = useUiStore.subscribe((state, prev) => {
+            if (!state.requestedScene || state.requestedScene === prev.requestedScene) {
+                return;
+            }
+            const targetScene = state.requestedScene;
+            void this.loadScene(targetScene).finally(() => {
+                useUiStore.getState().consumeSceneRequest(targetScene);
+            });
+        });
 
         await this.app.init({
             canvas,
@@ -53,6 +78,8 @@ class GameApp {
     async loadScene(sceneName: string): Promise<void> {
         // Clear current scene
         if (this.currentScene) {
+            const disposableScene = this.currentScene as Container & { dispose?: () => void };
+            disposableScene.dispose?.();
             this.app.stage.removeChild(this.currentScene);
             this.currentScene.destroy({ children: true });
         }
@@ -77,6 +104,8 @@ class GameApp {
         }
 
         this.app.stage.addChild(this.currentScene);
+        this.currentSceneName = sceneName as SceneName;
+        useUiStore.getState().setCurrentScene(this.currentSceneName);
     }
 
     get stage(): Container {

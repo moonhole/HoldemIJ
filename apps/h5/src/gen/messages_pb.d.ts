@@ -172,6 +172,18 @@ export declare type ServerEnvelope = Message<"holdem.v1.ServerEnvelope"> & {
      */
     value: HandEnd;
     case: "handEnd";
+  } | {
+    /**
+     * @generated from field: holdem.v1.PhaseChange phase_change = 21;
+     */
+    value: PhaseChange;
+    case: "phaseChange";
+  } | {
+    /**
+     * @generated from field: holdem.v1.WinByFold win_by_fold = 22;
+     */
+    value: WinByFold;
+    case: "winByFold";
   } | { case: undefined; value?: undefined };
 };
 
@@ -601,6 +613,54 @@ export declare type DealBoard = Message<"holdem.v1.DealBoard"> & {
 export declare const DealBoardSchema: GenMessage<DealBoard>;
 
 /**
+ * PhaseChange is a full street-state event for clients that need old-protocol semantics.
+ *
+ * @generated from message holdem.v1.PhaseChange
+ */
+export declare type PhaseChange = Message<"holdem.v1.PhaseChange"> & {
+  /**
+   * Current phase after transition.
+   *
+   * @generated from field: holdem.v1.Phase phase = 1;
+   */
+  phase: Phase;
+
+  /**
+   * Full board cards visible at this phase.
+   *
+   * @generated from field: repeated holdem.v1.Card community_cards = 2;
+   */
+  communityCards: Card[];
+
+  /**
+   * Current pot layout (main/side pots).
+   *
+   * @generated from field: repeated holdem.v1.Pot pots = 3;
+   */
+  pots: Pot[];
+
+  /**
+   * Only sent to the target player; maps old MyHandType.
+   *
+   * @generated from field: optional holdem.v1.HandRank my_hand_rank = 4;
+   */
+  myHandRank?: HandRank;
+
+  /**
+   * Only sent to the target player; maps old MyHandValue.
+   *
+   * @generated from field: optional uint32 my_hand_value = 5;
+   */
+  myHandValue?: number;
+};
+
+/**
+ * Describes the message holdem.v1.PhaseChange.
+ * Use `create(PhaseChangeSchema)` to create a new message.
+ */
+export declare const PhaseChangeSchema: GenMessage<PhaseChange>;
+
+/**
  * @generated from message holdem.v1.ActionPrompt
  */
 export declare type ActionPrompt = Message<"holdem.v1.ActionPrompt"> & {
@@ -701,6 +761,16 @@ export declare type Showdown = Message<"holdem.v1.Showdown"> & {
    * @generated from field: repeated holdem.v1.PotResult pot_results = 2;
    */
   potResults: PotResult[];
+
+  /**
+   * @generated from field: holdem.v1.ExcessRefund excess_refund = 3;
+   */
+  excessRefund?: ExcessRefund;
+
+  /**
+   * @generated from field: repeated holdem.v1.NetResult net_results = 4;
+   */
+  netResults: NetResult[];
 };
 
 /**
@@ -797,6 +867,16 @@ export declare type HandEnd = Message<"holdem.v1.HandEnd"> & {
    * @generated from field: repeated holdem.v1.StackDelta stack_deltas = 2;
    */
   stackDeltas: StackDelta[];
+
+  /**
+   * @generated from field: holdem.v1.ExcessRefund excess_refund = 3;
+   */
+  excessRefund?: ExcessRefund;
+
+  /**
+   * @generated from field: repeated holdem.v1.NetResult net_results = 4;
+   */
+  netResults: NetResult[];
 };
 
 /**
@@ -830,6 +910,79 @@ export declare type StackDelta = Message<"holdem.v1.StackDelta"> & {
  * Use `create(StackDeltaSchema)` to create a new message.
  */
 export declare const StackDeltaSchema: GenMessage<StackDelta>;
+
+/**
+ * @generated from message holdem.v1.WinByFold
+ */
+export declare type WinByFold = Message<"holdem.v1.WinByFold"> & {
+  /**
+   * @generated from field: uint32 winner_chair = 1;
+   */
+  winnerChair: number;
+
+  /**
+   * @generated from field: int64 pot_total = 2;
+   */
+  potTotal: bigint;
+
+  /**
+   * @generated from field: holdem.v1.ExcessRefund excess_refund = 3;
+   */
+  excessRefund?: ExcessRefund;
+};
+
+/**
+ * Describes the message holdem.v1.WinByFold.
+ * Use `create(WinByFoldSchema)` to create a new message.
+ */
+export declare const WinByFoldSchema: GenMessage<WinByFold>;
+
+/**
+ * @generated from message holdem.v1.ExcessRefund
+ */
+export declare type ExcessRefund = Message<"holdem.v1.ExcessRefund"> & {
+  /**
+   * @generated from field: uint32 chair = 1;
+   */
+  chair: number;
+
+  /**
+   * @generated from field: int64 amount = 2;
+   */
+  amount: bigint;
+};
+
+/**
+ * Describes the message holdem.v1.ExcessRefund.
+ * Use `create(ExcessRefundSchema)` to create a new message.
+ */
+export declare const ExcessRefundSchema: GenMessage<ExcessRefund>;
+
+/**
+ * @generated from message holdem.v1.NetResult
+ */
+export declare type NetResult = Message<"holdem.v1.NetResult"> & {
+  /**
+   * @generated from field: uint32 chair = 1;
+   */
+  chair: number;
+
+  /**
+   * @generated from field: int64 win_amount = 2;
+   */
+  winAmount: bigint;
+
+  /**
+   * @generated from field: bool is_winner = 3;
+   */
+  isWinner: boolean;
+};
+
+/**
+ * Describes the message holdem.v1.NetResult.
+ * Use `create(NetResultSchema)` to create a new message.
+ */
+export declare const NetResultSchema: GenMessage<NetResult>;
 
 /**
  * @generated from message holdem.v1.Card

@@ -2,9 +2,9 @@ import { Container, Graphics, Text } from 'pixi.js';
 import { gsap } from 'gsap';
 import type { GameApp } from '../main';
 import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../main';
-import { gameClient } from '../network/GameClient';
-import type { TableSnapshot, PlayerState, Card, ActionPrompt, DealHoleCards, HandStart, SeatUpdate, Showdown } from '@gen/messages_pb';
-import { ActionType, Suit, Rank } from '@gen/messages_pb';
+import { useGameStore } from '../store/gameStore';
+import type { TableSnapshot, PlayerState, Card, Pot, ActionPrompt, DealHoleCards, DealBoard, ActionResult, HandStart, SeatUpdate, Showdown, HandEnd, PotUpdate, PhaseChange, WinByFold } from '@gen/messages_pb';
+import { ActionType, Suit, Rank, Phase, HandRank } from '@gen/messages_pb';
 
 // Colors from cyber-poker design
 const COLORS = {
@@ -35,12 +35,9 @@ export class TableScene extends Container {
     private myCards!: Container;
     private actionPanel!: Container;
     private stackText!: Text;
-    private callToMatchText!: Text;
-    private betAmountText!: Text;
-    private actionButtons!: Container;
-    private quickBetButtons!: Container;
-    private currentPrompt: ActionPrompt | null = null;
     private myChair: number = -1;
+    private boardCards: Card[] = [];
+    private unsubscribeStore: (() => void) | null = null;
 
     // Local state to track all players at the table
     // Maps chair ID -> PlayerState
@@ -71,13 +68,12 @@ export class TableScene extends Container {
         // Bottom action panel with hole cards
         this.createActionPanel();
 
-        // Sync myChair from gameClient
-        this.myChair = gameClient.myChair;
+        this.myChair = useGameStore.getState().myChair;
 
-        // Setup message handlers
+        // Store -> Pixi bridge
         this.setupHandlers();
 
-        // Apply cached state
+        // Apply latest store state
         this.applyCachedState();
     }
 
@@ -231,240 +227,84 @@ export class TableScene extends Container {
         this.stackText.y = 15;
         hudContent.addChild(this.stackText);
 
-        // Call to Match
-        const callLabel = new Text({
-            text: 'CALL TO MATCH',
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 10,
-                letterSpacing: 3,
-                fill: 0x666666,
-                fontWeight: '700',
-            },
-        });
-        callLabel.x = DESIGN_WIDTH - 160;
-        hudContent.addChild(callLabel);
-
-        this.callToMatchText = new Text({
-            text: '$0',
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 20,
-                fontWeight: '700',
-                fill: COLORS.cyan,
-            },
-        });
-        this.callToMatchText.x = DESIGN_WIDTH - 160;
-        this.callToMatchText.y = 15;
-        hudContent.addChild(this.callToMatchText);
-
-        // Action buttons (3 columns)
-        this.actionButtons = new Container();
-        this.actionButtons.y = 60;
-        hudContent.addChild(this.actionButtons);
-
-        this.createActionButtons();
-
-        // Quick bet buttons
-        this.quickBetButtons = new Container();
-        this.quickBetButtons.y = 175;
-        hudContent.addChild(this.quickBetButtons);
-
-        this.createQuickBetButtons();
-
-        // Bet amount display (right side arc slider area)
-        const betContainer = new Container();
-        betContainer.x = DESIGN_WIDTH - 100;
-        betContainer.y = 150;
-        this.actionPanel.addChild(betContainer);
-
-        const betLabel = new Text({
-            text: 'BET AMOUNT',
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 8,
-                letterSpacing: 2,
-                fill: 0x666666,
-            },
-        });
-        betContainer.addChild(betLabel);
-
-        this.betAmountText = new Text({
-            text: '$0',
-            style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 20,
-                fontWeight: '700',
-                fontStyle: 'italic',
-                fill: COLORS.primary,
-            },
-        });
-        this.betAmountText.y = 15;
-        betContainer.addChild(this.betAmountText);
-    }
-
-    private createActionButtons(): void {
-        const buttons = [
-            { label: 'FOLD', icon: '✕', color: 0x1a1a1a, textColor: 0x666666 },
-            { label: 'CHECK', icon: '✓', color: 0x003333, textColor: COLORS.cyan, action: ActionType.ACTION_CHECK },
-            { label: 'RAISE', icon: '↑', color: COLORS.primary, textColor: 0xffffff, action: ActionType.ACTION_RAISE, glow: true },
-        ];
-
-        const btnSize = 85;
-        const gap = 15;
-        const totalWidth = buttons.length * btnSize + (buttons.length - 1) * gap;
-        const startX = (DESIGN_WIDTH - 60 - totalWidth) / 2;
-
-        buttons.forEach((btn, i) => {
-            const btnContainer = new Container();
-            btnContainer.x = startX + i * (btnSize + gap);
-            btnContainer.name = btn.label;
-            btnContainer.visible = false;
-
-            // Button background with glow
-            const bg = new Graphics();
-            bg.roundRect(0, 0, btnSize, btnSize, 15);
-            bg.fill({ color: btn.color });
-            if (btn.glow) {
-                // Glow effect simulation
-                const glow = new Graphics();
-                glow.roundRect(-5, -5, btnSize + 10, btnSize + 10, 18);
-                glow.fill({ color: COLORS.primary, alpha: 0.2 });
-                btnContainer.addChild(glow);
-            }
-            btnContainer.addChild(bg);
-
-            // Icon
-            const icon = new Text({
-                text: btn.icon,
-                style: {
-                    fontFamily: 'Inter, sans-serif',
-                    fontSize: 24,
-                    fill: btn.textColor,
-                },
-            });
-            icon.anchor.set(0.5);
-            icon.x = btnSize / 2;
-            icon.y = btnSize / 2 - 10;
-            btnContainer.addChild(icon);
-
-            // Label
-            const label = new Text({
-                text: btn.label,
-                style: {
-                    fontFamily: 'Space Grotesk, Inter, sans-serif',
-                    fontSize: 9,
-                    letterSpacing: 2,
-                    fontWeight: '700',
-                    fill: btn.textColor,
-                },
-            });
-            label.anchor.set(0.5);
-            label.x = btnSize / 2;
-            label.y = btnSize / 2 + 20;
-            btnContainer.addChild(label);
-
-            btnContainer.eventMode = 'static';
-            btnContainer.cursor = 'pointer';
-
-            btnContainer.on('pointerdown', () => {
-                btnContainer.scale.set(0.95);
-            });
-
-            btnContainer.on('pointerup', () => {
-                btnContainer.scale.set(1);
-                this.handleAction(btn.label);
-            });
-
-            btnContainer.on('pointerupoutside', () => {
-                btnContainer.scale.set(1);
-            });
-
-            this.actionButtons.addChild(btnContainer);
-        });
-    }
-
-    private createQuickBetButtons(): void {
-        const buttons = ['MIN', '1/2 POT', 'ALL IN'];
-        const btnWidth = (DESIGN_WIDTH - 120) / 3;
-        const gap = 10;
-
-        buttons.forEach((label, i) => {
-            const btnContainer = new Container();
-            btnContainer.x = i * (btnWidth + gap);
-
-            const bg = new Graphics();
-            bg.roundRect(0, 0, btnWidth - gap, 40, 8);
-            bg.fill({ color: 0x1a1a1a });
-            bg.stroke({ color: 0x333333, width: 1 });
-            btnContainer.addChild(bg);
-
-            const text = new Text({
-                text: label,
-                style: {
-                    fontFamily: 'Space Grotesk, Inter, sans-serif',
-                    fontSize: 10,
-                    letterSpacing: 2,
-                    fontWeight: '700',
-                    fill: 0x888888,
-                },
-            });
-            text.anchor.set(0.5);
-            text.x = (btnWidth - gap) / 2;
-            text.y = 20;
-            btnContainer.addChild(text);
-
-            btnContainer.eventMode = 'static';
-            btnContainer.cursor = 'pointer';
-
-            btnContainer.on('pointerup', () => {
-                if (label === 'ALL IN') {
-                    gameClient.allIn();
-                    this.hideActionButtons();
-                } else if (label === 'MIN' && this.currentPrompt) {
-                    gameClient.raise(this.currentPrompt.minRaiseTo);
-                    this.hideActionButtons();
-                }
-            });
-
-            this.quickBetButtons.addChild(btnContainer);
-        });
     }
 
     private setupHandlers(): void {
-        gameClient.setHandlers({
-            onSnapshot: (snap) => this.handleSnapshot(snap),
-            onHandStart: (start) => this.handleHandStart(start),
-            onHoleCards: (deal) => this.handleHoleCards(deal),
-            onActionPrompt: (prompt) => this.handleActionPrompt(prompt),
-            onActionResult: (result) => {
-                console.log('[TableScene] Action result:', result);
-                this.updatePot(result.newPotTotal);
-            },
-            onHandEnd: (end) => {
-                console.log('[TableScene] Hand ended:', end);
-                this.hideActionButtons();
-            },
-            onSeatUpdate: (update) => this.handleSeatUpdate(update),
-            onShowdown: (showdown) => this.handleShowdown(showdown),
-            onError: (code, msg) => {
-                console.error('[TableScene] Error:', code, msg);
-            },
+        this.unsubscribeStore = useGameStore.subscribe((state, prev) => {
+            this.myChair = state.myChair;
+            if (state.streamSeq === prev.streamSeq || !state.lastEvent) {
+                return;
+            }
+            const event = state.lastEvent;
+            switch (event.type) {
+                case 'snapshot':
+                    this.handleSnapshot(event.value);
+                    break;
+                case 'handStart':
+                    this.handleHandStart(event.value);
+                    break;
+                case 'holeCards':
+                    this.handleHoleCards(event.value);
+                    break;
+                case 'board':
+                    this.handleBoard(event.value);
+                    break;
+                case 'potUpdate':
+                    this.handlePotUpdate(event.value);
+                    break;
+                case 'phaseChange':
+                    this.handlePhaseChange(event.value);
+                    break;
+                case 'actionPrompt':
+                    this.handleActionPrompt(event.value);
+                    break;
+                case 'actionResult':
+                    console.log('[TableScene] Action result:', event.value);
+                    this.handleActionResult(event.value);
+                    this.updatePot(event.value.newPotTotal);
+                    break;
+                case 'handEnd':
+                    this.handleHandEnd(event.value);
+                    break;
+                case 'seatUpdate':
+                    this.handleSeatUpdate(event.value);
+                    break;
+                case 'showdown':
+                    this.handleShowdown(event.value);
+                    break;
+                case 'winByFold':
+                    this.handleWinByFold(event.value);
+                    break;
+                case 'error':
+                    console.error('[TableScene] Error:', event.code, event.message);
+                    break;
+                case 'connect':
+                case 'disconnect':
+                    break;
+            }
         });
     }
 
     private applyCachedState(): void {
-        if (gameClient.lastSnapshot) {
-            this.handleSnapshot(gameClient.lastSnapshot);
+        const state = useGameStore.getState();
+        this.myChair = state.myChair;
+        if (state.snapshot) {
+            this.handleSnapshot(state.snapshot);
         }
-        if (gameClient.lastHandStart) {
-            this.handleHandStart(gameClient.lastHandStart);
+        if (state.handStart) {
+            this.handleHandStart(state.handStart);
         }
-        if (gameClient.lastHoleCards) {
-            this.handleHoleCards(gameClient.lastHoleCards);
+        if (state.holeCards) {
+            this.handleHoleCards(state.holeCards);
         }
-        if (gameClient.lastActionPrompt) {
-            this.handleActionPrompt(gameClient.lastActionPrompt);
+        if (state.actionPrompt) {
+            this.handleActionPrompt(state.actionPrompt);
+        }
+        if (state.phaseChange) {
+            this.handlePhaseChange(state.phaseChange);
+        }
+        if (state.potUpdate) {
+            this.handlePotUpdate(state.potUpdate);
         }
     }
 
@@ -484,27 +324,21 @@ export class TableScene extends Container {
                 console.warn('[TableScene] My chair not found in snapshot players');
             }
         } else {
-            // Try to find my chair by userId
-            for (const p of snap.players) {
-                if (p.userId === gameClient.userId) {
-                    this.myChair = p.chair;
-                    break;
-                }
+            const storeChair = useGameStore.getState().myChair;
+            if (storeChair !== -1) {
+                this.myChair = storeChair;
             }
         }
 
         // Update pot
-        let potTotal = 0n;
-        for (const pot of snap.pots) {
-            potTotal += pot.amount;
-        }
-        this.updatePot(potTotal);
+        this.updatePotFromPots(snap.pots);
 
         // Update seats logic
         this.updateSeats();
 
         // Update community cards
-        this.updateCommunityCards(snap.communityCards);
+        this.boardCards = [...snap.communityCards];
+        this.updateCommunityCards(this.boardCards);
 
         // Active player highlight
         this.updateActivePlayer(snap.actionChair);
@@ -519,7 +353,7 @@ export class TableScene extends Container {
             case 'playerJoined':
                 const player = update.update.value;
                 this.players.set(chair, player);
-                if (player.userId === gameClient.userId) {
+                if (chair === useGameStore.getState().myChair) {
                     this.myChair = chair;
                 }
                 break;
@@ -584,7 +418,7 @@ export class TableScene extends Container {
         this.opponentViews.forEach(ov => ov.setActive(false));
 
         const activePlayer = this.players.get(actionChair);
-        if (activePlayer && activePlayer.userId !== gameClient.userId) {
+        if (activePlayer && activePlayer.chair !== this.myChair) {
             for (const ov of this.opponentViews) {
                 if (ov.userId === activePlayer.userId) {
                     ov.setActive(true);
@@ -597,11 +431,26 @@ export class TableScene extends Container {
         console.log('[TableScene] Hand started:', start);
         this.myCards.removeChildren();
         this.communityCards.removeChildren();
+        this.boardCards = [];
+        this.updatePot(0n);
+
+        // Reset per-hand player state so updateSeats() can immediately render opponent backs.
+        for (const player of this.players.values()) {
+            player.bet = 0n;
+            player.folded = false;
+            player.allIn = false;
+            player.lastAction = ActionType.ACTION_UNSPECIFIED;
+            player.handCards = [];
+        }
 
         // Clear opponent cards
         for (const ov of this.opponentViews) {
             ov.clearCards();
         }
+
+        // Re-render seat state right away so opponents show card backs before first action.
+        this.updateSeats();
+        this.updateActivePlayer(-1);
     }
 
     private handleHoleCards(deal: DealHoleCards): void {
@@ -617,20 +466,65 @@ export class TableScene extends Container {
         }
     }
 
+    private handleBoard(board: DealBoard): void {
+        console.log('[TableScene] Board dealt:', board.phase, board.cards);
+        if (board.phase === Phase.FLOP) {
+            this.boardCards = [...board.cards];
+        } else {
+            this.boardCards = [...this.boardCards, ...board.cards];
+            if (board.phase === Phase.TURN) {
+                this.boardCards = this.boardCards.slice(0, 4);
+            } else if (board.phase === Phase.RIVER) {
+                this.boardCards = this.boardCards.slice(0, 5);
+            }
+        }
+        this.updateCommunityCards(this.boardCards);
+    }
+
+    private handlePotUpdate(update: PotUpdate): void {
+        console.log('[TableScene] Pot update:', update);
+        this.updatePotFromPots(update.pots);
+    }
+
+    private handlePhaseChange(phaseChange: PhaseChange): void {
+        console.log('[TableScene] Phase change:', phaseChange.phase, phaseChange);
+        this.boardCards = [...phaseChange.communityCards];
+        this.updateCommunityCards(this.boardCards);
+        this.updatePotFromPots(phaseChange.pots);
+
+        if (phaseChange.myHandRank !== undefined) {
+            const handLabel = this.getHandRankLabel(phaseChange.myHandRank);
+            const handValue = phaseChange.myHandValue !== undefined ? ` value=${phaseChange.myHandValue}` : '';
+            console.log(`[TableScene] My hand: ${handLabel}${handValue}`);
+        }
+    }
+
+    private handleActionResult(result: ActionResult): void {
+        const player = this.players.get(result.chair);
+        if (!player) {
+            return;
+        }
+        player.stack = result.newStack;
+        player.lastAction = result.action;
+        if (result.action === ActionType.ACTION_FOLD) {
+            player.folded = true;
+        }
+        if (result.action === ActionType.ACTION_ALLIN) {
+            player.allIn = true;
+        }
+        this.updateSeats();
+    }
+
     private handleActionPrompt(prompt: ActionPrompt): void {
         console.log('[TableScene] Action prompt:', prompt);
-        this.currentPrompt = prompt;
 
         if (this.myChair === -1) {
-            this.myChair = gameClient.myChair !== -1 ? gameClient.myChair : prompt.chair;
+            const storeChair = useGameStore.getState().myChair;
+            this.myChair = storeChair !== -1 ? storeChair : prompt.chair;
             // re-update seats now that we know who we are
             this.updateSeats();
         }
 
-        this.callToMatchText.text = `$${prompt.callAmount}`;
-        this.betAmountText.text = `$${prompt.minRaiseTo}`;
-
-        this.showActionButtons(prompt);
         this.updateActivePlayer(prompt.chair);
     }
 
@@ -660,6 +554,72 @@ export class TableScene extends Container {
             for (const winner of pr.winners) {
                 console.log(`[TableScene] Pot Winner: Chair ${winner.chair} wins ${winner.winAmount}`);
             }
+        }
+
+        if (showdown.excessRefund) {
+            console.log(`[TableScene] Excess refund: Chair ${showdown.excessRefund.chair} +${showdown.excessRefund.amount}`);
+        }
+        for (const net of showdown.netResults) {
+            if (net.isWinner || net.winAmount !== 0n) {
+                console.log(`[TableScene] Net result: chair=${net.chair} win=${net.winAmount} winner=${net.isWinner}`);
+            }
+        }
+    }
+
+    private handleHandEnd(end: HandEnd): void {
+        console.log('[TableScene] Hand ended:', end);
+        this.updateActivePlayer(-1);
+
+        for (const stackDelta of end.stackDeltas) {
+            const player = this.players.get(stackDelta.chair);
+            if (!player) {
+                continue;
+            }
+            player.stack = stackDelta.newStack;
+            player.bet = 0n;
+            player.folded = false;
+            player.allIn = false;
+            player.lastAction = ActionType.ACTION_UNSPECIFIED;
+        }
+        this.updateSeats();
+
+        if (end.excessRefund) {
+            console.log(`[TableScene] HandEnd excess refund: Chair ${end.excessRefund.chair} +${end.excessRefund.amount}`);
+        }
+        for (const net of end.netResults) {
+            if (net.isWinner || net.winAmount !== 0n) {
+                console.log(`[TableScene] HandEnd net: chair=${net.chair} win=${net.winAmount} winner=${net.isWinner}`);
+            }
+        }
+    }
+
+    private handleWinByFold(winByFold: WinByFold): void {
+        console.log('[TableScene] Win by fold:', winByFold);
+        this.updateActivePlayer(-1);
+        this.updatePot(winByFold.potTotal);
+    }
+
+    private updatePotFromPots(pots: Pot[]): void {
+        let potTotal = 0n;
+        for (const pot of pots) {
+            potTotal += pot.amount;
+        }
+        this.updatePot(potTotal);
+    }
+
+    private getHandRankLabel(rank: HandRank): string {
+        switch (rank) {
+            case HandRank.HIGH_CARD: return 'High Card';
+            case HandRank.ONE_PAIR: return 'One Pair';
+            case HandRank.TWO_PAIR: return 'Two Pair';
+            case HandRank.THREE_OF_KIND: return 'Three of a Kind';
+            case HandRank.STRAIGHT: return 'Straight';
+            case HandRank.FLUSH: return 'Flush';
+            case HandRank.FULL_HOUSE: return 'Full House';
+            case HandRank.FOUR_OF_KIND: return 'Four of a Kind';
+            case HandRank.STRAIGHT_FLUSH: return 'Straight Flush';
+            case HandRank.ROYAL_FLUSH: return 'Royal Flush';
+            default: return 'Unknown';
         }
     }
 
@@ -836,90 +796,19 @@ export class TableScene extends Container {
 
     private getSuitSymbol(suit: Suit): string {
         switch (suit) {
-            case Suit.SPADE: return '♠';
-            case Suit.HEART: return '♥';
-            case Suit.CLUB: return '♣';
-            case Suit.DIAMOND: return '♦';
+            case Suit.SPADE: return 'S';
+            case Suit.HEART: return 'H';
+            case Suit.CLUB: return 'C';
+            case Suit.DIAMOND: return 'D';
             default: return '?';
         }
     }
 
-    private showActionButtons(prompt: ActionPrompt): void {
-        const legalActions = new Set(prompt.legalActions);
-
-        const hasCheck = legalActions.has(ActionType.ACTION_CHECK);
-        const hasCall = legalActions.has(ActionType.ACTION_CALL);
-        const hasRaise = legalActions.has(ActionType.ACTION_RAISE) || legalActions.has(ActionType.ACTION_BET) || legalActions.has(ActionType.ACTION_ALLIN);
-        const hasFold = legalActions.has(ActionType.ACTION_FOLD);
-
-        this.actionButtons.children.forEach((child) => {
-            const btnName = child.name || '';
-            let visible = false;
-
-            if (btnName === 'FOLD') {
-                visible = hasFold;
-            } else if (btnName === 'CHECK') {
-                // Show if check OR call is available
-                visible = hasCheck || hasCall;
-
-                // Update label/icon based on state
-                // Assuming child children: [glow?, bg, icon:Text, label:Text]
-                // We need to find text children.
-                const icon = child.children.find(c => c instanceof Text && (c as Text).style.fontSize === 24) as Text;
-                const label = child.children.find(c => c instanceof Text && (c as Text).style.fontSize === 9) as Text;
-
-                if (label && icon) {
-                    if (hasCall && !hasCheck) {
-                        label.text = 'CALL';
-                        icon.text = '○'; // Circle or other icon
-                    } else {
-                        label.text = 'CHECK';
-                        icon.text = '✓';
-                    }
-                }
-
-            } else if (btnName === 'RAISE') {
-                visible = hasRaise;
-            }
-
-            child.visible = visible;
-        });
-    }
-
-    private hideActionButtons(): void {
-        this.actionButtons.children.forEach((child) => {
-            child.visible = false;
-        });
-    }
-
-    private handleAction(label: string): void {
-        console.log('[TableScene] Action:', label);
-
-        const myBet = this.myChair !== -1 ? (this.players.get(this.myChair)?.bet || 0n) : 0n;
-
-        switch (label) {
-            case 'FOLD':
-                gameClient.fold();
-                break;
-            case 'CHECK':
-                // Check current state of button - is it CHECK or CALL?
-                // Logic: if CALL is legal, call. If valid, check.
-                if (this.currentPrompt?.legalActions.includes(ActionType.ACTION_CALL)) {
-                    // Start of fix: calculate total amount needed for server validation
-                    const amount = (this.currentPrompt?.callAmount || 0n) + myBet;
-                    gameClient.call(amount);
-                } else {
-                    gameClient.check();
-                }
-                break;
-            case 'RAISE':
-                if (this.currentPrompt) {
-                    gameClient.raise(this.currentPrompt.minRaiseTo);
-                }
-                break;
+    public dispose(): void {
+        if (this.unsubscribeStore) {
+            this.unsubscribeStore();
+            this.unsubscribeStore = null;
         }
-
-        this.hideActionButtons();
     }
 }
 
@@ -1122,3 +1011,6 @@ class OpponentView extends Container {
         }
     }
 }
+
+
+
