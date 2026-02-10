@@ -24,9 +24,9 @@ const COLORS = {
 const SEAT_POSITIONS = [
     { x: DESIGN_WIDTH * 0.50, y: 840 },   // [0] Bottom Center (Hero spot)
     { x: DESIGN_WIDTH * 0.15, y: 700 },   // [1] Bottom Left
-    { x: DESIGN_WIDTH * 0.15, y: 340 },   // [2] Top Left
-    { x: DESIGN_WIDTH * 0.50, y: 220 },   // [3] Top Center (Opposite)
-    { x: DESIGN_WIDTH * 0.85, y: 340 },   // [4] Top Right
+    { x: DESIGN_WIDTH * 0.15, y: 300 },   // [2] Top Left
+    { x: DESIGN_WIDTH * 0.50, y: 160 },   // [3] Top Center (Opposite)
+    { x: DESIGN_WIDTH * 0.85, y: 300 },   // [4] Top Right
     { x: DESIGN_WIDTH * 0.85, y: 700 },   // [5] Bottom Right
 ];
 
@@ -66,7 +66,7 @@ export class TableScene extends Container {
 
         // 2. Table Desk (The Play Area - Middle)
         const tabletop = new Graphics();
-        const tabletopY = 120; // Corrected to avoid top card clipping
+        const tabletopY = 80; // Final adjustment for top-row visibility
         const consoleHeight = 680; // Taller console area
         const tabletopBottom = DESIGN_HEIGHT - consoleHeight;
         const tabletopH = tabletopBottom - tabletopY;
@@ -200,21 +200,21 @@ export class TableScene extends Container {
     private createPotDisplay(): void {
         const potContainer = new Container();
         potContainer.x = DESIGN_WIDTH / 2;
-        potContainer.y = 320; // Moved up to clear center for Reactor HUD
+        potContainer.y = 380; // Sunk to clear space for top-row player metadata
         this.addChild(potContainer);
 
         this.potText = new Text({
             text: 'TOTAL POT',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 10,
+                fontSize: 12, // Increased from 10
                 letterSpacing: 4,
                 fill: 0x666666,
                 fontWeight: '700',
             },
         });
         this.potText.anchor.set(0.5);
-        this.potText.y = -35;
+        this.potText.y = -42; // Adjusted from -35
         potContainer.addChild(this.potText);
 
         this.potValueContainer = new Container();
@@ -225,26 +225,26 @@ export class TableScene extends Container {
             text: '$',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 34,
+                fontSize: 42, // Increased from 34
                 fontWeight: '900',
                 fontStyle: 'italic',
                 fill: COLORS.primary,
             },
         });
         this.currencySymbol.anchor.set(1, 0.5);
-        this.currencySymbol.x = -8;
+        this.currencySymbol.x = -10; // Adjusted from -8
         this.potValueContainer.addChild(this.currencySymbol);
 
         this.potAmount = new Text({
             text: '0',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 54,
+                fontSize: 68, // Increased from 54
                 fontWeight: '900',
                 fontStyle: 'italic',
                 fill: 0xffffff,
                 letterSpacing: 2,
-                padding: 12, // Prevent italic clipping
+                padding: 12,
             },
         });
         this.potAmount.anchor.set(0, 0.5);
@@ -257,7 +257,7 @@ export class TableScene extends Container {
     private createActionTimer(): void {
         this.actionTimerContainer = new Container();
         this.actionTimerContainer.x = DESIGN_WIDTH / 2;
-        this.actionTimerContainer.y = 600; // Shifted up to avoid overlap with bet tags
+        this.actionTimerContainer.y = 650; // Sunk to match the adjusted community card flow
         this.actionTimerContainer.visible = false;
         this.addChild(this.actionTimerContainer);
 
@@ -268,7 +268,7 @@ export class TableScene extends Container {
 
         // Progress Ring Track
         const ringTrack = new Graphics();
-        ringTrack.arc(0, 0, 48, 0, Math.PI * 2);
+        ringTrack.arc(0, 0, 60, 0, Math.PI * 2); // Increased from 48
         ringTrack.stroke({ color: 0xffffff, width: 2, alpha: 0.05 });
         this.actionTimerContainer.addChild(ringTrack);
 
@@ -280,7 +280,7 @@ export class TableScene extends Container {
             text: 'TO ACT',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 10,
+                fontSize: 12, // Increased from 10
                 letterSpacing: 1.5,
                 fontWeight: '700',
                 fill: 0x88d9df,
@@ -288,14 +288,14 @@ export class TableScene extends Container {
         });
         this.actionTimerLabel.alpha = 0.7;
         this.actionTimerLabel.anchor.set(0.5);
-        this.actionTimerLabel.y = -18;
+        this.actionTimerLabel.y = -22; // Adjusted from -18
         this.actionTimerContainer.addChild(this.actionTimerLabel);
 
         this.actionTimerValue = new Text({
             text: '0',
             style: {
                 fontFamily: 'Orbitron, Space Grotesk, Inter, sans-serif',
-                fontSize: 28,
+                fontSize: 36, // Increased from 28
                 fontWeight: '900',
                 fill: COLORS.cyan,
             },
@@ -313,11 +313,11 @@ export class TableScene extends Container {
         g.stroke({ color: COLORS.cyan, width: 2, alpha: 0.2 });
 
         // HUD Bracket Left
-        g.moveTo(-70, -20).lineTo(-80, 0).lineTo(-70, 20);
+        g.moveTo(-85, -25).lineTo(-95, 0).lineTo(-85, 25); // Widened
         g.stroke({ color: COLORS.cyan, width: 3, alpha: 0.4 });
 
         // HUD Bracket Right
-        g.moveTo(70, -20).lineTo(80, 0).lineTo(70, 20);
+        g.moveTo(85, -25).lineTo(95, 0).lineTo(85, 25); // Widened
         g.stroke({ color: COLORS.cyan, width: 3, alpha: 0.4 });
 
         // Decorative bits
@@ -343,7 +343,7 @@ export class TableScene extends Container {
     private createCommunityCards(): void {
         this.communityCards = new Container();
         this.communityCards.x = DESIGN_WIDTH / 2;
-        this.communityCards.y = 470; // Moved up to match pot/timer shift
+        this.communityCards.y = 520; // Sunk to follow the pot expansion
         this.addChild(this.communityCards);
     }
 
@@ -598,8 +598,8 @@ export class TableScene extends Container {
             const angle = startAngle + (i / segments) * Math.PI * 2;
             const isFilled = (i / segments) < progress;
             if (isFilled) {
-                this.actionTimerRing.moveTo(Math.cos(angle) * 44, Math.sin(angle) * 44);
-                this.actionTimerRing.lineTo(Math.cos(angle) * 48, Math.sin(angle) * 48);
+                this.actionTimerRing.moveTo(Math.cos(angle) * 56, Math.sin(angle) * 56);
+                this.actionTimerRing.lineTo(Math.cos(angle) * 60, Math.sin(angle) * 60); // Adjusted from 44/48
                 this.actionTimerRing.stroke({ color, width: 2, alpha: 0.6 });
             }
         }
@@ -829,9 +829,9 @@ export class TableScene extends Container {
         const currentCount = this.communityCards.children.filter(c => c.name === 'card').length;
         if (currentCount === cards.length) return;
 
-        const cardW = 55;
-        const cardH = 85;
-        const gap = 8;
+        const cardW = 75; // Increased from 55
+        const cardH = 105; // Increased from 85
+        const gap = 10; // Increased from 8
         const totalCards = 5;
         const totalWidth = totalCards * cardW + (totalCards - 1) * gap;
         const startX = -totalWidth / 2;
@@ -960,12 +960,12 @@ class SeatView extends Container {
         this.addChild(this.avatarContainer);
 
         this.avatarPlaceholder = new Graphics();
-        this.avatarPlaceholder.circle(0, 0, 30);
+        this.avatarPlaceholder.circle(0, 0, 38); // Increased from 30
         this.avatarPlaceholder.fill({ color: 0x222222 });
         this.avatarPlaceholder.stroke({ color: 0x444444, width: 2.5 });
-        this.avatarPlaceholder.circle(0, -6, 11);
+        this.avatarPlaceholder.circle(0, -8, 14); // Scaled
         this.avatarPlaceholder.fill({ color: 0x444444 });
-        this.avatarPlaceholder.ellipse(0, 16, 18, 12);
+        this.avatarPlaceholder.ellipse(0, 20, 22, 16); // Scaled
         this.avatarPlaceholder.fill({ color: 0x444444 });
         this.avatarContainer.addChild(this.avatarPlaceholder);
 
@@ -1007,26 +1007,26 @@ class SeatView extends Container {
 
         this.nameText = new Text({
             text: 'EMPTY',
-            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 11, fontWeight: '700', fill: 0x888888 },
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 13, fontWeight: '700', fill: 0x888888 }, // Increased from 11
         });
         this.nameText.anchor.set(0.5);
-        this.nameText.y = 52;
+        this.nameText.y = 65; // Adjusted from 52
         this.addChild(this.nameText);
 
         this.stackText = new Text({
             text: '',
-            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 10, fill: COLORS.cyan },
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 13, fill: COLORS.cyan }, // Increased from 10
         });
         this.stackText.anchor.set(0.5);
-        this.stackText.y = 66;
+        this.stackText.y = 80; // Adjusted from 66
         this.addChild(this.stackText);
 
         this.statusText = new Text({
             text: '',
-            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 10, fontWeight: '700', fill: COLORS.cyan },
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 13, fontWeight: '700', fill: COLORS.cyan },
         });
         this.statusText.anchor.set(0.5);
-        this.statusText.y = 66;
+        this.statusText.y = 80;
         this.statusText.visible = false;
         this.addChild(this.statusText);
 
@@ -1060,7 +1060,7 @@ class SeatView extends Container {
             text: '$0',
             style: {
                 fontFamily: 'Orbitron, Space Grotesk, Arial',
-                fontSize: 12,
+                fontSize: 15, // Increased from 12
                 fill: 0xffffff,
                 fontWeight: '900',
                 letterSpacing: 1
@@ -1088,7 +1088,7 @@ class SeatView extends Container {
         this.addChild(this.dealerButton);
 
         // Position bet tag towards the center of table
-        const offset = 85;
+        const offset = 105; // Increased from 85 for larger avatars
         switch (index) {
             case 0: // Bottom Center
                 this.betTag.y = -offset;
@@ -1162,7 +1162,8 @@ class SeatView extends Container {
             });
         }
 
-        this.stackText.visible = !player.folded;
+        this.stackText.visible = true;
+        this.stackText.alpha = player.folded ? 0.5 : 1.0;
 
         if (player.folded) {
             this.statusText.text = 'FOLDED';
@@ -1182,7 +1183,7 @@ class SeatView extends Container {
 
         this.avatarFrame.clear();
         const frameColor = player.folded ? 0x333333 : (isMe ? COLORS.cyan : COLORS.primary);
-        this.drawHexagon(this.avatarFrame, 40, 0x0a0609, 1);
+        this.drawHexagon(this.avatarFrame, 50, 0x0a0609, 1); // Increased from 40
         this.avatarFrame.stroke({ color: frameColor, width: 2, alpha: player.folded ? 0.3 : 0.8 });
 
         this.setBet(player.bet);
@@ -1248,17 +1249,13 @@ class SeatView extends Container {
         }
 
         if (isActive) {
-            this.statusText.text = 'THINKING...';
-            this.statusText.style.fill = COLORS.cyan;
-            this.statusText.visible = true;
-            this.statusText.y = 86; // Lowered to avoid overlap with stack at 66
             this.stackText.visible = true;
             this.avatarFrame.clear();
-            this.drawHexagon(this.avatarFrame, 40, 0x1a1a1a);
+            this.drawHexagon(this.avatarFrame, 50, 0x1a1a1a); // Increased from 40
             this.avatarFrame.stroke({ color: COLORS.cyan, width: 3 });
 
             this.lightPoint.visible = true;
-            const size = 40;
+            const size = 50; // Increased from 40
             const vertices: { x: number, y: number }[] = [];
             for (let i = 0; i < 6; i++) {
                 const angle = (Math.PI / 3) * i - Math.PI / 2;
@@ -1306,7 +1303,7 @@ class SeatView extends Container {
         this.avatarContainer.visible = false;
         this.emptyIcon.visible = true;
         this.avatarFrame.clear();
-        this.drawHexagon(this.avatarFrame, 40, 0x0a0609, 0.5);
+        this.drawHexagon(this.avatarFrame, 50, 0x0a0609, 0.5); // Increased from 40
         this.avatarFrame.stroke({ color: 0x333333, width: 1.5, alpha: 0.4 });
         this.betTag.visible = false;
         this.dealerButton.visible = false;
