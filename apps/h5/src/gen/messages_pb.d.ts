@@ -20,9 +20,11 @@ export declare type ClientEnvelope = Message<"holdem.v1.ClientEnvelope"> & {
   tableId: string;
 
   /**
-   * @generated from field: uint32 user_id = 2;
+   * Deprecated: server derives identity from authenticated session token.
+   *
+   * @generated from field: uint64 user_id = 2;
    */
-  userId: number;
+  userId: bigint;
 
   /**
    * Client-incrementing sequence number
@@ -204,9 +206,14 @@ export declare const ServerEnvelopeSchema: GenMessage<ServerEnvelope>;
  */
 export declare type LoginResponse = Message<"holdem.v1.LoginResponse"> & {
   /**
-   * @generated from field: uint32 user_id = 1;
+   * @generated from field: uint64 user_id = 1;
    */
-  userId: number;
+  userId: bigint;
+
+  /**
+   * @generated from field: string session_token = 2;
+   */
+  sessionToken: string;
 };
 
 /**
@@ -439,9 +446,9 @@ export declare const TableConfigSchema: GenMessage<TableConfig>;
  */
 export declare type PlayerState = Message<"holdem.v1.PlayerState"> & {
   /**
-   * @generated from field: uint32 user_id = 1;
+   * @generated from field: uint64 user_id = 1;
    */
-  userId: number;
+  userId: bigint;
 
   /**
    * @generated from field: uint32 chair = 2;
@@ -533,9 +540,9 @@ export declare type SeatUpdate = Message<"holdem.v1.SeatUpdate"> & {
     case: "playerJoined";
   } | {
     /**
-     * @generated from field: uint32 player_left_user_id = 3;
+     * @generated from field: uint64 player_left_user_id = 3;
      */
-    value: number;
+    value: bigint;
     case: "playerLeftUserId";
   } | {
     /**

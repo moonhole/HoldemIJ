@@ -40,12 +40,15 @@ export type MessageHandler = {
 };
 
 export class GameClient {
+    private static readonly SESSION_TOKEN_KEY = 'holdem.session.token';
+
     private ws: WebSocket | null = null;
-    private url: string;
+    private baseUrl: string;
     private seq = 0n;
     private ack = 0n;
     private tableId = '';
-    public userId = 0;
+    public userId = 0n;
+    private sessionToken = '';
     private listeners = new Set<MessageHandler>();
     private reconnectTimer: number | null = null;
 
@@ -63,9 +66,10 @@ export class GameClient {
 
     constructor(url: string = '/ws') {
         // Use relative URL for dev proxy
-        this.url = url.startsWith('/')
+        this.baseUrl = url.startsWith('/')
             ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${url}`
             : url;
+        this.sessionToken = this.readSessionToken();
     }
 
     subscribe(handlers: MessageHandler): () => void {
@@ -84,7 +88,7 @@ export class GameClient {
     connect(): Promise<void> {
         return new Promise((resolve, reject) => {
             try {
-                this.ws = new WebSocket(this.url);
+                this.ws = new WebSocket(this.withSessionToken(this.baseUrl));
                 this.ws.binaryType = 'arraybuffer';
 
                 this.ws.onopen = () => {
@@ -227,7 +231,16 @@ export class GameClient {
                     {
                         const value = env.payload.value;
                         this.userId = value.userId;
-                        console.log('[GameClient] Logged in as user', this.userId);
+                        if (value.sessionToken) {
+                            this.sessionToken = value.sessionToken;
+                            this.persistSessionToken(value.sessionToken);
+                        }
+                        if (this.lastSnapshot) {
+                            // Snapshot may arrive before login response; resync hero seat after auth identity is known.
+                            this.syncHeroFromSnapshot(this.lastSnapshot);
+                            this.notify((h) => h.onSnapshot?.(this.lastSnapshot!));
+                        }
+                        console.log('[GameClient] Logged in as user', this.userId.toString());
                         break;
                     }
                 case 'error':
@@ -244,7 +257,7 @@ export class GameClient {
     }
 
     private syncHeroFromSnapshot(snapshot: TableSnapshot): void {
-        if (this.userId !== 0) {
+        if (this.userId !== 0n) {
             for (const player of snapshot.players) {
                 if (player.userId === this.userId) {
                     this.myChair = player.chair;
@@ -376,6 +389,30 @@ export class GameClient {
 
     get isConnected(): boolean {
         return this.ws?.readyState === WebSocket.OPEN;
+    }
+
+    private withSessionToken(url: string): string {
+        if (!this.sessionToken) {
+            return url;
+        }
+        const separator = url.includes('?') ? '&' : '?';
+        return `${url}${separator}session_token=${encodeURIComponent(this.sessionToken)}`;
+    }
+
+    private readSessionToken(): string {
+        try {
+            return window.localStorage.getItem(GameClient.SESSION_TOKEN_KEY) ?? '';
+        } catch {
+            return '';
+        }
+    }
+
+    private persistSessionToken(token: string): void {
+        try {
+            window.localStorage.setItem(GameClient.SESSION_TOKEN_KEY, token);
+        } catch {
+            // Ignore storage quota or privacy mode failures.
+        }
     }
 }
 

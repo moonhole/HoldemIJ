@@ -4,8 +4,14 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"holdem-lite/apps/server/internal/table"
+)
+
+const (
+	defaultIdleTableTTL    = 2 * time.Minute
+	defaultCleanupInterval = 30 * time.Second
 )
 
 // Lobby manages all tables and player assignments
@@ -16,11 +22,16 @@ type Lobby struct {
 
 	// Default table config
 	defaultConfig table.TableConfig
+
+	idleTableTTL    time.Duration
+	cleanupInterval time.Duration
+	done            chan struct{}
+	stopOnce        sync.Once
 }
 
 // New creates a new lobby
 func New() *Lobby {
-	return &Lobby{
+	l := &Lobby{
 		tables: make(map[string]*table.Table),
 		defaultConfig: table.TableConfig{
 			MaxPlayers: 6,
@@ -30,16 +41,40 @@ func New() *Lobby {
 			MinBuyIn:   5000,
 			MaxBuyIn:   20000,
 		},
+		idleTableTTL:    defaultIdleTableTTL,
+		cleanupInterval: defaultCleanupInterval,
+		done:            make(chan struct{}),
 	}
+	go l.cleanupLoop()
+	return l
 }
 
 // QuickStart finds or creates a table for the player
-func (l *Lobby) QuickStart(userID uint32, broadcastFn func(userID uint32, data []byte)) (*table.Table, error) {
+func (l *Lobby) QuickStart(userID uint64, broadcastFn func(userID uint64, data []byte)) (*table.Table, error) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	// Reconnect/resume path: always prefer the table where the user is already seated.
+	for tableID, t := range l.tables {
+		if t.IsClosed() {
+			delete(l.tables, tableID)
+			continue
+		}
+		snap := t.Snapshot()
+		for _, p := range snap.Players {
+			if p.ID == userID {
+				log.Printf("[Lobby] QuickStart: user %d resuming existing table %s", userID, t.ID)
+				return t, nil
+			}
+		}
+	}
+
 	// Find a table with available seats
-	for _, t := range l.tables {
+	for tableID, t := range l.tables {
+		if t.IsClosed() {
+			delete(l.tables, tableID)
+			continue
+		}
 		snap := t.Snapshot()
 		if len(snap.Players) < int(l.defaultConfig.MaxPlayers) {
 			log.Printf("[Lobby] QuickStart: user %d joining existing table %s", userID, t.ID)
@@ -76,4 +111,56 @@ func (l *Lobby) ListTables() []string {
 		ids = append(ids, id)
 	}
 	return ids
+}
+
+func (l *Lobby) cleanupLoop() {
+	ticker := time.NewTicker(l.cleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			l.CleanupIdleTables()
+		case <-l.done:
+			return
+		}
+	}
+}
+
+// CleanupIdleTables removes tables that have been idle beyond TTL.
+func (l *Lobby) CleanupIdleTables() int {
+	l.mu.Lock()
+	idleTables := make([]*table.Table, 0)
+	for tableID, t := range l.tables {
+		if t.IsClosed() || t.IsIdleFor(l.idleTableTTL) {
+			delete(l.tables, tableID)
+			idleTables = append(idleTables, t)
+		}
+	}
+	l.mu.Unlock()
+
+	for _, t := range idleTables {
+		t.Stop()
+		log.Printf("[Lobby] Removed idle/closed table %s", t.ID)
+	}
+	return len(idleTables)
+}
+
+// Stop shuts down lobby housekeeping and all remaining tables.
+func (l *Lobby) Stop() {
+	l.stopOnce.Do(func() {
+		close(l.done)
+
+		l.mu.Lock()
+		tables := make([]*table.Table, 0, len(l.tables))
+		for _, t := range l.tables {
+			tables = append(tables, t)
+		}
+		l.tables = make(map[string]*table.Table)
+		l.mu.Unlock()
+
+		for _, t := range tables {
+			t.Stop()
+		}
+	})
 }

@@ -657,7 +657,7 @@ class SeatView extends Container {
     private dealerButton: Container;
     private _orbitTween: gsap.core.Tween | null = null;
     private _index: number;
-    public userId: number = -1;
+    public userId: bigint = 0n;
     private _currentBet: bigint = 0n;
     private _betTicker = { val: 0 };
     private _currentStack: bigint = -1n;
@@ -844,7 +844,7 @@ class SeatView extends Container {
         this.visible = true;
         this.emptyIcon.visible = false;
         this.avatarContainer.visible = true;
-        this.nameText.text = isMe ? 'YOU' : `PLAYER_${player.userId}`;
+        this.nameText.text = isMe ? 'YOU' : `PLAYER_${player.userId.toString()}`;
         this.nameText.style.fill = isMe ? COLORS.primary : 0xcccccc;
 
         if (this._currentStack === -1n) {
@@ -994,7 +994,7 @@ class SeatView extends Container {
     }
 
     clear(): void {
-        this.userId = -1;
+        this.userId = 0n;
         this.visible = true;
         this.nameText.text = 'EMPTY';
         this.nameText.style.fill = 0x444444;

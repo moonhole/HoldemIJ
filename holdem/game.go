@@ -26,17 +26,17 @@ type Game struct {
 	communityCards card.CardList
 	stockCards     card.CardList
 
-	dealerNode    *PlayerNode
+	dealerNode     *PlayerNode
 	smallBlindNode *PlayerNode
 	bigBlindNode   *PlayerNode
-	curNode       *PlayerNode
+	curNode        *PlayerNode
 
 	activeCount int
 	allinCount  int
 
 	// Explicit betting-round state (per workspace rule)
-	NeedActionCount int   // 剩余必须表态人数
-	MinRaise        int64 // 当前合法加注底线（delta）
+	NeedActionCount int    // 剩余必须表态人数
+	MinRaise        int64  // 当前合法加注底线（delta）
 	CurrentRaiser   uint16 // 触发轮次重置的玩家（chair）
 
 	curBet           int64
@@ -72,7 +72,7 @@ func NewGame(cfg Config) (*Game, error) {
 }
 
 // SitDown seats a player with initial stack.
-func (g *Game) SitDown(chair uint16, playerID uint32, stack int64, robot bool) error {
+func (g *Game) SitDown(chair uint16, playerID uint64, stack int64, robot bool) error {
 	g.mu.Lock()
 	defer g.mu.Unlock()
 
@@ -91,6 +91,41 @@ func (g *Game) SitDown(chair uint16, playerID uint32, stack int64, robot bool) e
 		Robot: robot,
 		stack: stack,
 	}
+	return nil
+}
+
+// StandUp removes a player from a chair between hands.
+func (g *Game) StandUp(chair uint16) error {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+
+	if chair >= uint16(g.cfg.MaxPlayers) {
+		return fmt.Errorf("invalid chair %d", chair)
+	}
+	if g.playersByChair[chair] == nil {
+		return fmt.Errorf("chair %d is empty", chair)
+	}
+	// Keep gameplay state deterministic: no seat mutation during an active hand.
+	if g.round > 0 && !g.ended {
+		return ErrHandInProgress
+	}
+
+	delete(g.playersByChair, chair)
+	delete(g.chairIDNodes, chair)
+
+	if g.dealerNode != nil && g.dealerNode.ChairID == chair {
+		g.dealerNode = nil
+	}
+	if g.smallBlindNode != nil && g.smallBlindNode.ChairID == chair {
+		g.smallBlindNode = nil
+	}
+	if g.bigBlindNode != nil && g.bigBlindNode.ChairID == chair {
+		g.bigBlindNode = nil
+	}
+	if g.curNode != nil && g.curNode.ChairID == chair {
+		g.curNode = nil
+	}
+
 	return nil
 }
 
@@ -627,4 +662,3 @@ func (g *Game) endHandLocked() (*SettlementResult, error) {
 	g.ended = true
 	return settle, nil
 }
-

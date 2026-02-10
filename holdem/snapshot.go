@@ -3,7 +3,7 @@ package holdem
 import "holdem-lite/card"
 
 type PlayerSnapshot struct {
-	ID         uint32
+	ID         uint64
 	Chair      uint16
 	Robot      bool
 	Stack      int64
@@ -20,19 +20,19 @@ type PotSnapshot struct {
 }
 
 type Snapshot struct {
-	Round   uint16
-	Phase   Phase
-	Ended   bool
+	Round uint16
+	Phase Phase
+	Ended bool
 
 	DealerChair     uint16
 	SmallBlindChair uint16
 	BigBlindChair   uint16
 	ActionChair     uint16
 
-	CurBet         int64
-	MinRaiseDelta  int64
+	CurBet          int64
+	MinRaiseDelta   int64
 	NeedActionCount int
-	CurrentRaiser  uint16
+	CurrentRaiser   uint16
 
 	CommunityCards []card.Card
 	Pots           []PotSnapshot
@@ -47,16 +47,16 @@ func (g *Game) Snapshot() Snapshot {
 	defer g.mu.Unlock()
 
 	s := Snapshot{
-		Round:            g.round,
-		Phase:            g.phase,
-		Ended:            g.ended,
-		CurBet:           g.curBet,
-		MinRaiseDelta:    g.MinRaise,
-		NeedActionCount:  g.NeedActionCount,
-		CurrentRaiser:    g.CurrentRaiser,
-		CommunityCards:   append([]card.Card{}, g.communityCards...),
-		ExcessChair:      g.potManager.excessChair,
-		ExcessAmount:     g.potManager.excessAmount,
+		Round:           g.round,
+		Phase:           g.phase,
+		Ended:           g.ended,
+		CurBet:          g.curBet,
+		MinRaiseDelta:   g.MinRaise,
+		NeedActionCount: g.NeedActionCount,
+		CurrentRaiser:   g.CurrentRaiser,
+		CommunityCards:  append([]card.Card{}, g.communityCards...),
+		ExcessChair:     g.potManager.excessChair,
+		ExcessAmount:    g.potManager.excessAmount,
 	}
 	if g.dealerNode != nil {
 		s.DealerChair = g.dealerNode.ChairID
@@ -103,4 +103,3 @@ func (g *Game) Snapshot() Snapshot {
 
 	return s
 }
-

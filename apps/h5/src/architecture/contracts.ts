@@ -12,7 +12,7 @@ export type TableRenderState = {
 
 export type TableSeatRenderState = {
     chair: number;
-    userId: number;
+    userId: bigint;
     stack: bigint;
     bet: bigint;
     folded: boolean;

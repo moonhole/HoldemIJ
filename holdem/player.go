@@ -3,7 +3,7 @@ package holdem
 import "holdem-lite/card"
 
 type Player struct {
-	ID    uint32
+	ID    uint64
 	Chair uint16
 	Robot bool
 
@@ -21,10 +21,10 @@ type Player struct {
 func (p *Player) ChairID() uint16 { return p.Chair }
 func (p *Player) IsRobot() bool   { return p.Robot }
 
-func (p *Player) Stack() int64  { return p.stack }
-func (p *Player) Bet() int64    { return p.bet }
-func (p *Player) AllIn() bool   { return p.allIn }
-func (p *Player) Folded() bool  { return p.folded }
+func (p *Player) Stack() int64 { return p.stack }
+func (p *Player) Bet() int64   { return p.bet }
+func (p *Player) AllIn() bool  { return p.allIn }
+func (p *Player) Folded() bool { return p.folded }
 func (p *Player) Hand() []card.Card {
 	return p.handCards
 }
@@ -126,4 +126,3 @@ func (n *PlayerNode) WalkAll(fn func(cur *PlayerNode)) {
 		return false
 	})
 }
-

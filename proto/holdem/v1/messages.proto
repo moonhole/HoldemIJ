@@ -10,7 +10,8 @@ option go_package = "holdem-lite/apps/server/gen/holdem/v1;holdemv1";
 
 message ClientEnvelope {
   string table_id = 1;
-  uint32 user_id = 2;
+  // Deprecated: server derives identity from authenticated session token.
+  uint64 user_id = 2;
   uint64 seq = 3;          // Client-incrementing sequence number
   uint64 ack = 4;          // Last server_seq acknowledged by client
 
@@ -47,7 +48,8 @@ message ServerEnvelope {
 }
 
 message LoginResponse {
-  uint32 user_id = 1;
+  uint64 user_id = 1;
+  string session_token = 2;
 }
 
 // ============================================================
@@ -108,7 +110,7 @@ message TableConfig {
 }
 
 message PlayerState {
-  uint32 user_id = 1;
+  uint64 user_id = 1;
   uint32 chair = 2;
   string nickname = 3;
   int64 stack = 4;
@@ -129,7 +131,7 @@ message SeatUpdate {
   uint32 chair = 1;
   oneof update {
     PlayerState player_joined = 2;
-    uint32 player_left_user_id = 3;
+    uint64 player_left_user_id = 3;
     int64 stack_change = 4;
   }
 }

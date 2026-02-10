@@ -356,9 +356,10 @@ func (Rank) EnumDescriptor() ([]byte, []int) {
 type ClientEnvelope struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	TableId string                 `protobuf:"bytes,1,opt,name=table_id,json=tableId,proto3" json:"table_id,omitempty"`
-	UserId  uint32                 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Seq     uint64                 `protobuf:"varint,3,opt,name=seq,proto3" json:"seq,omitempty"` // Client-incrementing sequence number
-	Ack     uint64                 `protobuf:"varint,4,opt,name=ack,proto3" json:"ack,omitempty"` // Last server_seq acknowledged by client
+	// Deprecated: server derives identity from authenticated session token.
+	UserId uint64 `protobuf:"varint,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Seq    uint64 `protobuf:"varint,3,opt,name=seq,proto3" json:"seq,omitempty"` // Client-incrementing sequence number
+	Ack    uint64 `protobuf:"varint,4,opt,name=ack,proto3" json:"ack,omitempty"` // Last server_seq acknowledged by client
 	// Types that are valid to be assigned to Payload:
 	//
 	//	*ClientEnvelope_JoinTable
@@ -408,7 +409,7 @@ func (x *ClientEnvelope) GetTableId() string {
 	return ""
 }
 
-func (x *ClientEnvelope) GetUserId() uint32 {
+func (x *ClientEnvelope) GetUserId() uint64 {
 	if x != nil {
 		return x.UserId
 	}
@@ -815,7 +816,8 @@ func (*ServerEnvelope_LoginResponse) isServerEnvelope_Payload() {}
 
 type LoginResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserId        uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	SessionToken  string                 `protobuf:"bytes,2,opt,name=session_token,json=sessionToken,proto3" json:"session_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -850,11 +852,18 @@ func (*LoginResponse) Descriptor() ([]byte, []int) {
 	return file_messages_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *LoginResponse) GetUserId() uint32 {
+func (x *LoginResponse) GetUserId() uint64 {
 	if x != nil {
 		return x.UserId
 	}
 	return 0
+}
+
+func (x *LoginResponse) GetSessionToken() string {
+	if x != nil {
+		return x.SessionToken
+	}
+	return ""
 }
 
 type JoinTableRequest struct {
@@ -1347,7 +1356,7 @@ func (x *TableConfig) GetMaxBuyIn() int64 {
 
 type PlayerState struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
-	UserId     uint32                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	UserId     uint64                 `protobuf:"varint,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
 	Chair      uint32                 `protobuf:"varint,2,opt,name=chair,proto3" json:"chair,omitempty"`
 	Nickname   string                 `protobuf:"bytes,3,opt,name=nickname,proto3" json:"nickname,omitempty"`
 	Stack      int64                  `protobuf:"varint,4,opt,name=stack,proto3" json:"stack,omitempty"`
@@ -1391,7 +1400,7 @@ func (*PlayerState) Descriptor() ([]byte, []int) {
 	return file_messages_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *PlayerState) GetUserId() uint32 {
+func (x *PlayerState) GetUserId() uint64 {
 	if x != nil {
 		return x.UserId
 	}
@@ -1572,7 +1581,7 @@ func (x *SeatUpdate) GetPlayerJoined() *PlayerState {
 	return nil
 }
 
-func (x *SeatUpdate) GetPlayerLeftUserId() uint32 {
+func (x *SeatUpdate) GetPlayerLeftUserId() uint64 {
 	if x != nil {
 		if x, ok := x.Update.(*SeatUpdate_PlayerLeftUserId); ok {
 			return x.PlayerLeftUserId
@@ -1599,7 +1608,7 @@ type SeatUpdate_PlayerJoined struct {
 }
 
 type SeatUpdate_PlayerLeftUserId struct {
-	PlayerLeftUserId uint32 `protobuf:"varint,3,opt,name=player_left_user_id,json=playerLeftUserId,proto3,oneof"`
+	PlayerLeftUserId uint64 `protobuf:"varint,3,opt,name=player_left_user_id,json=playerLeftUserId,proto3,oneof"`
 }
 
 type SeatUpdate_StackChange struct {
@@ -2671,7 +2680,7 @@ const file_messages_proto_rawDesc = "" +
 	"\x0emessages.proto\x12\tholdem.v1\"\x87\x03\n" +
 	"\x0eClientEnvelope\x12\x19\n" +
 	"\btable_id\x18\x01 \x01(\tR\atableId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\rR\x06userId\x12\x10\n" +
+	"\auser_id\x18\x02 \x01(\x04R\x06userId\x12\x10\n" +
 	"\x03seq\x18\x03 \x01(\x04R\x03seq\x12\x10\n" +
 	"\x03ack\x18\x04 \x01(\x04R\x03ack\x12<\n" +
 	"\n" +
@@ -2707,9 +2716,10 @@ const file_messages_proto_rawDesc = "" +
 	"\fphase_change\x18\x15 \x01(\v2\x16.holdem.v1.PhaseChangeH\x00R\vphaseChange\x126\n" +
 	"\vwin_by_fold\x18\x16 \x01(\v2\x14.holdem.v1.WinByFoldH\x00R\twinByFold\x12A\n" +
 	"\x0elogin_response\x18\x17 \x01(\v2\x18.holdem.v1.LoginResponseH\x00R\rloginResponseB\t\n" +
-	"\apayload\"(\n" +
+	"\apayload\"M\n" +
 	"\rLoginResponse\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\rR\x06userId\"\x12\n" +
+	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12#\n" +
+	"\rsession_token\x18\x02 \x01(\tR\fsessionToken\"\x12\n" +
 	"\x10JoinTableRequest\"J\n" +
 	"\x0eSitDownRequest\x12\x14\n" +
 	"\x05chair\x18\x01 \x01(\rR\x05chair\x12\"\n" +
@@ -2749,7 +2759,7 @@ const file_messages_proto_rawDesc = "" +
 	"\n" +
 	"max_buy_in\x18\x06 \x01(\x03R\bmaxBuyIn\"\x97\x02\n" +
 	"\vPlayerState\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\rR\x06userId\x12\x14\n" +
+	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12\x14\n" +
 	"\x05chair\x18\x02 \x01(\rR\x05chair\x12\x1a\n" +
 	"\bnickname\x18\x03 \x01(\tR\bnickname\x12\x14\n" +
 	"\x05stack\x18\x04 \x01(\x03R\x05stack\x12\x10\n" +
@@ -2767,7 +2777,7 @@ const file_messages_proto_rawDesc = "" +
 	"SeatUpdate\x12\x14\n" +
 	"\x05chair\x18\x01 \x01(\rR\x05chair\x12=\n" +
 	"\rplayer_joined\x18\x02 \x01(\v2\x16.holdem.v1.PlayerStateH\x00R\fplayerJoined\x12/\n" +
-	"\x13player_left_user_id\x18\x03 \x01(\rH\x00R\x10playerLeftUserId\x12#\n" +
+	"\x13player_left_user_id\x18\x03 \x01(\x04H\x00R\x10playerLeftUserId\x12#\n" +
 	"\fstack_change\x18\x04 \x01(\x03H\x00R\vstackChangeB\b\n" +
 	"\x06update\"\xf0\x01\n" +
 	"\tHandStart\x12\x14\n" +

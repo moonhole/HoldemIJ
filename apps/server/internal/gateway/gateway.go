@@ -1,6 +1,7 @@
 package gateway
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	pb "holdem-lite/apps/server/gen"
+	"holdem-lite/apps/server/internal/auth"
 	"holdem-lite/apps/server/internal/lobby"
 	"holdem-lite/apps/server/internal/table"
 	"holdem-lite/holdem"
@@ -27,12 +29,13 @@ var upgrader = websocket.Upgrader{
 
 // Connection represents a WebSocket client connection
 type Connection struct {
-	ID       string
-	UserID   uint32
-	Conn     *websocket.Conn
-	Send     chan []byte
-	Gateway  *Gateway
-	LastPing time.Time
+	ID           string
+	UserID       uint64
+	SessionToken string
+	Conn         *websocket.Conn
+	Send         chan []byte
+	Gateway      *Gateway
+	LastPing     time.Time
 
 	// Current table association
 	TableID string
@@ -43,17 +46,22 @@ type Connection struct {
 type Gateway struct {
 	mu          sync.RWMutex
 	connections map[string]*Connection
-	userConns   map[uint32]*Connection // userID -> connection
+	userConns   map[uint64]*Connection // userID -> active connection
 	nextConnID  uint64
 	lobby       *lobby.Lobby
+	auth        *auth.Manager
 }
 
 // New creates a new Gateway instance
-func New(lby *lobby.Lobby) *Gateway {
+func New(lby *lobby.Lobby, authManager *auth.Manager) *Gateway {
+	if authManager == nil {
+		authManager = auth.NewManager()
+	}
 	return &Gateway{
 		connections: make(map[string]*Connection),
-		userConns:   make(map[uint32]*Connection),
+		userConns:   make(map[uint64]*Connection),
 		lobby:       lby,
+		auth:        authManager,
 	}
 }
 
@@ -64,26 +72,47 @@ func (g *Gateway) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		log.Printf("[Gateway] Upgrade error: %v", err)
 		return
 	}
+	providedToken := r.URL.Query().Get("session_token")
+	userID, sessionToken, reusedAccount := g.auth.ResolveOrCreateAccount(providedToken)
 
+	var oldConn *Connection
+	var resumeTable *table.Table
 	g.mu.Lock()
 	g.nextConnID++
 	connID := fmt.Sprintf("conn_%d", g.nextConnID)
-	// For demo: assign userID based on connID (in production, use auth)
-	userID := uint32(g.nextConnID)
 
 	c := &Connection{
-		ID:       connID,
-		UserID:   userID,
-		Conn:     conn,
-		Send:     make(chan []byte, 256),
-		Gateway:  g,
-		LastPing: time.Now(),
+		ID:           connID,
+		UserID:       userID,
+		SessionToken: sessionToken,
+		Conn:         conn,
+		Send:         make(chan []byte, 256),
+		Gateway:      g,
+		LastPing:     time.Now(),
+	}
+	if existing := g.userConns[userID]; existing != nil && existing != c {
+		oldConn = existing
+		resumeTable = existing.Table
+		c.TableID = existing.TableID
+		c.Table = existing.Table
 	}
 	g.connections[connID] = c
 	g.userConns[userID] = c
 	g.mu.Unlock()
 
-	log.Printf("[Gateway] Client connected: %s (userID=%d), total: %d", connID, userID, len(g.connections))
+	if oldConn != nil {
+		_ = oldConn.Conn.Close()
+	}
+	if resumeTable != nil {
+		if err := resumeTable.SubmitEvent(table.Event{
+			Type:   table.EventConnResume,
+			UserID: userID,
+		}); err != nil && !errors.Is(err, table.ErrTableClosed) {
+			log.Printf("[Gateway] Failed to resume conn for user %d: %v", userID, err)
+		}
+	}
+
+	log.Printf("[Gateway] Client connected: %s (userID=%d reused=%t), total: %d", connID, userID, reusedAccount, len(g.connections))
 
 	// Send initial LoginResponse
 	c.SendLoginResponse()
@@ -98,7 +127,8 @@ func (c *Connection) SendLoginResponse() {
 		ServerTsMs: time.Now().UnixMilli(),
 		Payload: &pb.ServerEnvelope_LoginResponse{
 			LoginResponse: &pb.LoginResponse{
-				UserId: c.UserID,
+				UserId:       c.UserID,
+				SessionToken: c.SessionToken,
 			},
 		},
 	}
@@ -164,21 +194,30 @@ func (c *Connection) handleMessage(data []byte) {
 }
 
 func (c *Connection) handleJoinTable(env *pb.ClientEnvelope, req *pb.JoinTableRequest) {
-	// Quick start: find or create a table
-	t, err := c.Gateway.lobby.QuickStart(c.UserID, c.Gateway.broadcastToUser)
-	if err != nil {
-		c.sendError(2, err.Error())
-		return
+	t := c.Table
+	if t == nil {
+		// Quick start: find or create a table
+		var err error
+		t, err = c.Gateway.lobby.QuickStart(c.UserID, c.Gateway.broadcastToUser)
+		if err != nil {
+			c.sendError(2, err.Error())
+			return
+		}
 	}
 
 	c.TableID = t.ID
 	c.Table = t
 
 	// Join the table
-	t.SubmitEvent(table.Event{
+	if err := t.SubmitEvent(table.Event{
 		Type:   table.EventJoinTable,
 		UserID: c.UserID,
-	})
+	}); err != nil {
+		c.sendError(2, err.Error())
+		c.TableID = ""
+		c.Table = nil
+		return
+	}
 
 	log.Printf("[Gateway] User %d joined table %s", c.UserID, t.ID)
 }
@@ -205,10 +244,12 @@ func (c *Connection) handleStandUp(env *pb.ClientEnvelope, req *pb.StandUpReques
 		return
 	}
 
-	c.Table.SubmitEvent(table.Event{
+	if err := c.Table.SubmitEvent(table.Event{
 		Type:   table.EventStandUp,
 		UserID: c.UserID,
-	})
+	}); err != nil {
+		c.sendError(4, err.Error())
+	}
 }
 
 func (c *Connection) handleAction(env *pb.ClientEnvelope, req *pb.ActionRequest) {
@@ -296,15 +337,31 @@ func (c *Connection) writePump() {
 }
 
 func (g *Gateway) removeConnection(c *Connection) {
+	g.mu.RLock()
+	current := g.userConns[c.UserID]
+	isCurrent := current == c
+	g.mu.RUnlock()
+
+	if isCurrent && c.Table != nil {
+		if err := c.Table.SubmitEvent(table.Event{
+			Type:   table.EventConnLost,
+			UserID: c.UserID,
+		}); err != nil && !errors.Is(err, table.ErrTableClosed) {
+			log.Printf("[Gateway] Failed to mark conn lost for user %d: %v", c.UserID, err)
+		}
+	}
+
 	g.mu.Lock()
 	defer g.mu.Unlock()
 	delete(g.connections, c.ID)
-	delete(g.userConns, c.UserID)
+	if g.userConns[c.UserID] == c {
+		delete(g.userConns, c.UserID)
+	}
 	log.Printf("[Gateway] Client disconnected: %s, total: %d", c.ID, len(g.connections))
 }
 
 // broadcastToUser sends a message to a specific user
-func (g *Gateway) broadcastToUser(userID uint32, data []byte) {
+func (g *Gateway) broadcastToUser(userID uint64, data []byte) {
 	g.mu.RLock()
 	c := g.userConns[userID]
 	g.mu.RUnlock()

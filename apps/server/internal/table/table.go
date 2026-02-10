@@ -1,6 +1,7 @@
 package table
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"sort"
@@ -19,11 +20,13 @@ type Table struct {
 	ID     string
 	Config TableConfig
 
-	mu      sync.RWMutex
-	game    *holdem.Game
-	players map[uint32]*PlayerConn // userID -> connection
-	seats   map[uint16]uint32      // chair -> userID
-	round   uint32
+	mu       sync.RWMutex
+	game     *holdem.Game
+	players  map[uint64]*PlayerConn // userID -> connection
+	seats    map[uint16]uint64      // chair -> userID
+	round    uint32
+	closed   bool
+	stopOnce sync.Once
 	// Stack baseline at hand start for delta/net settlement messages.
 	handStartStacks map[uint16]int64
 
@@ -34,8 +37,14 @@ type Table struct {
 	// Server sequence for event ordering
 	serverSeq uint64
 
+	// Timers and lifecycle metadata.
+	actionTimeoutChair uint16
+	actionDeadline     time.Time
+	nextHandAt         time.Time
+	emptySince         time.Time
+
 	// Callback to broadcast messages
-	broadcast func(userID uint32, data []byte)
+	broadcast func(userID uint64, data []byte)
 }
 
 // TableConfig contains table settings
@@ -50,11 +59,13 @@ type TableConfig struct {
 
 // PlayerConn represents a connected player at the table
 type PlayerConn struct {
-	UserID   uint32
+	UserID   uint64
 	Nickname string
 	Chair    uint16
 	Stack    int64
 	Wallet   int64 // Chips not yet at table
+	Online   bool
+	LastSeen time.Time
 }
 
 // Event types for the actor message queue
@@ -68,12 +79,15 @@ const (
 	EventAction
 	EventTimeout
 	EventStartHand
+	EventConnLost
+	EventConnResume
+	EventClose
 )
 
 // Event represents a message to the table actor
 type Event struct {
 	Type      EventType
-	UserID    uint32
+	UserID    uint64
 	Chair     uint16
 	Amount    int64
 	Action    holdem.ActionType
@@ -81,17 +95,26 @@ type Event struct {
 	Response  chan error
 }
 
+var ErrTableClosed = errors.New("table closed")
+
+const (
+	actionTimeLimitSec = int32(30)
+	interHandDelay     = 3 * time.Second
+)
+
 // New creates a new table
-func New(id string, cfg TableConfig, broadcastFn func(userID uint32, data []byte)) *Table {
+func New(id string, cfg TableConfig, broadcastFn func(userID uint64, data []byte)) *Table {
 	t := &Table{
-		ID:              id,
-		Config:          cfg,
-		players:         make(map[uint32]*PlayerConn),
-		seats:           make(map[uint16]uint32),
-		handStartStacks: make(map[uint16]int64),
-		events:          make(chan Event, 256),
-		done:            make(chan struct{}),
-		broadcast:       broadcastFn,
+		ID:                 id,
+		Config:             cfg,
+		players:            make(map[uint64]*PlayerConn),
+		seats:              make(map[uint16]uint64),
+		handStartStacks:    make(map[uint16]int64),
+		events:             make(chan Event, 256),
+		done:               make(chan struct{}),
+		broadcast:          broadcastFn,
+		actionTimeoutChair: holdem.InvalidChair,
+		emptySince:         time.Now(),
 	}
 
 	// Create game engine
@@ -117,9 +140,8 @@ func New(id string, cfg TableConfig, broadcastFn func(userID uint32, data []byte
 
 // run is the main actor loop
 func (t *Table) run() {
-	// 5-second heartbeat for low-frequency tasks (idle NPCs, system cleanup, etc.)
-	// Precise game events use dedicated Timers or event-driven triggers.
-	ticker := time.NewTicker(5 * time.Second)
+	// Sub-second heartbeat for action timeout and inter-hand scheduling.
+	ticker := time.NewTicker(500 * time.Millisecond)
 	defer ticker.Stop()
 
 	for {
@@ -143,6 +165,10 @@ func (t *Table) handleEvent(e Event) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 
+	if t.closed && e.Type != EventClose {
+		return ErrTableClosed
+	}
+
 	switch e.Type {
 	case EventJoinTable:
 		return t.handleJoinTable(e.UserID)
@@ -154,20 +180,36 @@ func (t *Table) handleEvent(e Event) error {
 		return t.handleBuyIn(e.UserID, e.Amount)
 	case EventAction:
 		return t.handleAction(e.UserID, e.Action, e.Amount)
+	case EventTimeout:
+		return t.handleTimeout(e.Timestamp)
 	case EventStartHand:
 		return t.handleStartHand()
+	case EventConnLost:
+		return t.handleConnLost(e.UserID, e.Timestamp)
+	case EventConnResume:
+		return t.handleConnResume(e.UserID, e.Timestamp)
+	case EventClose:
+		t.stopLocked()
+		return nil
 	default:
 		return fmt.Errorf("unknown event type: %d", e.Type)
 	}
 }
 
-func (t *Table) handleJoinTable(userID uint32) error {
-	if _, exists := t.players[userID]; exists {
+func (t *Table) handleJoinTable(userID uint64) error {
+	now := time.Now()
+	if player, exists := t.players[userID]; exists {
+		player.Online = true
+		player.LastSeen = now
+		t.sendSnapshot(userID)
+		t.sendPromptIfActingUser(userID)
 		return nil // Already joined
 	}
 	t.players[userID] = &PlayerConn{
-		UserID: userID,
-		Chair:  holdem.InvalidChair,
+		UserID:   userID,
+		Chair:    holdem.InvalidChair,
+		Online:   true,
+		LastSeen: now,
 	}
 	log.Printf("[Table %s] Player %d joined", t.ID, userID)
 
@@ -176,16 +218,19 @@ func (t *Table) handleJoinTable(userID uint32) error {
 		if t.seats[i] == 0 {
 			// Found empty seat
 			log.Printf("[Table %s] Auto-sitting player %d at chair %d", t.ID, userID, i)
-			t.handleSitDown(userID, i, t.Config.MaxBuyIn) // Use MaxBuyIn for demo
+			if err := t.handleSitDown(userID, i, t.Config.MaxBuyIn); err != nil {
+				log.Printf("[Table %s] Auto sit-down failed for player %d: %v", t.ID, userID, err)
+			}
 			break
 		}
 	}
 
 	t.sendSnapshot(userID)
+	t.sendPromptIfActingUser(userID)
 	return nil
 }
 
-func (t *Table) handleSitDown(userID uint32, chair uint16, buyIn int64) error {
+func (t *Table) handleSitDown(userID uint64, chair uint16, buyIn int64) error {
 	player := t.players[userID]
 	if player == nil {
 		return fmt.Errorf("player not in table")
@@ -210,7 +255,10 @@ func (t *Table) handleSitDown(userID uint32, chair uint16, buyIn int64) error {
 
 	player.Chair = chair
 	player.Stack = buyIn
+	player.Online = true
+	player.LastSeen = time.Now()
 	t.seats[chair] = userID
+	t.updateEmptySinceLocked(player.LastSeen)
 
 	log.Printf("[Table %s] Player %d sat down at chair %d with %d", t.ID, userID, chair, buyIn)
 
@@ -218,30 +266,40 @@ func (t *Table) handleSitDown(userID uint32, chair uint16, buyIn int64) error {
 	t.broadcastSeatUpdate(chair, userID, buyIn)
 
 	// Check if we can start a hand
-	t.tryStartHand()
+	if err := t.tryStartHand(player.LastSeen); err != nil {
+		log.Printf("[Table %s] tryStartHand after sit-down failed: %v", t.ID, err)
+	}
 
 	return nil
 }
 
-func (t *Table) handleStandUp(userID uint32) error {
+func (t *Table) handleStandUp(userID uint64) error {
 	player := t.players[userID]
 	if player == nil || player.Chair == holdem.InvalidChair {
 		return nil
 	}
 
 	chair := player.Chair
-	// TODO: Handle if player is in active hand
+	if err := t.game.StandUp(chair); err != nil {
+		return err
+	}
 
 	delete(t.seats, chair)
 	player.Chair = holdem.InvalidChair
 	player.Wallet += player.Stack
 	player.Stack = 0
+	player.LastSeen = time.Now()
+	t.updateEmptySinceLocked(player.LastSeen)
+	if len(t.seats) < 2 {
+		t.nextHandAt = time.Time{}
+	}
 
 	log.Printf("[Table %s] Player %d stood up from chair %d", t.ID, userID, chair)
+	t.broadcastSeatLeft(chair, userID)
 	return nil
 }
 
-func (t *Table) handleBuyIn(userID uint32, amount int64) error {
+func (t *Table) handleBuyIn(userID uint64, amount int64) error {
 	player := t.players[userID]
 	if player == nil {
 		return fmt.Errorf("player not in table")
@@ -250,7 +308,7 @@ func (t *Table) handleBuyIn(userID uint32, amount int64) error {
 	return nil
 }
 
-func (t *Table) handleAction(userID uint32, action holdem.ActionType, amount int64) error {
+func (t *Table) handleAction(userID uint64, action holdem.ActionType, amount int64) error {
 	player := t.players[userID]
 	if player == nil || player.Chair == holdem.InvalidChair {
 		return fmt.Errorf("player not seated")
@@ -264,6 +322,9 @@ func (t *Table) handleAction(userID uint32, action holdem.ActionType, amount int
 	result, err := t.game.Act(player.Chair, action, amount)
 	if err != nil {
 		return err
+	}
+	if t.actionTimeoutChair == player.Chair {
+		t.clearActionTimeoutLocked()
 	}
 	after := t.game.Snapshot()
 	t.syncPlayerStacksFromSnapshot(after)
@@ -291,6 +352,15 @@ func (t *Table) handleAction(userID uint32, action holdem.ActionType, amount int
 }
 
 func (t *Table) handleStartHand() error {
+	if t.closed {
+		return ErrTableClosed
+	}
+	if len(t.seats) < 2 {
+		return nil
+	}
+	t.nextHandAt = time.Time{}
+	t.clearActionTimeoutLocked()
+
 	log.Printf("[Table %s] handleStartHand called, seats=%d", t.ID, len(t.seats))
 	before := t.game.Snapshot()
 	t.handStartStacks = make(map[uint16]int64, len(before.Players))
@@ -327,31 +397,131 @@ func (t *Table) handleHandEnd(result *holdem.SettlementResult) {
 
 	// Broadcast showdown/hand end
 	t.broadcastHandEnd(result)
+	t.clearActionTimeoutLocked()
 
-	// Schedule next hand
-	time.AfterFunc(3*time.Second, func() {
-		t.SubmitEvent(Event{Type: EventStartHand})
-	})
+	// Schedule next hand from actor tick (no goroutine self-submit).
+	if len(t.seats) >= 2 {
+		t.nextHandAt = time.Now().Add(interHandDelay)
+	} else {
+		t.nextHandAt = time.Time{}
+	}
 }
 
 func (t *Table) tick() {
-	// TODO: Check action timeouts
-}
+	t.mu.Lock()
+	defer t.mu.Unlock()
 
-func (t *Table) tryStartHand() {
-	// Count seated players
-	if len(t.seats) >= 2 {
-		snap := t.game.Snapshot()
-		// Start if: no hands played yet (Round==0), OR previous hand ended
-		if snap.Round == 0 || snap.Ended || snap.Phase == holdem.PhaseTypeRoundEnd {
-			log.Printf("[Table %s] Starting hand - seats=%d, round=%d, ended=%v, phase=%v",
-				t.ID, len(t.seats), snap.Round, snap.Ended, snap.Phase)
-			// Use goroutine to avoid deadlock (we're inside handleEvent)
-			go func() {
-				t.SubmitEvent(Event{Type: EventStartHand})
-			}()
+	if t.closed {
+		return
+	}
+	now := time.Now()
+	if err := t.handleTimeout(now); err != nil {
+		log.Printf("[Table %s] timeout handler failed: %v", t.ID, err)
+	}
+	if !t.nextHandAt.IsZero() && !now.Before(t.nextHandAt) {
+		if err := t.tryStartHand(now); err != nil {
+			log.Printf("[Table %s] delayed hand start failed: %v", t.ID, err)
 		}
 	}
+}
+
+func (t *Table) handleTimeout(now time.Time) error {
+	if t.actionTimeoutChair == holdem.InvalidChair || t.actionDeadline.IsZero() {
+		return nil
+	}
+	if now.Before(t.actionDeadline) {
+		return nil
+	}
+
+	chair := t.actionTimeoutChair
+	userID := t.seats[chair]
+	t.clearActionTimeoutLocked()
+
+	if userID == 0 {
+		return nil
+	}
+	snap := t.game.Snapshot()
+	if snap.ActionChair != chair {
+		return nil
+	}
+
+	autoAction, autoAmount, err := t.pickTimeoutAction(chair, snap)
+	if err != nil {
+		return err
+	}
+	log.Printf("[Table %s] Action timeout chair=%d user=%d -> auto %v amount=%d", t.ID, chair, userID, autoAction, autoAmount)
+	return t.handleAction(userID, autoAction, autoAmount)
+}
+
+func (t *Table) pickTimeoutAction(chair uint16, snap holdem.Snapshot) (holdem.ActionType, int64, error) {
+	legalActions, _, err := t.game.LegalActions(chair)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if hasAction(legalActions, holdem.PlayerActionTypeCheck) {
+		return holdem.PlayerActionTypeCheck, 0, nil
+	}
+	if hasAction(legalActions, holdem.PlayerActionTypeFold) {
+		return holdem.PlayerActionTypeFold, 0, nil
+	}
+	if hasAction(legalActions, holdem.PlayerActionTypeCall) {
+		return holdem.PlayerActionTypeCall, snap.CurBet, nil
+	}
+	if hasAction(legalActions, holdem.PlayerActionTypeAllin) {
+		return holdem.PlayerActionTypeAllin, snap.CurBet, nil
+	}
+	if len(legalActions) == 0 {
+		return 0, 0, fmt.Errorf("no legal actions for timeout")
+	}
+	return legalActions[0], snap.CurBet, nil
+}
+
+func (t *Table) handleConnLost(userID uint64, ts time.Time) error {
+	player := t.players[userID]
+	if player == nil {
+		return nil
+	}
+	if ts.IsZero() {
+		ts = time.Now()
+	}
+	player.Online = false
+	player.LastSeen = ts
+	log.Printf("[Table %s] Player %d connection lost", t.ID, userID)
+	return nil
+}
+
+func (t *Table) handleConnResume(userID uint64, ts time.Time) error {
+	player := t.players[userID]
+	if player == nil {
+		return nil
+	}
+	if ts.IsZero() {
+		ts = time.Now()
+	}
+	player.Online = true
+	player.LastSeen = ts
+	t.sendSnapshot(userID)
+	t.sendPromptIfActingUser(userID)
+	log.Printf("[Table %s] Player %d connection resumed", t.ID, userID)
+	return nil
+}
+
+func (t *Table) tryStartHand(now time.Time) error {
+	if len(t.seats) < 2 {
+		return nil
+	}
+	if !t.nextHandAt.IsZero() && now.Before(t.nextHandAt) {
+		return nil
+	}
+	snap := t.game.Snapshot()
+	// Start if: no hands played yet (Round==0), OR previous hand ended.
+	if snap.Round == 0 || snap.Ended || snap.Phase == holdem.PhaseTypeRoundEnd {
+		log.Printf("[Table %s] Starting hand - seats=%d, round=%d, ended=%v, phase=%v",
+			t.ID, len(t.seats), snap.Round, snap.Ended, snap.Phase)
+		return t.handleStartHand()
+	}
+	return nil
 }
 
 // SubmitEvent sends an event to the actor
@@ -360,13 +530,84 @@ func (t *Table) SubmitEvent(e Event) error {
 	if e.Response == nil {
 		e.Response = make(chan error, 1)
 	}
-	t.events <- e
-	return <-e.Response
+
+	t.mu.RLock()
+	closed := t.closed
+	t.mu.RUnlock()
+	if closed {
+		return ErrTableClosed
+	}
+
+	select {
+	case t.events <- e:
+	case <-t.done:
+		return ErrTableClosed
+	}
+
+	select {
+	case err := <-e.Response:
+		return err
+	case <-t.done:
+		return ErrTableClosed
+	}
 }
 
 // Stop shuts down the table actor
 func (t *Table) Stop() {
-	close(t.done)
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.stopLocked()
+}
+
+func (t *Table) stopLocked() {
+	t.closed = true
+	t.nextHandAt = time.Time{}
+	t.clearActionTimeoutLocked()
+	t.stopOnce.Do(func() {
+		close(t.done)
+	})
+}
+
+func (t *Table) setActionTimeoutLocked(chair uint16, now time.Time) {
+	t.actionTimeoutChair = chair
+	t.actionDeadline = now.Add(time.Duration(actionTimeLimitSec) * time.Second)
+}
+
+func (t *Table) clearActionTimeoutLocked() {
+	t.actionTimeoutChair = holdem.InvalidChair
+	t.actionDeadline = time.Time{}
+}
+
+func (t *Table) updateEmptySinceLocked(now time.Time) {
+	if len(t.seats) == 0 {
+		if t.emptySince.IsZero() {
+			t.emptySince = now
+		}
+		return
+	}
+	t.emptySince = time.Time{}
+}
+
+func (t *Table) IsIdleFor(ttl time.Duration) bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+
+	if t.closed {
+		return true
+	}
+	if len(t.seats) > 0 {
+		return false
+	}
+	if t.emptySince.IsZero() {
+		return false
+	}
+	return time.Since(t.emptySince) >= ttl
+}
+
+func (t *Table) IsClosed() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.closed
 }
 
 // Snapshot returns current game state (thread-safe)
@@ -381,7 +622,7 @@ func (t *Table) nextSeq() uint64 {
 	return t.serverSeq
 }
 
-func (t *Table) sendToUser(userID uint32, env *pb.ServerEnvelope) {
+func (t *Table) sendToUser(userID uint64, env *pb.ServerEnvelope) {
 	data, err := proto.Marshal(env)
 	if err != nil {
 		log.Printf("[Table %s] Failed to marshal message: %v", t.ID, err)
@@ -401,7 +642,7 @@ func (t *Table) broadcastToAll(env *pb.ServerEnvelope) {
 	}
 }
 
-func (t *Table) sendSnapshot(userID uint32) {
+func (t *Table) sendSnapshot(userID uint64) {
 	snap := t.game.Snapshot()
 	log.Printf("[Table %s] Sending snapshot to %d", t.ID, userID)
 
@@ -464,7 +705,7 @@ func (t *Table) sendSnapshot(userID uint32) {
 	t.sendToUser(userID, env)
 }
 
-func (t *Table) broadcastSeatUpdate(chair uint16, userID uint32, stack int64) {
+func (t *Table) broadcastSeatUpdate(chair uint16, userID uint64, stack int64) {
 	log.Printf("[Table %s] Broadcasting seat update: chair=%d user=%d stack=%d", t.ID, chair, userID, stack)
 
 	env := &pb.ServerEnvelope{
@@ -480,6 +721,23 @@ func (t *Table) broadcastSeatUpdate(chair uint16, userID uint32, stack int64) {
 						Chair:  uint32(chair),
 						Stack:  stack,
 					},
+				},
+			},
+		},
+	}
+	t.broadcastToAll(env)
+}
+
+func (t *Table) broadcastSeatLeft(chair uint16, userID uint64) {
+	env := &pb.ServerEnvelope{
+		TableId:    t.ID,
+		ServerSeq:  t.nextSeq(),
+		ServerTsMs: time.Now().UnixMilli(),
+		Payload: &pb.ServerEnvelope_SeatUpdate{
+			SeatUpdate: &pb.SeatUpdate{
+				Chair: uint32(chair),
+				Update: &pb.SeatUpdate_PlayerLeftUserId{
+					PlayerLeftUserId: userID,
 				},
 			},
 		},
@@ -536,7 +794,15 @@ func (t *Table) sendHoleCards() {
 }
 
 func (t *Table) sendActionPrompt(chair uint16) {
-	actions, minRaise, _ := t.game.LegalActions(chair)
+	t.sendActionPromptWithTTL(chair, actionTimeLimitSec, true)
+}
+
+func (t *Table) sendActionPromptWithTTL(chair uint16, timeLimitSec int32, resetTimeout bool) {
+	actions, minRaise, err := t.game.LegalActions(chair)
+	if err != nil {
+		log.Printf("[Table %s] Failed to build action prompt for chair %d: %v", t.ID, chair, err)
+		return
+	}
 	log.Printf("[Table %s] Action prompt to chair %d: actions=%v minRaise=%d", t.ID, chair, actions, minRaise)
 
 	// Find userID for this chair
@@ -574,11 +840,38 @@ func (t *Table) sendActionPrompt(chair uint16) {
 				LegalActions: legalActions,
 				MinRaiseTo:   minRaise,
 				CallAmount:   callAmount,
-				TimeLimitSec: 30,
+				TimeLimitSec: timeLimitSec,
 			},
 		},
 	}
 	t.broadcastToAll(env)
+	if resetTimeout {
+		t.setActionTimeoutLocked(chair, time.Now())
+	}
+}
+
+func (t *Table) sendPromptIfActingUser(userID uint64) {
+	player := t.players[userID]
+	if player == nil || player.Chair == holdem.InvalidChair {
+		return
+	}
+
+	snap := t.game.Snapshot()
+	if snap.Ended || snap.ActionChair == holdem.InvalidChair || snap.ActionChair != player.Chair {
+		return
+	}
+
+	timeLimit := actionTimeLimitSec
+	if t.actionTimeoutChair == player.Chair && !t.actionDeadline.IsZero() {
+		remaining := int32(time.Until(t.actionDeadline).Seconds())
+		if remaining < 1 {
+			remaining = 1
+		}
+		if remaining < timeLimit {
+			timeLimit = remaining
+		}
+	}
+	t.sendActionPromptWithTTL(player.Chair, timeLimit, false)
 }
 
 func (t *Table) broadcastActionResult(
@@ -1005,6 +1298,15 @@ func potsChanged(before, after []holdem.PotSnapshot) bool {
 			if b1[j] != b2[j] {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func hasAction(actions []holdem.ActionType, target holdem.ActionType) bool {
+	for _, action := range actions {
+		if action == target {
+			return true
 		}
 	}
 	return false
