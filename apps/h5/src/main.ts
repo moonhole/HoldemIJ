@@ -3,7 +3,6 @@ import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { requireCanvas, requireUiRoot } from './architecture/boundary';
 import { audioManager } from './audio/AudioManager';
-import { setupAudioBindings } from './audio/GameAudioBinding';
 import { bindGameClientToStore } from './store/gameStore';
 import { useUiStore, type SceneName } from './store/uiStore';
 import { UiLayerApp } from './ui/UiLayerApp';
@@ -34,7 +33,6 @@ class GameApp {
 
         // Initialize Audio
         audioManager.init().catch(console.warn);
-        setupAudioBindings();
 
         // Global interaction listener to unlock audio context
         const unlockAudio = () => {

@@ -1,3 +1,5 @@
+import { audioManager } from '../../audio/AudioManager';
+import { SoundMap } from '../../audio/SoundMap';
 import { useUiStore } from '../../store/uiStore';
 import { AudioToggle } from '../common/AudioToggle';
 import { NumberTicker } from '../common/NumberTicker';
@@ -64,6 +66,10 @@ export function LobbyOverlay(): JSX.Element | null {
     const quickStartError = useUiStore((s) => s.quickStartError);
     const startQuickStart = useUiStore((s) => s.startQuickStart);
 
+    const playUiClick = (): void => {
+        audioManager.play(SoundMap.UI_CLICK, 0.7);
+    };
+
     if (currentScene !== 'lobby') {
         return null;
     }
@@ -91,13 +97,13 @@ export function LobbyOverlay(): JSX.Element | null {
                         </div>
                     </div>
                     <div className="lobby-filter-row">
-                        <button type="button" className="lobby-filter-btn is-active">
+                        <button type="button" className="lobby-filter-btn is-active" onClick={playUiClick}>
                             All Nodes
                         </button>
-                        <button type="button" className="lobby-filter-btn">
+                        <button type="button" className="lobby-filter-btn" onClick={playUiClick}>
                             High Stakes
                         </button>
-                        <button type="button" className="lobby-filter-btn">
+                        <button type="button" className="lobby-filter-btn" onClick={playUiClick}>
                             Speed
                         </button>
                     </div>
@@ -136,6 +142,7 @@ export function LobbyOverlay(): JSX.Element | null {
                         type="button"
                         disabled={busy}
                         onClick={() => {
+                            playUiClick();
                             void startQuickStart();
                         }}
                     >
@@ -143,11 +150,11 @@ export function LobbyOverlay(): JSX.Element | null {
                         <span>{quickStartLabel}</span>
                     </button>
                     <div className="lobby-footer-row">
-                        <button type="button" className="lobby-secondary-btn">
+                        <button type="button" className="lobby-secondary-btn" onClick={playUiClick}>
                             <span className="material-symbols-outlined">add_box</span>
                             <span>Create Node</span>
                         </button>
-                        <button type="button" className="lobby-icon-btn">
+                        <button type="button" className="lobby-icon-btn" onClick={playUiClick}>
                             <span className="material-symbols-outlined">settings</span>
                         </button>
                     </div>
@@ -157,10 +164,10 @@ export function LobbyOverlay(): JSX.Element | null {
 
                 {/* Floating Top Right Controls */}
                 <div className="top-right-hud" style={{ position: 'absolute', top: '24px', right: '24px', pointerEvents: 'auto', zIndex: 100, display: 'flex', gap: '12px' }}>
-                    <button type="button" className="lobby-icon-btn hud-btn chat-btn">
+                    <button type="button" className="lobby-icon-btn hud-btn chat-btn" onClick={playUiClick}>
                         <span className="material-symbols-outlined">chat_bubble</span>
                     </button>
-                    <button type="button" className="lobby-icon-btn hud-btn settings-btn">
+                    <button type="button" className="lobby-icon-btn hud-btn settings-btn" onClick={playUiClick}>
                         <span className="material-symbols-outlined">settings</span>
                     </button>
                     <AudioToggle />

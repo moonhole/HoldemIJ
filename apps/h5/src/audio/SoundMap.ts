@@ -28,8 +28,10 @@ export const SoundMap = {
     WIN_POT: 'win_pot',
 };
 
-// Placeholder for asset paths - in a real app these would be URLs or imported assets
-export const SoundAssets: Record<string, string> = {
+export type SoundAssetSpec = string | { aliasOf: string };
+
+// A sound key can point to a file path, or alias another key to share one file.
+export const SoundAssets: Record<string, SoundAssetSpec> = {
     [SoundMap.UI_CLICK]: '/sounds/ui_click.mp3',
     [SoundMap.UI_SLIDER]: '/sounds/ui_slider.mp3',
     [SoundMap.UI_ERROR]: '/sounds/ui_error.mp3',
@@ -42,7 +44,7 @@ export const SoundAssets: Record<string, string> = {
     [SoundMap.ACTION_RAISE]: '/sounds/raise.mp3',
     [SoundMap.ACTION_FOLD]: '/sounds/fold.mp3',
     [SoundMap.ACTION_ALLIN]: '/sounds/allin.mp3',
-    [SoundMap.CHIP_BET]: '/sounds/chips_stack.mp3',
+    [SoundMap.CHIP_BET]: { aliasOf: SoundMap.ACTION_RAISE },
     [SoundMap.CHIP_COLLECT]: '/sounds/chips_slide.mp3',
     [SoundMap.CARD_DEAL]: '/sounds/card_deal.mp3',
     [SoundMap.CARD_FLIP]: '/sounds/card_flip.mp3',

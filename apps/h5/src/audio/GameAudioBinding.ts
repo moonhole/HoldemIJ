@@ -1,7 +1,7 @@
+import { ActionType } from '@gen/messages_pb';
 import { useGameStore } from '../store/gameStore';
 import { audioManager } from './AudioManager';
 import { SoundMap } from './SoundMap';
-// import { ActionType } from '@gen/messages_pb'; // Need to check if available or use raw values
 
 export function setupAudioBindings() {
     let lastStreamSeq = -1;
@@ -28,20 +28,27 @@ export function setupAudioBindings() {
                 audioManager.play(SoundMap.TURN_ALERT);
                 break;
             case 'actionResult':
-                // Determine action type and play corresponding sound
-                // Using raw numbers or importing ActionType if possible. 
-                // For now, let's look at the shape. event.value.action is the enum.
-                // We'll map a few common ones.
-                const { action, amount } = event.value;
-                // Basic heuristic mapping
-                if (action === 1) { // FOLD
-                    audioManager.play(SoundMap.ACTION_FOLD);
-                } else if (action === 2) { // CHECK
-                    audioManager.play(SoundMap.ACTION_CHECK);
-                } else if (action === 3) { // CALL
-                    audioManager.play(SoundMap.CHIP_BET);
-                } else if (action === 4 || action === 5) { // RAISE / ALLIN
-                    audioManager.play(SoundMap.CHIP_BET);
+                switch (event.value.action) {
+                    case ActionType.ACTION_FOLD:
+                        audioManager.play(SoundMap.ACTION_FOLD);
+                        break;
+                    case ActionType.ACTION_CHECK:
+                        audioManager.play(SoundMap.ACTION_CHECK);
+                        break;
+                    case ActionType.ACTION_CALL:
+                        audioManager.play(SoundMap.ACTION_CALL);
+                        break;
+                    case ActionType.ACTION_RAISE:
+                        audioManager.play(SoundMap.ACTION_RAISE);
+                        break;
+                    case ActionType.ACTION_ALLIN:
+                        audioManager.play(SoundMap.ACTION_ALLIN);
+                        break;
+                    case ActionType.ACTION_BET:
+                        audioManager.play(SoundMap.CHIP_BET);
+                        break;
+                    default:
+                        break;
                 }
                 break;
             case 'potUpdate':

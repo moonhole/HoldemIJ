@@ -1,4 +1,4 @@
-import { SoundAssets } from './SoundMap';
+import { SoundAssets, type SoundAssetSpec } from './SoundMap';
 
 class AudioManager {
     private sounds: Map<string, HTMLAudioElement> = new Map();
@@ -24,9 +24,16 @@ class AudioManager {
 
         // Preload sounds
         console.log('Audio: Initializing and preloading assets...');
-        const promises = Object.entries(SoundAssets).map(([key, path]) => {
+        const promises = Object.keys(SoundAssets).map((key) => {
             return new Promise<void>((resolve) => {
-                const audio = new Audio(path);
+                const resolvedPath = this.resolveAssetPath(key);
+                if (!resolvedPath) {
+                    console.warn(`Audio: No playable asset for key '${key}'.`);
+                    resolve();
+                    return;
+                }
+
+                const audio = new Audio(resolvedPath);
                 audio.volume = this._volume;
                 audio.muted = this._muted;
                 // Preload metadata
@@ -38,7 +45,7 @@ class AudioManager {
                 // Simple load check (not blocking strict)
                 audio.oncanplaythrough = () => resolve();
                 audio.onerror = () => {
-                    // console.warn(`Audio: Failed to load ${path}`);
+                    console.warn(`Audio: Failed to load '${key}' from '${resolvedPath}'.`);
                     resolve(); // Resolve anyway to proceed
                 };
 
@@ -56,6 +63,27 @@ class AudioManager {
 
         this._initialized = true;
         console.log('Audio: Initialization complete.');
+    }
+
+    private resolveAssetPath(key: string, visited: Set<string> = new Set()): string | null {
+        const spec: SoundAssetSpec | undefined = SoundAssets[key];
+        if (!spec) {
+            return null;
+        }
+
+        if (typeof spec === 'string') {
+            return spec;
+        }
+
+        const aliasKey = spec.aliasOf;
+        if (visited.has(key)) {
+            const chain = [...visited, key].join(' -> ');
+            console.warn(`Audio: Circular alias mapping detected (${chain}).`);
+            return null;
+        }
+
+        visited.add(key);
+        return this.resolveAssetPath(aliasKey, visited);
     }
 
     public async unlock() {

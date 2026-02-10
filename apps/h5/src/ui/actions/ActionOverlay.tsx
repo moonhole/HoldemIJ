@@ -1,5 +1,7 @@
 import { ActionType } from '@gen/messages_pb';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { audioManager } from '../../audio/AudioManager';
+import { SoundMap } from '../../audio/SoundMap';
 import { gameClient } from '../../network/GameClient';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
@@ -26,6 +28,7 @@ export function ActionOverlay(): JSX.Element | null {
     const clearError = useGameStore((s) => s.clearError);
     const [remainingActionMs, setRemainingActionMs] = useState(0);
     const [raiseAmount, setRaiseAmount] = useState(0n);
+    const lastSliderSoundAt = useRef(0);
 
     useEffect(() => {
         if (!errorMessage) {
@@ -102,6 +105,51 @@ export function ActionOverlay(): JSX.Element | null {
     const canQuickRaise = isMyTurn && !isActionExpired && hasRaise;
     const canQuickAllIn = isMyTurn && !isActionExpired && canAllIn;
 
+    const playUiClick = (): void => {
+        audioManager.play(SoundMap.UI_CLICK, 0.7);
+    };
+
+    const playUiSlider = (): void => {
+        const now = Date.now();
+        if (now - lastSliderSoundAt.current < 75) {
+            return;
+        }
+        lastSliderSoundAt.current = now;
+        audioManager.play(SoundMap.UI_SLIDER, 0.45);
+    };
+
+    const playActionSound = (action: ActionType): void => {
+        switch (action) {
+            case ActionType.ACTION_FOLD:
+                audioManager.play(SoundMap.ACTION_FOLD);
+                break;
+            case ActionType.ACTION_CHECK:
+                audioManager.play(SoundMap.ACTION_CHECK);
+                break;
+            case ActionType.ACTION_CALL:
+                audioManager.play(SoundMap.ACTION_CALL);
+                break;
+            case ActionType.ACTION_RAISE:
+                audioManager.play(SoundMap.ACTION_RAISE);
+                break;
+            case ActionType.ACTION_ALLIN:
+                audioManager.play(SoundMap.ACTION_ALLIN);
+                break;
+            case ActionType.ACTION_BET:
+                audioManager.play(SoundMap.CHIP_BET);
+                break;
+            default:
+                break;
+        }
+    };
+
+    useEffect(() => {
+        if (!prompt || prompt.chair !== myChair) {
+            return;
+        }
+        audioManager.play(SoundMap.TURN_ALERT);
+    }, [prompt?.chair, prompt?.actionDeadlineMs, myChair]);
+
     if (currentScene !== 'table') {
         return errorMessage ? <div className="action-toast">{errorMessage}</div> : null;
     }
@@ -123,10 +171,13 @@ export function ActionOverlay(): JSX.Element | null {
     const submitSmartRaise = (amount: bigint) => {
         if (!prompt) return;
         if (hasRaiseOnly) {
+            playActionSound(ActionType.ACTION_RAISE);
             gameClient.raise(amount);
         } else if (hasBet) {
+            playActionSound(ActionType.ACTION_BET);
             gameClient.bet(amount);
         } else if (canAllIn) {
+            playActionSound(ActionType.ACTION_ALLIN);
             gameClient.allIn(myStack + (myBet || 0n));
         }
         dismissActionPrompt();
@@ -136,6 +187,7 @@ export function ActionOverlay(): JSX.Element | null {
         if (!canFold) {
             return;
         }
+        playActionSound(ActionType.ACTION_FOLD);
         gameClient.fold();
         dismissActionPrompt();
     };
@@ -145,9 +197,11 @@ export function ActionOverlay(): JSX.Element | null {
             return;
         }
         if (hasCall && !hasCheck) {
+            playActionSound(ActionType.ACTION_CALL);
             const totalCallAmount = (prompt.callAmount || 0n) + (myBet || 0n);
             gameClient.call(totalCallAmount);
         } else {
+            playActionSound(ActionType.ACTION_CHECK);
             gameClient.check();
         }
         dismissActionPrompt();
@@ -160,6 +214,7 @@ export function ActionOverlay(): JSX.Element | null {
 
     const submitAllIn = (): void => {
         if (!canQuickAllIn) return;
+        playActionSound(ActionType.ACTION_ALLIN);
         gameClient.allIn(myStack + (myBet || 0n));
         dismissActionPrompt();
     };
@@ -180,10 +235,10 @@ export function ActionOverlay(): JSX.Element | null {
 
             {/* Floating Top Right Controls */}
             <div className="top-right-hud" style={{ position: 'absolute', top: '24px', right: '24px', pointerEvents: 'auto', zIndex: 100, display: 'flex', gap: '12px' }}>
-                <button type="button" className="lobby-icon-btn hud-btn chat-btn">
+                <button type="button" className="lobby-icon-btn hud-btn chat-btn" onClick={playUiClick}>
                     <span className="material-symbols-outlined">chat_bubble</span>
                 </button>
-                <button type="button" className="lobby-icon-btn hud-btn settings-btn">
+                <button type="button" className="lobby-icon-btn hud-btn settings-btn" onClick={playUiClick}>
                     <span className="material-symbols-outlined">settings</span>
                 </button>
                 <AudioToggle />
@@ -240,7 +295,10 @@ export function ActionOverlay(): JSX.Element | null {
                                                 min={Number(minRaiseTo)}
                                                 max={Number(myStack + (myBet || 0n))}
                                                 value={Number(raiseAmount)}
-                                                onChange={(e) => setRaiseAmount(BigInt(e.target.value))}
+                                                onChange={(e) => {
+                                                    setRaiseAmount(BigInt(e.target.value));
+                                                    playUiSlider();
+                                                }}
                                             />
                                             <div className="slider-visual-ticks">
                                                 <div className="tick-line" style={{ bottom: '0%' }} />
@@ -249,9 +307,9 @@ export function ActionOverlay(): JSX.Element | null {
                                         </div>
 
                                         <div className="preset-quick-actions">
-                                            <button className="preset-btn" onClick={() => setRaiseAmount(myStack + (myBet || 0n))}>ALL</button>
-                                            <button className="preset-btn" onClick={() => setRaiseAmount(halfPotRaiseTo)}>1/2</button>
-                                            <button className="preset-btn" onClick={() => setRaiseAmount(minRaiseTo)}>MIN</button>
+                                            <button className="preset-btn" onClick={() => { playUiClick(); setRaiseAmount(myStack + (myBet || 0n)); }}>ALL</button>
+                                            <button className="preset-btn" onClick={() => { playUiClick(); setRaiseAmount(halfPotRaiseTo); }}>1/2</button>
+                                            <button className="preset-btn" onClick={() => { playUiClick(); setRaiseAmount(minRaiseTo); }}>MIN</button>
                                         </div>
                                     </div>
                                 </div>

@@ -2,6 +2,8 @@ import type { ActionPrompt, ActionResult, Card, DealBoard, DealHoleCards, HandEn
 import { ActionType, HandRank, Phase, Rank, Suit } from '@gen/messages_pb';
 import { gsap } from 'gsap';
 import { Container, Graphics, Text } from 'pixi.js';
+import { audioManager } from '../audio/AudioManager';
+import { SoundMap } from '../audio/SoundMap';
 import type { GameApp } from '../main';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../main';
 import { gameClient } from '../network/GameClient';
@@ -53,6 +55,8 @@ export class TableScene extends Container {
     private fallbackCountdownLimitMs = 0;
     private unsubscribeStore: (() => void) | null = null;
     private _potTickerValue = { val: 0 };
+    private lastPotTotal = 0n;
+    private lastChipCollectSoundAt = 0;
 
     constructor(game: GameApp) {
         super();
@@ -407,7 +411,7 @@ export class TableScene extends Container {
         this.hideActionCountdown();
         const totalPot = snap.pots.reduce((acc, p) => acc + p.amount, 0n);
         this._potTickerValue.val = Number(totalPot); // Set initial value without animation
-        this.updatePotFromPots(snap.pots);
+        this.updatePotFromPots(snap.pots, { silent: true });
         this.updateSeats();
         this.updateActivePlayer(snap.actionChair);
         this.boardCards = [...snap.communityCards];
@@ -459,9 +463,11 @@ export class TableScene extends Container {
     }
 
     private handleHandStart(start: HandStart): void {
+        audioManager.play(SoundMap.GAME_START);
         this.myCards.removeChildren();
         this.communityCards.removeChildren();
         this.boardCards = [];
+        this.lastPotTotal = 0n;
         this.updatePot(0n);
         this.hideActionCountdown();
 
@@ -513,6 +519,9 @@ export class TableScene extends Container {
         this.hideActionCountdown();
         if (result.action === ActionType.ACTION_FOLD && result.chair === this.myChair) {
             this.myCards.removeChildren();
+        }
+        if (result.chair !== this.myChair) {
+            this.playActionResultSound(result.action);
         }
         this.updateSeats();
     }
@@ -648,10 +657,46 @@ export class TableScene extends Container {
         }
     }
 
+    private playActionResultSound(action: ActionType): void {
+        switch (action) {
+            case ActionType.ACTION_FOLD:
+                audioManager.play(SoundMap.ACTION_FOLD);
+                break;
+            case ActionType.ACTION_CHECK:
+                audioManager.play(SoundMap.ACTION_CHECK);
+                break;
+            case ActionType.ACTION_CALL:
+                audioManager.play(SoundMap.ACTION_CALL);
+                break;
+            case ActionType.ACTION_RAISE:
+                audioManager.play(SoundMap.ACTION_RAISE);
+                break;
+            case ActionType.ACTION_ALLIN:
+                audioManager.play(SoundMap.ACTION_ALLIN);
+                break;
+            case ActionType.ACTION_BET:
+                audioManager.play(SoundMap.CHIP_BET);
+                break;
+            default:
+                break;
+        }
+    }
+
+    private playChipCollectSound(): void {
+        const now = Date.now();
+        if (now - this.lastChipCollectSoundAt < 120) {
+            return;
+        }
+        this.lastChipCollectSoundAt = now;
+        audioManager.play(SoundMap.CHIP_COLLECT);
+    }
+
     private handleHandEnd(end: HandEnd): void {
+        audioManager.play(SoundMap.WIN_POT);
         this.hideActionCountdown();
         this.updateActivePlayer(-1);
         this.updateSeats();
+        this.lastPotTotal = 0n;
         this.updatePot(0n); // Animate pot down to zero as chips flow to winners
     }
 
@@ -660,12 +705,21 @@ export class TableScene extends Container {
         this.updateActivePlayer(-1);
         // We'll let handleHandEnd (which follows) handle the definitive stack updates
         // Just animate the pot clearing for visual feedback
+        this.lastPotTotal = 0n;
         this.updatePot(0n);
     }
 
-    private updatePotFromPots(pots: Pot[]): void {
+    private updatePotFromPots(pots: Pot[], options?: { silent?: boolean }): void {
         let potTotal = 0n;
         for (const pot of pots) potTotal += pot.amount;
+        const changed = potTotal !== this.lastPotTotal;
+        const increased = potTotal > this.lastPotTotal;
+        this.lastPotTotal = potTotal;
+
+        if (!options?.silent && changed && increased) {
+            this.playChipCollectSound();
+        }
+
         this.updatePot(potTotal);
     }
 
@@ -731,6 +785,9 @@ export class TableScene extends Container {
             const targetRotation = (i - 0.5) * 0.12;
 
             const tl = gsap.timeline({ delay: i * 0.2 });
+            tl.add(() => {
+                audioManager.play(SoundMap.CARD_DEAL, 0.8);
+            });
             tl.to(cardView, {
                 x: targetX,
                 y: 0,
@@ -748,6 +805,7 @@ export class TableScene extends Container {
                 const front = cardView.getChildByName('front');
                 if (back) back.visible = false;
                 if (front) front.visible = true;
+                audioManager.play(SoundMap.CARD_FLIP, 0.8);
             });
             tl.to(cardView.scale, { x: 1.2, duration: 0.15, ease: 'sine.out' });
         });
@@ -871,6 +929,9 @@ export class TableScene extends Container {
             const targetX = startX + i * (cardW + gap) + cardW / 2;
 
             const tl = gsap.timeline({ delay: (i - currentCount) * 0.15 });
+            tl.add(() => {
+                audioManager.play(SoundMap.CARD_SLIDE, 0.8);
+            });
             tl.to(cardView, {
                 x: targetX,
                 y: 0,
@@ -885,6 +946,7 @@ export class TableScene extends Container {
             tl.add(() => {
                 cardView.getChildByName('back')!.visible = false;
                 cardView.getChildByName('front')!.visible = true;
+                audioManager.play(SoundMap.CARD_FLIP, 0.8);
             });
             tl.to(cardView.scale, { x: 1, duration: 0.15 });
         });
