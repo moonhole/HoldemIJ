@@ -120,6 +120,8 @@ message PlayerState {
   ActionType last_action = 8;
   // hand_cards only sent to the player themselves
   repeated Card hand_cards = 9;
+  // true when this player has been dealt hole cards in the current hand.
+  bool has_cards = 10;
 }
 
 message Pot {

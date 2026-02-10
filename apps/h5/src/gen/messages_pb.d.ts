@@ -491,6 +491,13 @@ export declare type PlayerState = Message<"holdem.v1.PlayerState"> & {
    * @generated from field: repeated holdem.v1.Card hand_cards = 9;
    */
   handCards: Card[];
+
+  /**
+   * true when this player has been dealt hole cards in the current hand.
+   *
+   * @generated from field: bool has_cards = 10;
+   */
+  hasCards: boolean;
 };
 
 /**

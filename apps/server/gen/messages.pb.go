@@ -1365,7 +1365,9 @@ type PlayerState struct {
 	AllIn      bool                   `protobuf:"varint,7,opt,name=all_in,json=allIn,proto3" json:"all_in,omitempty"`
 	LastAction ActionType             `protobuf:"varint,8,opt,name=last_action,json=lastAction,proto3,enum=holdem.v1.ActionType" json:"last_action,omitempty"`
 	// hand_cards only sent to the player themselves
-	HandCards     []*Card `protobuf:"bytes,9,rep,name=hand_cards,json=handCards,proto3" json:"hand_cards,omitempty"`
+	HandCards []*Card `protobuf:"bytes,9,rep,name=hand_cards,json=handCards,proto3" json:"hand_cards,omitempty"`
+	// true when this player has been dealt hole cards in the current hand.
+	HasCards      bool `protobuf:"varint,10,opt,name=has_cards,json=hasCards,proto3" json:"has_cards,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1461,6 +1463,13 @@ func (x *PlayerState) GetHandCards() []*Card {
 		return x.HandCards
 	}
 	return nil
+}
+
+func (x *PlayerState) GetHasCards() bool {
+	if x != nil {
+		return x.HasCards
+	}
+	return false
 }
 
 type Pot struct {
@@ -2766,7 +2775,7 @@ const file_messages_proto_rawDesc = "" +
 	"\n" +
 	"min_buy_in\x18\x05 \x01(\x03R\bminBuyIn\x12\x1c\n" +
 	"\n" +
-	"max_buy_in\x18\x06 \x01(\x03R\bmaxBuyIn\"\x97\x02\n" +
+	"max_buy_in\x18\x06 \x01(\x03R\bmaxBuyIn\"\xb4\x02\n" +
 	"\vPlayerState\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12\x14\n" +
 	"\x05chair\x18\x02 \x01(\rR\x05chair\x12\x1a\n" +
@@ -2778,7 +2787,9 @@ const file_messages_proto_rawDesc = "" +
 	"\vlast_action\x18\b \x01(\x0e2\x15.holdem.v1.ActionTypeR\n" +
 	"lastAction\x12.\n" +
 	"\n" +
-	"hand_cards\x18\t \x03(\v2\x0f.holdem.v1.CardR\thandCards\"F\n" +
+	"hand_cards\x18\t \x03(\v2\x0f.holdem.v1.CardR\thandCards\x12\x1b\n" +
+	"\thas_cards\x18\n" +
+	" \x01(\bR\bhasCards\"F\n" +
 	"\x03Pot\x12\x16\n" +
 	"\x06amount\x18\x01 \x01(\x03R\x06amount\x12'\n" +
 	"\x0feligible_chairs\x18\x02 \x03(\rR\x0eeligibleChairs\"\xc1\x01\n" +

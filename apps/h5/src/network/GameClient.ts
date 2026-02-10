@@ -423,15 +423,32 @@ export class GameClient {
 
     private readSessionToken(): string {
         try {
-            return window.localStorage.getItem(GameClient.SESSION_TOKEN_KEY) ?? '';
+            const key = GameClient.SESSION_TOKEN_KEY;
+            const tokenInSession = window.sessionStorage.getItem(key);
+            if (tokenInSession) {
+                return tokenInSession;
+            }
+
+            // Migration path: move historical shared localStorage token
+            // to tab-scoped sessionStorage to prevent multi-tab account takeover.
+            const tokenInLocal = window.localStorage.getItem(key);
+            if (tokenInLocal) {
+                window.sessionStorage.setItem(key, tokenInLocal);
+                window.localStorage.removeItem(key);
+                return tokenInLocal;
+            }
         } catch {
-            return '';
+            // Ignore storage quota or privacy mode failures.
         }
+        return '';
     }
 
     private persistSessionToken(token: string): void {
         try {
-            window.localStorage.setItem(GameClient.SESSION_TOKEN_KEY, token);
+            const key = GameClient.SESSION_TOKEN_KEY;
+            window.sessionStorage.setItem(key, token);
+            // Clean old shared token to avoid cross-tab reuse after upgrade.
+            window.localStorage.removeItem(key);
         } catch {
             // Ignore storage quota or privacy mode failures.
         }

@@ -992,7 +992,7 @@ class SeatView extends Container {
             this.statusText.y = 66;
             this.avatarContainer.alpha = 1;
             this.avatarFrame.alpha = 1;
-            this.cardBacks.visible = !isMe && this.shownCards.children.length === 0;
+            this.cardBacks.visible = !isMe && player.hasCards && this.shownCards.children.length === 0;
         }
 
         this.avatarFrame.clear();

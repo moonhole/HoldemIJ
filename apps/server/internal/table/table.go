@@ -686,6 +686,7 @@ func (t *Table) sendSnapshot(userID uint64) {
 			Folded:     ps.Folded,
 			AllIn:      ps.AllIn,
 			LastAction: actionToProto(ps.LastAction),
+			HasCards:   len(ps.HandCards) > 0,
 		}
 		// Only send hole cards to the player themselves
 		if ps.ID == userID {
@@ -717,9 +718,10 @@ func (t *Table) broadcastSeatUpdate(chair uint16, userID uint64, stack int64) {
 				Chair: uint32(chair),
 				Update: &pb.SeatUpdate_PlayerJoined{
 					PlayerJoined: &pb.PlayerState{
-						UserId: userID,
-						Chair:  uint32(chair),
-						Stack:  stack,
+						UserId:   userID,
+						Chair:    uint32(chair),
+						Stack:    stack,
+						HasCards: false,
 					},
 				},
 			},

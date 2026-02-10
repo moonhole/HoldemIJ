@@ -123,6 +123,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
                         const players = next.snapshot.players.map(p => {
                             let bet = 0n;
                             let stack = p.stack;
+                            const hasCards = p.stack > 0n;
                             if (p.chair === start.smallBlindChair) {
                                 bet = start.smallBlindAmount;
                                 stack -= start.smallBlindAmount;
@@ -130,7 +131,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
                                 bet = start.bigBlindAmount;
                                 stack -= start.bigBlindAmount;
                             }
-                            return { ...p, bet, stack, folded: false, allIn: false };
+                            return { ...p, bet, stack, folded: false, allIn: false, hasCards };
                         });
                         next.snapshot = {
                             ...next.snapshot,
@@ -207,9 +208,9 @@ export const useGameStore = create<GameStoreState>((set) => ({
                         const players = next.snapshot.players.map(p => {
                             const delta = deltas.find(d => d.chair === p.chair);
                             if (delta) {
-                                return { ...p, stack: delta.newStack, bet: 0n, folded: false, allIn: false };
+                                return { ...p, stack: delta.newStack, bet: 0n, folded: false, allIn: false, hasCards: false };
                             }
-                            return { ...p, bet: 0n, folded: false, allIn: false };
+                            return { ...p, bet: 0n, folded: false, allIn: false, hasCards: false };
                         });
                         next.snapshot = { ...next.snapshot, players, pots: [] };
                     }
@@ -219,7 +220,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
                     next.myBet = 0n;
                     next.potUpdate = null;
                     if (next.snapshot) {
-                        const players = next.snapshot.players.map(p => ({ ...p, bet: 0n }));
+                        const players = next.snapshot.players.map(p => ({ ...p, bet: 0n, hasCards: false }));
                         next.snapshot = { ...next.snapshot, players, pots: [] };
                     }
                     break;
