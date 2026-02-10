@@ -356,7 +356,7 @@ export class TableScene extends Container {
         // myCards will sit "on top" of the console
         this.myCards = new Container();
         this.myCards.x = DESIGN_WIDTH / 2;
-        this.myCards.y = 100; // Moved up from 180 to avoid UI overlay blocking
+        this.myCards.y = 80; // Moved up from 180 to avoid UI overlay blocking
         this.actionPanel.addChild(this.myCards);
     }
 

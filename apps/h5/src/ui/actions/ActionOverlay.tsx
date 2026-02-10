@@ -24,6 +24,7 @@ export function ActionOverlay(): JSX.Element | null {
     const dismissActionPrompt = useGameStore((s) => s.dismissActionPrompt);
     const clearError = useGameStore((s) => s.clearError);
     const [remainingActionMs, setRemainingActionMs] = useState(0);
+    const [raiseAmount, setRaiseAmount] = useState(0n);
 
     useEffect(() => {
         if (!errorMessage) {
@@ -61,6 +62,14 @@ export function ActionOverlay(): JSX.Element | null {
         return () => window.clearInterval(timer);
     }, [prompt]);
 
+    useEffect(() => {
+        if (prompt?.minRaiseTo) {
+            setRaiseAmount(prompt.minRaiseTo);
+        } else if (prompt?.callAmount) {
+            setRaiseAmount(prompt.callAmount + (myBet || 0n));
+        }
+    }, [prompt, myBet]);
+
     const myStack = useMemo(() => {
         const player = snapshot?.players.find((p) => p.chair === myChair);
         return player?.stack ?? 0n;
@@ -96,9 +105,11 @@ export function ActionOverlay(): JSX.Element | null {
         return errorMessage ? <div className="action-toast">{errorMessage}</div> : null;
     }
 
-    const primaryLabel = hasCall && !hasCheck ? 'CALL' : 'CHECK';
-    const tertiaryLabel = hasRaiseOnly ? 'RAISE' : (hasBet ? 'BET' : (canAllIn ? 'ALL IN' : 'RAISE'));
     const callToMatch = prompt?.callAmount ?? 0n;
+    const primaryLabel = hasCall && !hasCheck
+        ? `CALL $${callToMatch.toLocaleString()}`
+        : 'CHECK';
+    const tertiaryLabel = hasRaiseOnly ? 'RAISE' : (hasBet ? 'BET' : (canAllIn ? 'ALL IN' : 'RAISE'));
     const minRaiseTo = prompt?.minRaiseTo ?? 0n;
     const halfPotRaiseTo = prompt
         ? (() => {
@@ -143,7 +154,7 @@ export function ActionOverlay(): JSX.Element | null {
 
     const submitRaiseTile = (): void => {
         if (!prompt || !canRaiseTile) return;
-        submitSmartRaise(prompt.minRaiseTo);
+        submitSmartRaise(raiseAmount);
     };
 
     const submitAllIn = (): void => {
@@ -166,71 +177,78 @@ export function ActionOverlay(): JSX.Element | null {
         <div className="action-overlay">
             {errorMessage && <div className="action-toast">{errorMessage}</div>}
 
-            <div className={`action-overlay-shell ${!isMyTurn ? 'is-npc-mode' : ''}`}>
+            <div className="action-overlay-shell">
+                {/* STABLE HEADER: These columns are NEVER destroyed or re-styled */}
                 <div className="shell-top-row">
-                    {/* Common Stats Area - Remains mounted for smooth Ticker and layout stability */}
-                    <div className="action-stats">
-                        <div className="action-stat is-left">
-                            <span className="label">YOUR STACK</span>
+                    <div className="action-stats-summary">
+                        <div className="stat-pill stats-stack">
+                            <span className="label">YOUR_STACK</span>
                             <span className="value">$<NumberTicker value={myStack} /></span>
                         </div>
-                        {isMyTurn && callToMatch > 0n && (
-                            <div className="action-stat is-center fade-in">
-                                <span className="label">TO CALL</span>
-                                <span className="value value-cyan">$<NumberTicker value={callToMatch} /></span>
-                            </div>
-                        )}
-                        <div className="action-stat is-right">
-                            <span className="label">ACTIVE POT</span>
-                            <span className="value value-cyan">$<NumberTicker value={potTotal} /></span>
+                        <div className="stat-pill stats-pot">
+                            <span className="label">ACTIVE_POT</span>
+                            <span className="value">$<NumberTicker value={potTotal} /></span>
                         </div>
                     </div>
                 </div>
 
                 <div className="shell-main-content">
-                    {isMyTurn ? (
-                        <div className="player-controls fade-in">
-                            <div className="bet-arc-area">
-                                <div className="bet-arc-track">
-                                    <button className="bet-arc-knob" type="button" disabled={!canQuickRaise}>
-                                        ↕
+                    {/* PERSISTENT MOUNTING: Use CSS classes for transitions instead of unmounting */}
+                    <div className={`player-view-port ${isMyTurn ? 'view-active' : 'view-inactive'}`}>
+                        <div className={`player-controls ${(canQuickRaise || canQuickAllIn) ? 'has-betting' : ''}`}>
+                            <div className="action-main-group">
+                                <div className="action-buttons-grid">
+                                    <button className="btn-tile btn-fold" disabled={!canFold} onClick={submitFold}>
+                                        <span className="btn-icon">⊘</span>
+                                        <span className="btn-label">FOLD</span>
+                                    </button>
+                                    <button className="btn-tile btn-primary" disabled={!canPrimary} onClick={submitPrimary}>
+                                        <span className="btn-icon">{hasCall && !hasCheck ? '◯' : '✓✓'}</span>
+                                        <span className="btn-label">{primaryLabel}</span>
+                                    </button>
+                                    <button className="btn-tile btn-raise-main" disabled={!canRaiseTile} onClick={submitRaiseTile}>
+                                        <span className="btn-icon">↗</span>
+                                        <span className="btn-label">{tertiaryLabel}</span>
                                     </button>
                                 </div>
-                                <div className="bet-pill">
-                                    <p className="bet-pill-label">BET AMOUNT</p>
-                                    <p className="bet-pill-value">$<NumberTicker value={minRaiseTo} /></p>
+                            </div>
+
+                            {(canQuickRaise || canQuickAllIn) && (
+                                <div className="action-raise-group">
+                                    <div className="bet-info-display">
+                                        <span className="label">RAISE_TO</span>
+                                        <span className="value">${raiseAmount.toLocaleString()}</span>
+                                    </div>
+
+                                    <div className="slider-control-dock">
+                                        <div className="slider-track-wrap">
+                                            <input
+                                                type="range"
+                                                className="vertical-slider"
+                                                min={Number(minRaiseTo)}
+                                                max={Number(myStack + (myBet || 0n))}
+                                                value={Number(raiseAmount)}
+                                                onChange={(e) => setRaiseAmount(BigInt(e.target.value))}
+                                            />
+                                            <div className="slider-visual-ticks">
+                                                <div className="tick-line" style={{ bottom: '0%' }} />
+                                                <div className="tick-line" style={{ bottom: '100%' }} />
+                                            </div>
+                                        </div>
+
+                                        <div className="preset-quick-actions">
+                                            <button className="preset-btn" onClick={() => setRaiseAmount(myStack + (myBet || 0n))}>ALL</button>
+                                            <button className="preset-btn" onClick={() => setRaiseAmount(halfPotRaiseTo)}>1/2</button>
+                                            <button className="preset-btn" onClick={() => setRaiseAmount(minRaiseTo)}>MIN</button>
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-
-                            <div className="action-buttons">
-                                <button className="btn-tile btn-fold" disabled={!canFold} onClick={submitFold}>
-                                    <span className="btn-icon">⊘</span>
-                                    <span className="btn-label">FOLD</span>
-                                </button>
-                                <button className="btn-tile btn-check" disabled={!canPrimary} onClick={submitPrimary}>
-                                    <span className="btn-icon">{hasCall && !hasCheck ? '◯' : '✓✓'}</span>
-                                    <span className="btn-label">{primaryLabel}</span>
-                                </button>
-                                <button className="btn-tile btn-raise" disabled={!canRaiseTile} onClick={submitRaiseTile}>
-                                    <span className="btn-icon">{hasRaise ? '↗' : '↑↑'}</span>
-                                    <span className="btn-label">{tertiaryLabel}</span>
-                                </button>
-                            </div>
-
-                            <div className="quick-bets">
-                                <button className="quick-bet-btn" disabled={!canQuickRaise} onClick={submitMinQuick}>
-                                    MIN
-                                </button>
-                                <button className="quick-bet-btn" disabled={!canQuickRaise} onClick={submitHalfPot}>
-                                    1/2 POT
-                                </button>
-                                <button className="quick-bet-btn" disabled={!canQuickAllIn} onClick={submitAllIn}>
-                                    ALL IN
-                                </button>
-                            </div>
+                            )}
                         </div>
-                    ) : (
-                        <div className="npc-chat-content fade-in">
+                    </div>
+
+                    <div className={`npc-view-port ${!isMyTurn ? 'view-active' : 'view-inactive'}`}>
+                        <div className="npc-chat-content">
                             <div className="npc-chat-layout">
                                 <div className="npc-avatar-wrap">
                                     <div className="npc-avatar-box">
@@ -256,7 +274,7 @@ export function ActionOverlay(): JSX.Element | null {
                                 </div>
                             </div>
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
         </div>
