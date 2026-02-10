@@ -22,18 +22,20 @@ const COLORS = {
 
 // Seat positions (clockwise relative to Bottom Center)
 const SEAT_POSITIONS = [
-    { x: DESIGN_WIDTH * 0.50, y: 810 },   // [0] Bottom Center (Hero spot)
-    { x: DESIGN_WIDTH * 0.15, y: 680 },   // [1] Bottom Left
+    { x: DESIGN_WIDTH * 0.50, y: 840 },   // [0] Bottom Center (Hero spot)
+    { x: DESIGN_WIDTH * 0.15, y: 700 },   // [1] Bottom Left
     { x: DESIGN_WIDTH * 0.15, y: 340 },   // [2] Top Left
     { x: DESIGN_WIDTH * 0.50, y: 220 },   // [3] Top Center (Opposite)
     { x: DESIGN_WIDTH * 0.85, y: 340 },   // [4] Top Right
-    { x: DESIGN_WIDTH * 0.85, y: 680 },   // [5] Bottom Right
+    { x: DESIGN_WIDTH * 0.85, y: 700 },   // [5] Bottom Right
 ];
 
 export class TableScene extends Container {
     private _game: GameApp;
     private potText!: Text;
     private potAmount!: Text;
+    private currencySymbol!: Text;
+    private potValueContainer!: Container;
     private actionTimerContainer!: Container;
     private actionTimerLabel!: Text;
     private actionTimerValue!: Text;
@@ -196,7 +198,7 @@ export class TableScene extends Container {
     private createPotDisplay(): void {
         const potContainer = new Container();
         potContainer.x = DESIGN_WIDTH / 2;
-        potContainer.y = 380; // Moved down to avoid clash with top player
+        potContainer.y = 320; // Moved up to clear center for Reactor HUD
         this.addChild(potContainer);
 
         this.potText = new Text({
@@ -213,11 +215,11 @@ export class TableScene extends Container {
         this.potText.y = -35;
         potContainer.addChild(this.potText);
 
-        const potValueContainer = new Container();
-        potValueContainer.y = 10;
-        potContainer.addChild(potValueContainer);
+        this.potValueContainer = new Container();
+        this.potValueContainer.y = 10;
+        potContainer.addChild(this.potValueContainer);
 
-        const currencySymbol = new Text({
+        this.currencySymbol = new Text({
             text: '$',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
@@ -227,9 +229,9 @@ export class TableScene extends Container {
                 fill: COLORS.primary,
             },
         });
-        currencySymbol.anchor.set(1, 0.5);
-        currencySymbol.x = -8;
-        potValueContainer.addChild(currencySymbol);
+        this.currencySymbol.anchor.set(1, 0.5);
+        this.currencySymbol.x = -8;
+        this.potValueContainer.addChild(this.currencySymbol);
 
         this.potAmount = new Text({
             text: '0',
@@ -240,51 +242,89 @@ export class TableScene extends Container {
                 fontStyle: 'italic',
                 fill: 0xffffff,
                 letterSpacing: 2,
+                padding: 12, // Prevent italic clipping
             },
         });
         this.potAmount.anchor.set(0, 0.5);
-        potValueContainer.addChild(this.potAmount);
+        this.potValueContainer.addChild(this.potAmount);
     }
+
+    private actionTimerRing!: Graphics;
+    private actionTimerBg!: Graphics;
 
     private createActionTimer(): void {
         this.actionTimerContainer = new Container();
         this.actionTimerContainer.x = DESIGN_WIDTH / 2;
-        this.actionTimerContainer.y = 290;
+        this.actionTimerContainer.y = 600; // Shifted up to avoid overlap with bet tags
         this.actionTimerContainer.visible = false;
         this.addChild(this.actionTimerContainer);
 
-        const timerBg = new Graphics();
-        timerBg.roundRect(-124, -32, 248, 64, 14);
-        timerBg.fill({ color: 0x031114, alpha: 0.85 });
-        timerBg.stroke({ color: COLORS.cyan, width: 2, alpha: 0.55 });
-        this.actionTimerContainer.addChild(timerBg);
+        // Reactor Core Background
+        this.actionTimerBg = new Graphics();
+        this.drawReactorHUD(this.actionTimerBg);
+        this.actionTimerContainer.addChild(this.actionTimerBg);
+
+        // Progress Ring Track
+        const ringTrack = new Graphics();
+        ringTrack.arc(0, 0, 48, 0, Math.PI * 2);
+        ringTrack.stroke({ color: 0xffffff, width: 2, alpha: 0.05 });
+        this.actionTimerContainer.addChild(ringTrack);
+
+        // Progress Ring
+        this.actionTimerRing = new Graphics();
+        this.actionTimerContainer.addChild(this.actionTimerRing);
 
         this.actionTimerLabel = new Text({
             text: 'TO ACT',
             style: {
                 fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 11,
-                letterSpacing: 2,
+                fontSize: 10,
+                letterSpacing: 1.5,
                 fontWeight: '700',
                 fill: 0x88d9df,
             },
         });
+        this.actionTimerLabel.alpha = 0.7;
         this.actionTimerLabel.anchor.set(0.5);
-        this.actionTimerLabel.y = -10;
+        this.actionTimerLabel.y = -18;
         this.actionTimerContainer.addChild(this.actionTimerLabel);
 
         this.actionTimerValue = new Text({
-            text: '0s',
+            text: '0',
             style: {
-                fontFamily: 'Space Grotesk, Inter, sans-serif',
-                fontSize: 24,
+                fontFamily: 'Orbitron, Space Grotesk, Inter, sans-serif',
+                fontSize: 28,
                 fontWeight: '900',
                 fill: COLORS.cyan,
             },
         });
         this.actionTimerValue.anchor.set(0.5);
-        this.actionTimerValue.y = 14;
+        this.actionTimerValue.y = 6;
         this.actionTimerContainer.addChild(this.actionTimerValue);
+    }
+
+    private drawReactorHUD(g: Graphics): void {
+        g.clear();
+        // Inner Glow
+        g.circle(0, 0, 52);
+        g.fill({ color: 0x031114, alpha: 0.6 });
+        g.stroke({ color: COLORS.cyan, width: 2, alpha: 0.2 });
+
+        // HUD Bracket Left
+        g.moveTo(-70, -20).lineTo(-80, 0).lineTo(-70, 20);
+        g.stroke({ color: COLORS.cyan, width: 3, alpha: 0.4 });
+
+        // HUD Bracket Right
+        g.moveTo(70, -20).lineTo(80, 0).lineTo(70, 20);
+        g.stroke({ color: COLORS.cyan, width: 3, alpha: 0.4 });
+
+        // Decorative bits
+        for (let i = 0; i < 4; i++) {
+            const angle = (i * Math.PI) / 2 + Math.PI / 4;
+            g.moveTo(Math.cos(angle) * 65, Math.sin(angle) * 65);
+            g.lineTo(Math.cos(angle) * 75, Math.sin(angle) * 75);
+            g.stroke({ color: COLORS.cyan, width: 1, alpha: 0.3 });
+        }
     }
 
     private createSeatGrid(): void {
@@ -301,7 +341,7 @@ export class TableScene extends Container {
     private createCommunityCards(): void {
         this.communityCards = new Container();
         this.communityCards.x = DESIGN_WIDTH / 2;
-        this.communityCards.y = 530; // Moved down to accommodate pot display change
+        this.communityCards.y = 470; // Moved up to match pot/timer shift
         this.addChild(this.communityCards);
     }
 
@@ -512,18 +552,67 @@ export class TableScene extends Container {
             return;
         }
 
-        this.actionTimerLabel.text = `${this.getActionActorLabel(prompt.chair)} TO ACT`;
+        const actorLabel = this.getActionActorLabel(prompt.chair);
+        this.actionTimerLabel.text = actorLabel;
+
         let remainingMs = 0;
+        const totalLimitMs = prompt.timeLimitSec > 0 ? prompt.timeLimitSec * 1000 : 30000;
+
         if (prompt.actionDeadlineMs > 0n) {
             remainingMs = Number(prompt.actionDeadlineMs) - gameClient.getEstimatedServerNowMs();
         } else {
             const elapsedMs = Date.now() - this.fallbackCountdownStartMs;
             remainingMs = this.fallbackCountdownLimitMs - elapsedMs;
         }
+
         remainingMs = Math.max(0, remainingMs);
         const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
-        this.actionTimerValue.text = `${remainingSec}s`;
-        this.actionTimerValue.style.fill = remainingSec <= 5 ? COLORS.primary : COLORS.cyan;
+        const progress = Math.min(1, remainingMs / totalLimitMs);
+
+        // Update Text
+        this.actionTimerValue.text = `${remainingSec}`;
+
+        // Color Transition: Cyan -> Orange -> Red
+        let color = COLORS.cyan;
+        if (progress < 0.3) color = 0xff4d4d; // Red
+        else if (progress < 0.6) color = 0xffa500; // Orange
+
+        this.actionTimerValue.style.fill = color;
+
+        // Update Ring with segmented look
+        this.actionTimerRing.clear();
+        const startAngle = -Math.PI / 2;
+        const endAngle = startAngle + (Math.PI * 2 * progress);
+
+        // Outer glowing arc
+        this.actionTimerRing.arc(0, 0, 55, startAngle, endAngle);
+        this.actionTimerRing.stroke({ color, width: 4, cap: 'round', alpha: 0.8 });
+
+        // Inner segmented track
+        const segments = 24;
+        for (let i = 0; i < segments; i++) {
+            const angle = startAngle + (i / segments) * Math.PI * 2;
+            const isFilled = (i / segments) < progress;
+            if (isFilled) {
+                this.actionTimerRing.moveTo(Math.cos(angle) * 44, Math.sin(angle) * 44);
+                this.actionTimerRing.lineTo(Math.cos(angle) * 48, Math.sin(angle) * 48);
+                this.actionTimerRing.stroke({ color, width: 2, alpha: 0.6 });
+            }
+        }
+
+        // Add a scanning line
+        const scanAngle = (Date.now() * 0.005) % (Math.PI * 2);
+        this.actionTimerRing.moveTo(0, 0);
+        this.actionTimerRing.lineTo(Math.cos(scanAngle) * 55, Math.sin(scanAngle) * 55);
+        this.actionTimerRing.stroke({ color, width: 1, alpha: 0.1 });
+
+        // Pulse effect when low time
+        if (remainingSec <= 5) {
+            const pulse = 1 + Math.sin(Date.now() * 0.01) * 0.05;
+            this.actionTimerContainer.scale.set(pulse);
+        } else {
+            this.actionTimerContainer.scale.set(1);
+        }
     }
 
     private getActionActorLabel(chair: number): string {
@@ -598,6 +687,10 @@ export class TableScene extends Container {
             ease: 'power4.out',
             onUpdate: () => {
                 this.potAmount.text = Math.floor(this._potTickerValue.val).toLocaleString();
+                // Dynamic centering: offset the container to keep Symbol + Text unit centered
+                const totalWidth = this.currencySymbol.width + 8 + this.potAmount.width;
+                const centerBias = (this.potAmount.width - (this.currencySymbol.width + 8)) / 2;
+                this.potValueContainer.x = -centerBias;
             }
         });
     }
