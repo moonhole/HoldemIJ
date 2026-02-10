@@ -125,6 +125,12 @@
     font-style: italic;
 }
 
+.action-stat .value.value-warn {
+    font-size: 24px;
+    color: #ff7a7a;
+    font-style: italic;
+}
+
 .btn-icon {
     font-size: 26px;
     line-height: 1;

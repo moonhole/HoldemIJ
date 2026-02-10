@@ -717,6 +717,13 @@ export declare type ActionPrompt = Message<"holdem.v1.ActionPrompt"> & {
    * @generated from field: int32 time_limit_sec = 5;
    */
   timeLimitSec: number;
+
+  /**
+   * Absolute server-side deadline timestamp in Unix milliseconds.
+   *
+   * @generated from field: int64 action_deadline_ms = 6;
+   */
+  actionDeadlineMs: bigint;
 };
 
 /**

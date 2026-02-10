@@ -175,6 +175,8 @@ message ActionPrompt {
   int64 min_raise_to = 3;
   int64 call_amount = 4;
   int32 time_limit_sec = 5;
+  // Absolute server-side deadline timestamp in Unix milliseconds.
+  int64 action_deadline_ms = 6;
 }
 
 message ActionResult {

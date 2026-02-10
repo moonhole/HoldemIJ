@@ -798,6 +798,13 @@ func (t *Table) sendActionPrompt(chair uint16) {
 }
 
 func (t *Table) sendActionPromptWithTTL(chair uint16, timeLimitSec int32, resetTimeout bool) {
+	if timeLimitSec < 1 {
+		timeLimitSec = 1
+	}
+	if resetTimeout {
+		t.setActionTimeoutLocked(chair, time.Now())
+	}
+
 	actions, minRaise, err := t.game.LegalActions(chair)
 	if err != nil {
 		log.Printf("[Table %s] Failed to build action prompt for chair %d: %v", t.ID, chair, err)
@@ -830,24 +837,27 @@ func (t *Table) sendActionPromptWithTTL(chair uint16, timeLimitSec int32, resetT
 		legalActions[i] = actionToProto(a)
 	}
 
+	deadline := t.actionDeadline
+	if t.actionTimeoutChair != chair || deadline.IsZero() {
+		deadline = time.Now().Add(time.Duration(timeLimitSec) * time.Second)
+	}
+
 	env := &pb.ServerEnvelope{
 		TableId:    t.ID,
 		ServerSeq:  t.nextSeq(),
 		ServerTsMs: time.Now().UnixMilli(),
 		Payload: &pb.ServerEnvelope_ActionPrompt{
 			ActionPrompt: &pb.ActionPrompt{
-				Chair:        uint32(chair),
-				LegalActions: legalActions,
-				MinRaiseTo:   minRaise,
-				CallAmount:   callAmount,
-				TimeLimitSec: timeLimitSec,
+				Chair:            uint32(chair),
+				LegalActions:     legalActions,
+				MinRaiseTo:       minRaise,
+				CallAmount:       callAmount,
+				TimeLimitSec:     timeLimitSec,
+				ActionDeadlineMs: deadline.UnixMilli(),
 			},
 		},
 	}
 	t.broadcastToAll(env)
-	if resetTimeout {
-		t.setActionTimeoutLocked(chair, time.Now())
-	}
 }
 
 func (t *Table) sendPromptIfActingUser(userID uint64) {
@@ -857,13 +867,20 @@ func (t *Table) sendPromptIfActingUser(userID uint64) {
 	}
 
 	snap := t.game.Snapshot()
-	if snap.Ended || snap.ActionChair == holdem.InvalidChair || snap.ActionChair != player.Chair {
+	if snap.Round == 0 || snap.Ended || snap.Phase == holdem.PhaseTypeRoundEnd {
+		return
+	}
+	if snap.ActionChair == holdem.InvalidChair || snap.ActionChair != player.Chair {
 		return
 	}
 
 	timeLimit := actionTimeLimitSec
 	if t.actionTimeoutChair == player.Chair && !t.actionDeadline.IsZero() {
-		remaining := int32(time.Until(t.actionDeadline).Seconds())
+		remainingDuration := time.Until(t.actionDeadline)
+		if remainingDuration < 0 {
+			remainingDuration = 0
+		}
+		remaining := int32((remainingDuration + time.Second - 1) / time.Second)
 		if remaining < 1 {
 			remaining = 1
 		}

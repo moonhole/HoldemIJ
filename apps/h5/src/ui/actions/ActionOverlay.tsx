@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ActionType } from '@gen/messages_pb';
 import { gameClient } from '../../network/GameClient';
 import { useGameStore } from '../../store/gameStore';
@@ -23,6 +23,7 @@ export function ActionOverlay(): JSX.Element | null {
     const errorMessage = useGameStore((s) => s.errorMessage);
     const dismissActionPrompt = useGameStore((s) => s.dismissActionPrompt);
     const clearError = useGameStore((s) => s.clearError);
+    const [remainingActionMs, setRemainingActionMs] = useState(0);
 
     useEffect(() => {
         if (!errorMessage) {
@@ -33,6 +34,32 @@ export function ActionOverlay(): JSX.Element | null {
         }, 2200);
         return () => window.clearTimeout(timer);
     }, [errorMessage, clearError]);
+
+    useEffect(() => {
+        if (!prompt) {
+            setRemainingActionMs(0);
+            return;
+        }
+
+        const fallbackLimitMs = Math.max(0, prompt.timeLimitSec) * 1000;
+        const localStartMs = Date.now();
+        const hasServerDeadline = prompt.actionDeadlineMs > 0n;
+
+        const update = (): void => {
+            if (hasServerDeadline) {
+                const deadlineMs = Number(prompt.actionDeadlineMs);
+                const remaining = deadlineMs - gameClient.getEstimatedServerNowMs();
+                setRemainingActionMs(Math.max(0, remaining));
+                return;
+            }
+            const elapsed = Date.now() - localStartMs;
+            setRemainingActionMs(Math.max(0, fallbackLimitMs - elapsed));
+        };
+
+        update();
+        const timer = window.setInterval(update, 100);
+        return () => window.clearInterval(timer);
+    }, [prompt]);
 
     const myStack = useMemo(() => {
         const player = snapshot?.players.find((p) => p.chair === myChair);
@@ -58,11 +85,12 @@ export function ActionOverlay(): JSX.Element | null {
     const canAllIn = legalActions.has(ActionType.ACTION_ALLIN);
 
     const isMyTurn = !!prompt && prompt.chair === myChair;
-    const canFold = isMyTurn && hasFold;
-    const canPrimary = isMyTurn && (hasCheck || hasCall);
-    const canRaiseTile = isMyTurn && (hasRaise || canAllIn);
-    const canQuickRaise = isMyTurn && hasRaise;
-    const canQuickAllIn = isMyTurn && canAllIn;
+    const isActionExpired = isMyTurn && remainingActionMs <= 0;
+    const canFold = isMyTurn && !isActionExpired && hasFold;
+    const canPrimary = isMyTurn && !isActionExpired && (hasCheck || hasCall);
+    const canRaiseTile = isMyTurn && !isActionExpired && (hasRaise || canAllIn);
+    const canQuickRaise = isMyTurn && !isActionExpired && hasRaise;
+    const canQuickAllIn = isMyTurn && !isActionExpired && canAllIn;
 
     if (currentScene !== 'table') {
         return errorMessage ? <div className="action-toast">{errorMessage}</div> : null;

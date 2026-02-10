@@ -1885,14 +1885,16 @@ func (x *PhaseChange) GetMyHandValue() uint32 {
 }
 
 type ActionPrompt struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Chair         uint32                 `protobuf:"varint,1,opt,name=chair,proto3" json:"chair,omitempty"`
-	LegalActions  []ActionType           `protobuf:"varint,2,rep,packed,name=legal_actions,json=legalActions,proto3,enum=holdem.v1.ActionType" json:"legal_actions,omitempty"`
-	MinRaiseTo    int64                  `protobuf:"varint,3,opt,name=min_raise_to,json=minRaiseTo,proto3" json:"min_raise_to,omitempty"`
-	CallAmount    int64                  `protobuf:"varint,4,opt,name=call_amount,json=callAmount,proto3" json:"call_amount,omitempty"`
-	TimeLimitSec  int32                  `protobuf:"varint,5,opt,name=time_limit_sec,json=timeLimitSec,proto3" json:"time_limit_sec,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state        protoimpl.MessageState `protogen:"open.v1"`
+	Chair        uint32                 `protobuf:"varint,1,opt,name=chair,proto3" json:"chair,omitempty"`
+	LegalActions []ActionType           `protobuf:"varint,2,rep,packed,name=legal_actions,json=legalActions,proto3,enum=holdem.v1.ActionType" json:"legal_actions,omitempty"`
+	MinRaiseTo   int64                  `protobuf:"varint,3,opt,name=min_raise_to,json=minRaiseTo,proto3" json:"min_raise_to,omitempty"`
+	CallAmount   int64                  `protobuf:"varint,4,opt,name=call_amount,json=callAmount,proto3" json:"call_amount,omitempty"`
+	TimeLimitSec int32                  `protobuf:"varint,5,opt,name=time_limit_sec,json=timeLimitSec,proto3" json:"time_limit_sec,omitempty"`
+	// Absolute server-side deadline timestamp in Unix milliseconds.
+	ActionDeadlineMs int64 `protobuf:"varint,6,opt,name=action_deadline_ms,json=actionDeadlineMs,proto3" json:"action_deadline_ms,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ActionPrompt) Reset() {
@@ -1956,6 +1958,13 @@ func (x *ActionPrompt) GetCallAmount() int64 {
 func (x *ActionPrompt) GetTimeLimitSec() int32 {
 	if x != nil {
 		return x.TimeLimitSec
+	}
+	return 0
+}
+
+func (x *ActionPrompt) GetActionDeadlineMs() int64 {
+	if x != nil {
+		return x.ActionDeadlineMs
 	}
 	return 0
 }
@@ -2800,7 +2809,7 @@ const file_messages_proto_rawDesc = "" +
 	"myHandRank\x88\x01\x01\x12'\n" +
 	"\rmy_hand_value\x18\x05 \x01(\rH\x01R\vmyHandValue\x88\x01\x01B\x0f\n" +
 	"\r_my_hand_rankB\x10\n" +
-	"\x0e_my_hand_value\"\xc9\x01\n" +
+	"\x0e_my_hand_value\"\xf7\x01\n" +
 	"\fActionPrompt\x12\x14\n" +
 	"\x05chair\x18\x01 \x01(\rR\x05chair\x12:\n" +
 	"\rlegal_actions\x18\x02 \x03(\x0e2\x15.holdem.v1.ActionTypeR\flegalActions\x12 \n" +
@@ -2808,7 +2817,8 @@ const file_messages_proto_rawDesc = "" +
 	"minRaiseTo\x12\x1f\n" +
 	"\vcall_amount\x18\x04 \x01(\x03R\n" +
 	"callAmount\x12$\n" +
-	"\x0etime_limit_sec\x18\x05 \x01(\x05R\ftimeLimitSec\"\xac\x01\n" +
+	"\x0etime_limit_sec\x18\x05 \x01(\x05R\ftimeLimitSec\x12,\n" +
+	"\x12action_deadline_ms\x18\x06 \x01(\x03R\x10actionDeadlineMs\"\xac\x01\n" +
 	"\fActionResult\x12\x14\n" +
 	"\x05chair\x18\x01 \x01(\rR\x05chair\x12-\n" +
 	"\x06action\x18\x02 \x01(\x0e2\x15.holdem.v1.ActionTypeR\x06action\x12\x16\n" +

@@ -51,6 +51,8 @@ export class GameClient {
     private sessionToken = '';
     private listeners = new Set<MessageHandler>();
     private reconnectTimer: number | null = null;
+    private serverClockOffsetMs = 0;
+    private hasServerClockSync = false;
 
     // Track which chair we're sitting at
     public myChair: number = -1;
@@ -130,6 +132,8 @@ export class GameClient {
         try {
             const env = fromBinary(ServerEnvelopeSchema, new Uint8Array(data));
             console.log('[GameClient] Received', env.payload.case, env.serverSeq);
+
+            this.updateServerClockOffset(Number(env.serverTsMs));
 
             // Update ack
             this.ack = env.serverSeq;
@@ -389,6 +393,24 @@ export class GameClient {
 
     get isConnected(): boolean {
         return this.ws?.readyState === WebSocket.OPEN;
+    }
+
+    getEstimatedServerNowMs(): number {
+        return Date.now() + this.serverClockOffsetMs;
+    }
+
+    private updateServerClockOffset(serverTsMs: number): void {
+        if (!Number.isFinite(serverTsMs) || serverTsMs <= 0) {
+            return;
+        }
+        const sampleOffset = serverTsMs - Date.now();
+        if (!this.hasServerClockSync) {
+            this.serverClockOffsetMs = sampleOffset;
+            this.hasServerClockSync = true;
+            return;
+        }
+        const alpha = 0.15;
+        this.serverClockOffsetMs = this.serverClockOffsetMs * (1 - alpha) + sampleOffset * alpha;
     }
 
     private withSessionToken(url: string): string {

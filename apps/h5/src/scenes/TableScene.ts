@@ -2,6 +2,7 @@ import { Container, Graphics, Text } from 'pixi.js';
 import { gsap } from 'gsap';
 import type { GameApp } from '../main';
 import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../main';
+import { gameClient } from '../network/GameClient';
 import { useGameStore } from '../store/gameStore';
 import type { TableSnapshot, PlayerState, Card, Pot, ActionPrompt, DealHoleCards, DealBoard, ActionResult, HandStart, SeatUpdate, Showdown, HandEnd, PotUpdate, PhaseChange, WinByFold } from '@gen/messages_pb';
 import { ActionType, Suit, Rank, Phase, HandRank } from '@gen/messages_pb';
@@ -33,12 +34,19 @@ export class TableScene extends Container {
     private _game: GameApp;
     private potText!: Text;
     private potAmount!: Text;
+    private actionTimerContainer!: Container;
+    private actionTimerLabel!: Text;
+    private actionTimerValue!: Text;
     private communityCards!: Container;
     private seatViews: SeatView[] = [];
     private myCards!: Container;
     private actionPanel!: Container;
     private myChair: number = -1;
     private boardCards: Card[] = [];
+    private currentActionPrompt: ActionPrompt | null = null;
+    private actionCountdownTimer: number | null = null;
+    private fallbackCountdownStartMs = 0;
+    private fallbackCountdownLimitMs = 0;
     private unsubscribeStore: (() => void) | null = null;
     private _potTickerValue = { val: 0 };
 
@@ -116,6 +124,7 @@ export class TableScene extends Container {
 
         this.createTopBar();
         this.createPotDisplay();
+        this.createActionTimer();
         this.createSeatGrid();
         this.createCommunityCards();
         this.createActionPanel();
@@ -237,6 +246,47 @@ export class TableScene extends Container {
         potValueContainer.addChild(this.potAmount);
     }
 
+    private createActionTimer(): void {
+        this.actionTimerContainer = new Container();
+        this.actionTimerContainer.x = DESIGN_WIDTH / 2;
+        this.actionTimerContainer.y = 290;
+        this.actionTimerContainer.visible = false;
+        this.addChild(this.actionTimerContainer);
+
+        const timerBg = new Graphics();
+        timerBg.roundRect(-124, -32, 248, 64, 14);
+        timerBg.fill({ color: 0x031114, alpha: 0.85 });
+        timerBg.stroke({ color: COLORS.cyan, width: 2, alpha: 0.55 });
+        this.actionTimerContainer.addChild(timerBg);
+
+        this.actionTimerLabel = new Text({
+            text: 'TO ACT',
+            style: {
+                fontFamily: 'Space Grotesk, Inter, sans-serif',
+                fontSize: 11,
+                letterSpacing: 2,
+                fontWeight: '700',
+                fill: 0x88d9df,
+            },
+        });
+        this.actionTimerLabel.anchor.set(0.5);
+        this.actionTimerLabel.y = -10;
+        this.actionTimerContainer.addChild(this.actionTimerLabel);
+
+        this.actionTimerValue = new Text({
+            text: '0s',
+            style: {
+                fontFamily: 'Space Grotesk, Inter, sans-serif',
+                fontSize: 24,
+                fontWeight: '900',
+                fill: COLORS.cyan,
+            },
+        });
+        this.actionTimerValue.anchor.set(0.5);
+        this.actionTimerValue.y = 14;
+        this.actionTimerContainer.addChild(this.actionTimerValue);
+    }
+
     private createSeatGrid(): void {
         for (let i = 0; i < 6; i++) {
             const pos = SEAT_POSITIONS[i];
@@ -310,6 +360,7 @@ export class TableScene extends Container {
 
     private handleSnapshot(snap: TableSnapshot): void {
         this.myChair = useGameStore.getState().myChair;
+        this.hideActionCountdown();
         const totalPot = snap.pots.reduce((acc, p) => acc + p.amount, 0n);
         this._potTickerValue.val = Number(totalPot); // Set initial value without animation
         this.updatePotFromPots(snap.pots);
@@ -349,7 +400,7 @@ export class TableScene extends Container {
 
     private updateActivePlayer(actionChair: number): void {
         this.seatViews.forEach(sv => sv.setActive(false));
-        if (actionChair === -1) return;
+        if (actionChair < 0 || actionChair >= this.seatViews.length) return;
 
         let viewIndex = -1;
         if (this.myChair !== -1) {
@@ -368,6 +419,7 @@ export class TableScene extends Container {
         this.communityCards.removeChildren();
         this.boardCards = [];
         this.updatePot(0n);
+        this.hideActionCountdown();
 
         for (const sv of this.seatViews) sv.clearCards();
 
@@ -412,6 +464,7 @@ export class TableScene extends Container {
     }
 
     private handleActionResult(result: ActionResult): void {
+        this.hideActionCountdown();
         if (result.action === ActionType.ACTION_FOLD && result.chair === this.myChair) {
             this.myCards.removeChildren();
         }
@@ -425,6 +478,63 @@ export class TableScene extends Container {
             this.updateSeats();
         }
         this.updateActivePlayer(prompt.chair);
+        this.showActionCountdown(prompt);
+    }
+
+    private showActionCountdown(prompt: ActionPrompt): void {
+        this.currentActionPrompt = prompt;
+        this.fallbackCountdownStartMs = Date.now();
+        this.fallbackCountdownLimitMs = Math.max(0, prompt.timeLimitSec) * 1000;
+        this.actionTimerContainer.visible = true;
+        this.updateActionCountdown();
+
+        if (this.actionCountdownTimer !== null) {
+            window.clearInterval(this.actionCountdownTimer);
+        }
+        this.actionCountdownTimer = window.setInterval(() => {
+            this.updateActionCountdown();
+        }, 100);
+    }
+
+    private hideActionCountdown(): void {
+        this.currentActionPrompt = null;
+        this.actionTimerContainer.visible = false;
+        if (this.actionCountdownTimer !== null) {
+            window.clearInterval(this.actionCountdownTimer);
+            this.actionCountdownTimer = null;
+        }
+    }
+
+    private updateActionCountdown(): void {
+        const prompt = this.currentActionPrompt;
+        if (!prompt) {
+            this.actionTimerContainer.visible = false;
+            return;
+        }
+
+        this.actionTimerLabel.text = `${this.getActionActorLabel(prompt.chair)} TO ACT`;
+        let remainingMs = 0;
+        if (prompt.actionDeadlineMs > 0n) {
+            remainingMs = Number(prompt.actionDeadlineMs) - gameClient.getEstimatedServerNowMs();
+        } else {
+            const elapsedMs = Date.now() - this.fallbackCountdownStartMs;
+            remainingMs = this.fallbackCountdownLimitMs - elapsedMs;
+        }
+        remainingMs = Math.max(0, remainingMs);
+        const remainingSec = Math.max(0, Math.ceil(remainingMs / 1000));
+        this.actionTimerValue.text = `${remainingSec}s`;
+        this.actionTimerValue.style.fill = remainingSec <= 5 ? COLORS.primary : COLORS.cyan;
+    }
+
+    private getActionActorLabel(chair: number): string {
+        if (chair === this.myChair) {
+            return 'YOU';
+        }
+        const actor = this.getPlayers().find((p) => p.chair === chair);
+        if (actor) {
+            return `PLAYER_${actor.userId.toString()}`;
+        }
+        return `CHAIR_${chair + 1}`;
     }
 
     private handleShowdown(showdown: Showdown): void {
@@ -444,12 +554,14 @@ export class TableScene extends Container {
     }
 
     private handleHandEnd(end: HandEnd): void {
+        this.hideActionCountdown();
         this.updateActivePlayer(-1);
         this.updateSeats();
         this.updatePot(0n); // Animate pot down to zero as chips flow to winners
     }
 
     private handleWinByFold(winByFold: WinByFold): void {
+        this.hideActionCountdown();
         this.updateActivePlayer(-1);
         // We'll let handleHandEnd (which follows) handle the definitive stack updates
         // Just animate the pot clearing for visual feedback
@@ -632,6 +744,7 @@ export class TableScene extends Container {
     }
 
     public dispose(): void {
+        this.hideActionCountdown();
         if (this.unsubscribeStore) {
             this.unsubscribeStore();
             this.unsubscribeStore = null;
