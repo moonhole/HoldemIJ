@@ -149,10 +149,14 @@ func (g *Game) StartHand() error {
 	active := make([]*Player, 0, g.cfg.MaxPlayers)
 	for chair := uint16(0); chair < uint16(g.cfg.MaxPlayers); chair++ {
 		p := g.playersByChair[chair]
-		if p == nil || p.stack <= 0 {
+		if p == nil {
 			continue
 		}
+		// Always clear per-hand state, including busted seats that stay at table.
 		p.ResetForNewHand()
+		if p.stack <= 0 {
+			continue
+		}
 		active = append(active, p)
 	}
 	if len(active) < g.cfg.MinPlayers {

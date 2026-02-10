@@ -43,7 +43,8 @@ func (g *Game) settleByEval() (*SettlementResult, error) {
 	// Evaluate all hands
 	results := make(map[uint16]*ShowdownPlayerResult, 8)
 	for chair, p := range g.playersByChair {
-		if p == nil || p.folded {
+		// Only players who were actually dealt this hand can participate in showdown.
+		if p == nil || p.folded || len(p.HandCards()) != 2 {
 			continue
 		}
 		all := make(card.CardList, 0, 7)
@@ -241,4 +242,3 @@ func (g *Game) settleNoShowdown() (*SettlementResult, error) {
 	}
 	return out, nil
 }
-
