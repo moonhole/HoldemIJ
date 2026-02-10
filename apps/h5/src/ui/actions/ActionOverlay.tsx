@@ -40,13 +40,9 @@ export function ActionOverlay(): JSX.Element | null {
     }, [snapshot, myChair]);
 
     const potTotal = useMemo(() => {
-        if (potUpdate) {
-            return sumPots(potUpdate.pots);
-        }
-        if (snapshot) {
-            return sumPots(snapshot.pots);
-        }
-        return 0n;
+        const collectedPots = potUpdate ? sumPots(potUpdate.pots) : sumPots(snapshot?.pots);
+        const liveBets = snapshot?.players?.reduce((acc, p) => acc + (p.bet || 0n), 0n) ?? 0n;
+        return collectedPots + liveBets;
     }, [snapshot, potUpdate]);
 
     const legalActions = useMemo(() => {
@@ -150,9 +146,15 @@ export function ActionOverlay(): JSX.Element | null {
                             <span className="label">YOUR STACK</span>
                             <span className="value">$<NumberTicker value={myStack} /></span>
                         </div>
+                        {isMyTurn && callToMatch > 0n && (
+                            <div className="action-stat is-center fade-in">
+                                <span className="label">TO CALL</span>
+                                <span className="value value-cyan">$<NumberTicker value={callToMatch} /></span>
+                            </div>
+                        )}
                         <div className="action-stat is-right">
-                            <span className="label">{isMyTurn ? 'CALL TO MATCH' : 'ACTIVE_POT'}</span>
-                            <span className="value value-cyan">$<NumberTicker value={isMyTurn ? callToMatch : potTotal} /></span>
+                            <span className="label">ACTIVE POT</span>
+                            <span className="value value-cyan">$<NumberTicker value={potTotal} /></span>
                         </div>
                     </div>
                 </div>

@@ -50,6 +50,21 @@
 
 .action-stat.is-right {
     text-align: right;
+    flex: 1;
+}
+
+.action-stat.is-left {
+    text-align: left;
+    flex: 1;
+}
+
+.action-stat.is-center {
+    text-align: center;
+    flex: 1;
+    border-left: 1px solid rgba(255, 255, 255, 0.05);
+    border-right: 1px solid rgba(255, 255, 255, 0.05);
+    margin: 0 15px;
+    padding: 0 15px;
 }
 
 .action-stat .label {

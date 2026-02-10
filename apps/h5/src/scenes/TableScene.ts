@@ -42,9 +42,6 @@ export class TableScene extends Container {
     private unsubscribeStore: (() => void) | null = null;
     private _potTickerValue = { val: 0 };
 
-    // Local state to track all players at the table
-    private players = new Map<number, PlayerState>();
-
     constructor(game: GameApp) {
         super();
         this._game = game;
@@ -307,11 +304,11 @@ export class TableScene extends Container {
         if (state.potUpdate) this.handlePotUpdate(state.potUpdate);
     }
 
+    private getPlayers(): PlayerState[] {
+        return useGameStore.getState().snapshot?.players ?? [];
+    }
+
     private handleSnapshot(snap: TableSnapshot): void {
-        this.players.clear();
-        for (const player of snap.players) {
-            this.players.set(player.chair, player);
-        }
         this.myChair = useGameStore.getState().myChair;
         const totalPot = snap.pots.reduce((acc, p) => acc + p.amount, 0n);
         this._potTickerValue.val = Number(totalPot); // Set initial value without animation
@@ -322,35 +319,25 @@ export class TableScene extends Container {
         this.updateCommunityCards(this.boardCards);
 
         // Show my cards if I'm already in a hand
-        const me = this.players.get(this.myChair);
+        const me = snap.players.find(p => p.chair === this.myChair);
         if (me && me.handCards && me.handCards.length > 0 && !me.folded) {
             this.showMyCards(me.handCards);
         }
     }
 
     private handleSeatUpdate(update: SeatUpdate): void {
-        const chair = update.chair;
-        switch (update.update.case) {
-            case 'playerJoined':
-                this.players.set(chair, update.update.value);
-                if (chair === useGameStore.getState().myChair) this.myChair = chair;
-                break;
-            case 'playerLeftUserId':
-                this.players.delete(chair);
-                break;
-            case 'stackChange':
-                const p = this.players.get(chair);
-                if (p) p.stack = update.update.value;
-                break;
+        if (update.chair === useGameStore.getState().myChair) {
+            this.myChair = update.chair;
         }
         this.updateSeats();
     }
 
     private updateSeats(): void {
+        const players = this.getPlayers();
         for (let chair = 0; chair < 6; chair++) {
             let viewIndex = (this.myChair !== -1) ? (chair - this.myChair + 6) % 6 : chair % 6;
             const view = this.seatViews[viewIndex];
-            const player = this.players.get(chair);
+            const player = players.find(p => p.chair === chair);
 
             if (player) {
                 view.setPlayer(player, chair === this.myChair);
@@ -362,17 +349,17 @@ export class TableScene extends Container {
 
     private updateActivePlayer(actionChair: number): void {
         this.seatViews.forEach(sv => sv.setActive(false));
-        const activePlayer = this.players.get(actionChair);
-        if (activePlayer) {
-            let viewIndex = -1;
-            if (this.myChair !== -1) {
-                viewIndex = (activePlayer.chair - this.myChair + 6) % 6;
-            } else {
-                viewIndex = activePlayer.chair % 6;
-            }
-            if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
-                this.seatViews[viewIndex].setActive(true);
-            }
+        if (actionChair === -1) return;
+
+        let viewIndex = -1;
+        if (this.myChair !== -1) {
+            viewIndex = (actionChair - this.myChair + 6) % 6;
+        } else {
+            viewIndex = actionChair % 6;
+        }
+
+        if (viewIndex !== -1 && this.seatViews[viewIndex]) {
+            this.seatViews[viewIndex].setActive(true);
         }
     }
 
@@ -381,24 +368,25 @@ export class TableScene extends Container {
         this.communityCards.removeChildren();
         this.boardCards = [];
         this.updatePot(0n);
-        for (const player of this.players.values()) {
-            player.bet = 0n;
-            player.folded = false;
-            player.allIn = false;
-            player.lastAction = ActionType.ACTION_UNSPECIFIED;
-            player.handCards = [];
-        }
+
         for (const sv of this.seatViews) sv.clearCards();
+
+        // Update seats to show blinds (already updated in gameStore)
         this.updateSeats();
+
+        // Update dealer buttons
+        for (let chair = 0; chair < 6; chair++) {
+            let viewIndex = (this.myChair !== -1) ? (chair - this.myChair + 6) % 6 : chair % 6;
+            const view = this.seatViews[viewIndex];
+            view.setDealer(chair === start.dealerChair);
+        }
+
         this.updateActivePlayer(-1);
     }
 
     private handleHoleCards(deal: DealHoleCards): void {
         this.showMyCards(deal.cards);
-        if (this.myChair !== -1) {
-            const me = this.players.get(this.myChair);
-            if (me) me.handCards = deal.cards;
-        }
+        this.updateSeats();
     }
 
     private handleBoard(board: DealBoard): void {
@@ -420,27 +408,13 @@ export class TableScene extends Container {
         this.boardCards = [...phaseChange.communityCards];
         this.updateCommunityCards(this.boardCards);
         this.updatePotFromPots(phaseChange.pots);
-
-        // Clear all player bets on phase change (they moved to pot)
-        for (const player of this.players.values()) {
-            player.bet = 0n;
-        }
         this.updateSeats();
     }
 
     private handleActionResult(result: ActionResult): void {
-        const player = this.players.get(result.chair);
-        if (!player) return;
-        player.stack = result.newStack;
-        player.bet = result.amount; // IMPORTANT: Update the per-round bet
-        player.lastAction = result.action;
-        if (result.action === ActionType.ACTION_FOLD) {
-            player.folded = true;
-            if (result.chair === this.myChair) {
-                this.myCards.removeChildren();
-            }
+        if (result.action === ActionType.ACTION_FOLD && result.chair === this.myChair) {
+            this.myCards.removeChildren();
         }
-        if (result.action === ActionType.ACTION_ALLIN) player.allIn = true;
         this.updateSeats();
     }
 
@@ -471,23 +445,15 @@ export class TableScene extends Container {
 
     private handleHandEnd(end: HandEnd): void {
         this.updateActivePlayer(-1);
-        for (const stackDelta of end.stackDeltas) {
-            const player = this.players.get(stackDelta.chair);
-            if (player) {
-                player.stack = stackDelta.newStack;
-                player.bet = 0n;
-                player.folded = false;
-                player.allIn = false;
-                player.lastAction = ActionType.ACTION_UNSPECIFIED;
-                player.handCards = [];
-            }
-        }
         this.updateSeats();
+        this.updatePot(0n); // Animate pot down to zero as chips flow to winners
     }
 
     private handleWinByFold(winByFold: WinByFold): void {
         this.updateActivePlayer(-1);
-        this.updatePot(winByFold.potTotal);
+        // We'll let handleHandEnd (which follows) handle the definitive stack updates
+        // Just animate the pot clearing for visual feedback
+        this.updatePot(0n);
     }
 
     private updatePotFromPots(pots: Pot[]): void {
@@ -688,11 +654,14 @@ class SeatView extends Container {
     private betTag: Container;
     private betBackground: Graphics;
     private betText: Text;
+    private dealerButton: Container;
     private _orbitTween: gsap.core.Tween | null = null;
     private _index: number;
     public userId: number = -1;
     private _currentBet: bigint = 0n;
     private _betTicker = { val: 0 };
+    private _currentStack: bigint = -1n;
+    private _stackTicker = { val: 0 };
 
     constructor(index: number) {
         super();
@@ -803,6 +772,23 @@ class SeatView extends Container {
         this.betText.y = -1;
         this.betTag.addChild(this.betText);
 
+        // Dealer Button
+        this.dealerButton = new Container();
+        const dBtnBg = new Graphics();
+        dBtnBg.circle(0, 0, 10);
+        dBtnBg.fill({ color: 0xffffff });
+        dBtnBg.stroke({ color: 0x000000, width: 1 });
+        const dBtnText = new Text({
+            text: 'D',
+            style: { fontFamily: 'Arial', fontSize: 10, fill: 0x000000, fontWeight: '900' }
+        });
+        dBtnText.anchor.set(0.5);
+        this.dealerButton.addChild(dBtnBg, dBtnText);
+        this.dealerButton.x = 32;
+        this.dealerButton.y = -32;
+        this.dealerButton.visible = false;
+        this.addChild(this.dealerButton);
+
         // Position bet tag towards the center of table
         const offset = 85;
         switch (index) {
@@ -860,7 +846,24 @@ class SeatView extends Container {
         this.avatarContainer.visible = true;
         this.nameText.text = isMe ? 'YOU' : `PLAYER_${player.userId}`;
         this.nameText.style.fill = isMe ? COLORS.primary : 0xcccccc;
-        this.stackText.text = `$${player.stack}`;
+
+        if (this._currentStack === -1n) {
+            // Initial set
+            this._currentStack = player.stack;
+            this._stackTicker.val = Number(player.stack);
+            this.stackText.text = `$${this._stackTicker.val.toLocaleString()}`;
+        } else if (this._currentStack !== player.stack) {
+            this._currentStack = player.stack;
+            gsap.to(this._stackTicker, {
+                val: Number(player.stack),
+                duration: 1.5,
+                ease: 'power2.out',
+                onUpdate: () => {
+                    this.stackText.text = `$${Math.floor(this._stackTicker.val).toLocaleString()}`;
+                }
+            });
+        }
+
         this.stackText.visible = !player.folded;
 
         if (player.folded) {
@@ -1005,6 +1008,11 @@ class SeatView extends Container {
         this.drawHexagon(this.avatarFrame, 40, 0x0a0609, 0.5);
         this.avatarFrame.stroke({ color: 0x333333, width: 1.5, alpha: 0.4 });
         this.betTag.visible = false;
+        this.dealerButton.visible = false;
+    }
+
+    setDealer(isDealer: boolean): void {
+        this.dealerButton.visible = isDealer;
     }
 
     private getRankString(rank: Rank): string {

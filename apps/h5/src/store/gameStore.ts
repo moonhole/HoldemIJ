@@ -116,7 +116,35 @@ export const useGameStore = create<GameStoreState>((set) => ({
                     next.handStart = event.value;
                     next.actionPrompt = null;
                     next.holeCards = null;
+                    next.potUpdate = null;
                     next.myBet = 0n;
+                    if (next.snapshot) {
+                        const start = event.value;
+                        const players = next.snapshot.players.map(p => {
+                            let bet = 0n;
+                            let stack = p.stack;
+                            if (p.chair === start.smallBlindChair) {
+                                bet = start.smallBlindAmount;
+                                stack -= start.smallBlindAmount;
+                            } else if (p.chair === start.bigBlindChair) {
+                                bet = start.bigBlindAmount;
+                                stack -= start.bigBlindAmount;
+                            }
+                            return { ...p, bet, stack, folded: false, allIn: false };
+                        });
+                        next.snapshot = {
+                            ...next.snapshot,
+                            players,
+                            pots: [], // Clear pots for new hand
+                            dealerChair: start.dealerChair,
+                            smallBlindChair: start.smallBlindChair,
+                            bigBlindChair: start.bigBlindChair,
+                        };
+
+                        // Sync myBet if I am in blinds
+                        if (next.myChair === start.smallBlindChair) next.myBet = start.smallBlindAmount;
+                        if (next.myChair === start.bigBlindChair) next.myBet = start.bigBlindAmount;
+                    }
                     break;
                 case 'holeCards':
                     next.holeCards = event.value;
@@ -125,10 +153,25 @@ export const useGameStore = create<GameStoreState>((set) => ({
                     break;
                 case 'potUpdate':
                     next.potUpdate = event.value;
+                    if (next.snapshot) {
+                        next.snapshot = { ...next.snapshot, pots: event.value.pots };
+                    }
                     break;
                 case 'phaseChange':
                     next.phaseChange = event.value;
                     next.myBet = 0n;
+                    next.potUpdate = null; // High-level change overrides individual updates
+                    if (next.snapshot) {
+                        // When phase changes, bets are collected into pots on server
+                        const players = next.snapshot.players.map(p => ({ ...p, bet: 0n }));
+                        next.snapshot = {
+                            ...next.snapshot,
+                            players,
+                            pots: event.value.pots,
+                            phase: event.value.phase,
+                            communityCards: event.value.communityCards
+                        };
+                    }
                     break;
                 case 'actionResult':
                     if (next.snapshot) {
@@ -146,6 +189,11 @@ export const useGameStore = create<GameStoreState>((set) => ({
                             return p;
                         });
                         next.snapshot = { ...next.snapshot, players };
+
+                        // Sync myBet if it's me
+                        if (chair === next.myChair) {
+                            next.myBet = amount;
+                        }
                     }
                     break;
                 case 'showdown':
@@ -153,10 +201,27 @@ export const useGameStore = create<GameStoreState>((set) => ({
                 case 'handEnd':
                     next.actionPrompt = null;
                     next.myBet = 0n;
+                    next.potUpdate = null;
+                    if (next.snapshot) {
+                        const deltas = event.value.stackDeltas;
+                        const players = next.snapshot.players.map(p => {
+                            const delta = deltas.find(d => d.chair === p.chair);
+                            if (delta) {
+                                return { ...p, stack: delta.newStack, bet: 0n, folded: false, allIn: false };
+                            }
+                            return { ...p, bet: 0n, folded: false, allIn: false };
+                        });
+                        next.snapshot = { ...next.snapshot, players, pots: [] };
+                    }
                     break;
                 case 'winByFold':
                     next.actionPrompt = null;
                     next.myBet = 0n;
+                    next.potUpdate = null;
+                    if (next.snapshot) {
+                        const players = next.snapshot.players.map(p => ({ ...p, bet: 0n }));
+                        next.snapshot = { ...next.snapshot, players, pots: [] };
+                    }
                     break;
                 case 'seatUpdate':
                     if (next.snapshot) {

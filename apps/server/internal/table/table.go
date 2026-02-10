@@ -117,7 +117,9 @@ func New(id string, cfg TableConfig, broadcastFn func(userID uint32, data []byte
 
 // run is the main actor loop
 func (t *Table) run() {
-	ticker := time.NewTicker(100 * time.Millisecond)
+	// 5-second heartbeat for low-frequency tasks (idle NPCs, system cleanup, etc.)
+	// Precise game events use dedicated Timers or event-driven triggers.
+	ticker := time.NewTicker(5 * time.Second)
 	defer ticker.Stop()
 
 	for {
@@ -269,7 +271,7 @@ func (t *Table) handleAction(userID uint32, action holdem.ActionType, amount int
 	log.Printf("[Table %s] Player %d action: %v amount: %d", t.ID, userID, action, amount)
 
 	// Broadcast action result
-	t.broadcastActionResult(player.Chair, action, amount, before, after, result)
+	t.broadcastActionResult(player.Chair, action, before, after, result)
 	t.broadcastStreetStateTransitions(before, after)
 	if potsChanged(before.Pots, after.Pots) {
 		t.broadcastPotUpdate(after.Pots)
@@ -582,22 +584,23 @@ func (t *Table) sendActionPrompt(chair uint16) {
 func (t *Table) broadcastActionResult(
 	chair uint16,
 	action holdem.ActionType,
-	amount int64,
 	before holdem.Snapshot,
 	after holdem.Snapshot,
 	result *holdem.SettlementResult,
 ) {
 	var newStack int64
+	var finalBet int64
 	for _, ps := range after.Players {
 		if ps.Chair == chair {
 			newStack = ps.Stack
+			finalBet = ps.Bet
 			break
 		}
 	}
 
-	potTotal := totalPotAmount(after)
+	potTotal := totalCollectedPotAmount(after)
 	if result != nil {
-		if beforeTotal := totalPotAmount(before); beforeTotal > potTotal {
+		if beforeTotal := totalCollectedPotAmount(before); beforeTotal > potTotal {
 			potTotal = beforeTotal
 		}
 		if settledTotal := totalPotResultAmount(result); settledTotal > potTotal {
@@ -613,7 +616,7 @@ func (t *Table) broadcastActionResult(
 			ActionResult: &pb.ActionResult{
 				Chair:       uint32(chair),
 				Action:      actionToProto(action),
-				Amount:      amount,
+				Amount:      finalBet,
 				NewStack:    newStack,
 				NewPotTotal: potTotal,
 			},
@@ -910,13 +913,21 @@ func hasShowdownHands(result *holdem.SettlementResult) bool {
 	return false
 }
 
-func totalPotAmount(snap holdem.Snapshot) int64 {
+func totalTheoreticalPotAmount(snap holdem.Snapshot) int64 {
 	var potTotal int64
 	for _, pot := range snap.Pots {
 		potTotal += pot.Amount
 	}
 	for _, ps := range snap.Players {
 		potTotal += ps.Bet
+	}
+	return potTotal
+}
+
+func totalCollectedPotAmount(snap holdem.Snapshot) int64 {
+	var potTotal int64
+	for _, pot := range snap.Pots {
+		potTotal += pot.Amount
 	}
 	return potTotal
 }
