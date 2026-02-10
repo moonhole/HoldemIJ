@@ -2,6 +2,8 @@ import { Application, Container } from 'pixi.js';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { requireCanvas, requireUiRoot } from './architecture/boundary';
+import { audioManager } from './audio/AudioManager';
+import { setupAudioBindings } from './audio/GameAudioBinding';
 import { bindGameClientToStore } from './store/gameStore';
 import { useUiStore, type SceneName } from './store/uiStore';
 import { UiLayerApp } from './ui/UiLayerApp';
@@ -29,6 +31,21 @@ class GameApp {
         const uiLayer = requireUiRoot();
         this.viewportEl = canvas.parentElement instanceof HTMLElement ? canvas.parentElement : window;
         bindGameClientToStore();
+
+        // Initialize Audio
+        audioManager.init().catch(console.warn);
+        setupAudioBindings();
+
+        // Global interaction listener to unlock audio context
+        const unlockAudio = () => {
+            audioManager.unlock();
+            window.removeEventListener('click', unlockAudio);
+            window.removeEventListener('keydown', unlockAudio);
+            window.removeEventListener('touchstart', unlockAudio);
+        };
+        window.addEventListener('click', unlockAudio);
+        window.addEventListener('keydown', unlockAudio);
+        window.addEventListener('touchstart', unlockAudio);
 
         this.uiRoot = createRoot(uiLayer);
         this.uiRoot.render(createElement(UiLayerApp));
@@ -133,4 +150,5 @@ class GameApp {
 const game = new GameApp();
 game.init().catch(console.error);
 
-export { GameApp, DESIGN_WIDTH, DESIGN_HEIGHT };
+export { DESIGN_HEIGHT, DESIGN_WIDTH, GameApp };
+

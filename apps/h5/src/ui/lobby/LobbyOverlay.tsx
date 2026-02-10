@@ -1,4 +1,5 @@
 import { useUiStore } from '../../store/uiStore';
+import { AudioToggle } from '../common/AudioToggle';
 import { NumberTicker } from '../common/NumberTicker';
 import './lobby-overlay.css';
 
@@ -152,6 +153,17 @@ export function LobbyOverlay(): JSX.Element | null {
                     </div>
                     <div className="lobby-safe-bar" />
                     {quickStartError ? <div className="lobby-quick-start-error">{quickStartError}</div> : null}
+                </div>
+
+                {/* Floating Top Right Controls */}
+                <div className="top-right-hud" style={{ position: 'absolute', top: '24px', right: '24px', pointerEvents: 'auto', zIndex: 100, display: 'flex', gap: '12px' }}>
+                    <button type="button" className="lobby-icon-btn hud-btn chat-btn">
+                        <span className="material-symbols-outlined">chat_bubble</span>
+                    </button>
+                    <button type="button" className="lobby-icon-btn hud-btn settings-btn">
+                        <span className="material-symbols-outlined">settings</span>
+                    </button>
+                    <AudioToggle />
                 </div>
                 <div className="lobby-scanline" />
             </div>

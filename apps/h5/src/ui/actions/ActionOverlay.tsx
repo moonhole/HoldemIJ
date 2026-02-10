@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
 import { ActionType } from '@gen/messages_pb';
+import { useEffect, useMemo, useState } from 'react';
 import { gameClient } from '../../network/GameClient';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
+import { AudioToggle } from '../common/AudioToggle';
 import { NumberTicker } from '../common/NumberTicker';
 import './action-overlay.css';
 
@@ -176,6 +177,17 @@ export function ActionOverlay(): JSX.Element | null {
     return (
         <div className="action-overlay">
             {errorMessage && <div className="action-toast">{errorMessage}</div>}
+
+            {/* Floating Top Right Controls */}
+            <div className="top-right-hud" style={{ position: 'absolute', top: '24px', right: '24px', pointerEvents: 'auto', zIndex: 100, display: 'flex', gap: '12px' }}>
+                <button type="button" className="lobby-icon-btn hud-btn chat-btn">
+                    <span className="material-symbols-outlined">chat_bubble</span>
+                </button>
+                <button type="button" className="lobby-icon-btn hud-btn settings-btn">
+                    <span className="material-symbols-outlined">settings</span>
+                </button>
+                <AudioToggle />
+            </div>
 
             <div className="action-overlay-shell">
                 {/* STABLE HEADER: These columns are NEVER destroyed or re-styled */}

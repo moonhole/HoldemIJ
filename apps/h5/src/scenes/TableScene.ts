@@ -1,11 +1,11 @@
-import { Container, Graphics, Text } from 'pixi.js';
+import type { ActionPrompt, ActionResult, Card, DealBoard, DealHoleCards, HandEnd, HandStart, PhaseChange, PlayerState, Pot, PotUpdate, SeatUpdate, Showdown, TableSnapshot, WinByFold } from '@gen/messages_pb';
+import { ActionType, HandRank, Phase, Rank, Suit } from '@gen/messages_pb';
 import { gsap } from 'gsap';
+import { Container, Graphics, Text } from 'pixi.js';
 import type { GameApp } from '../main';
-import { DESIGN_WIDTH, DESIGN_HEIGHT } from '../main';
+import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../main';
 import { gameClient } from '../network/GameClient';
 import { useGameStore } from '../store/gameStore';
-import type { TableSnapshot, PlayerState, Card, Pot, ActionPrompt, DealHoleCards, DealBoard, ActionResult, HandStart, SeatUpdate, Showdown, HandEnd, PotUpdate, PhaseChange, WinByFold } from '@gen/messages_pb';
-import { ActionType, Suit, Rank, Phase, HandRank } from '@gen/messages_pb';
 
 // Colors from cyber-poker design
 const COLORS = {
@@ -170,31 +170,33 @@ export class TableScene extends Container {
         tableName.y = -2;
         topBar.addChild(tableName);
 
-        const settingsBtn = new Graphics();
-        settingsBtn.circle(DESIGN_WIDTH - 85, 0, 18);
-        settingsBtn.fill({ color: 0x2a0818 });
-        settingsBtn.stroke({ color: COLORS.primary, width: 2, alpha: 0.5 });
-        topBar.addChild(settingsBtn);
-        const settingsIcon = new Text({
-            text: '\u2699',
-            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 18, fill: COLORS.primary },
-        });
-        settingsIcon.anchor.set(0.5);
-        settingsIcon.x = DESIGN_WIDTH - 85;
-        topBar.addChild(settingsIcon);
-
-        const chatBtn = new Graphics();
-        chatBtn.circle(DESIGN_WIDTH - 40, 0, 18);
-        chatBtn.fill({ color: 0x061a1a });
-        chatBtn.stroke({ color: COLORS.cyan, width: 2, alpha: 0.5 });
-        topBar.addChild(chatBtn);
-        const chatIcon = new Text({
-            text: '\u{1F5E8}',
-            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 16, fill: COLORS.cyan },
-        });
-        chatIcon.anchor.set(0.5);
-        chatIcon.x = DESIGN_WIDTH - 40;
-        topBar.addChild(chatIcon);
+        /*
+                const settingsBtn = new Graphics();
+                settingsBtn.circle(DESIGN_WIDTH - 85, 0, 18);
+                settingsBtn.fill({ color: 0x2a0818 });
+                settingsBtn.stroke({ color: COLORS.primary, width: 2, alpha: 0.5 });
+                topBar.addChild(settingsBtn);
+                const settingsIcon = new Text({
+                    text: '\u2699',
+                    style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 18, fill: COLORS.primary },
+                });
+                settingsIcon.anchor.set(0.5);
+                settingsIcon.x = DESIGN_WIDTH - 85;
+                topBar.addChild(settingsIcon);
+        
+                const chatBtn = new Graphics();
+                chatBtn.circle(DESIGN_WIDTH - 40, 0, 18);
+                chatBtn.fill({ color: 0x061a1a });
+                chatBtn.stroke({ color: COLORS.cyan, width: 2, alpha: 0.5 });
+                topBar.addChild(chatBtn);
+                const chatIcon = new Text({
+                    text: '\u{1F5E8}',
+                    style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 16, fill: COLORS.cyan },
+                });
+                chatIcon.anchor.set(0.5);
+                chatIcon.x = DESIGN_WIDTH - 40;
+                topBar.addChild(chatIcon);
+        */
     }
 
     private createPotDisplay(): void {

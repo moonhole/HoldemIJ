@@ -1,0 +1,58 @@
+/* Floating HUD Controls */
+.top-right-hud {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.hud-btn,
+.audio-toggle-btn {
+    background: rgba(8, 4, 8, 0.7) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(10px);
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    min-height: 40px !important;
+    border-radius: 50% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.8);
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    cursor: pointer;
+    padding: 0 !important;
+}
+
+/* Colors from Pixi scene */
+.chat-btn {
+    border-color: rgba(0, 243, 255, 0.4) !important;
+    color: #00f3ff !important;
+}
+
+.settings-btn {
+    border-color: rgba(244, 37, 175, 0.4) !important;
+    color: #f425af !important;
+}
+
+.audio-toggle-btn {
+    border-color: rgba(255, 255, 255, 0.2) !important;
+}
+
+.hud-btn:hover,
+.audio-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    transform: scale(1.1);
+    box-shadow: 0 0 15px currentColor;
+}
+
+.hud-btn:active,
+.audio-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+.hud-btn span,
+.audio-toggle-btn span {
+    font-size: 20px !important;
+}

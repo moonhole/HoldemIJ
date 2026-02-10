@@ -84,12 +84,39 @@
 /* Stats Header */
 .shell-top-row {
     width: 100%;
+    display: flex;
+    gap: 12px;
+    align-items: stretch; /* Match height of children */
 }
 
 .action-stats-summary {
     display: flex;
     gap: 12px;
-    width: 100%;
+    flex: 1; /* Take available space */
+}
+
+/* Audio Button styling within ActionOverlay */
+.shell-top-row .lobby-icon-btn {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    width: 52px; /* Approx match height of pills */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.shell-top-row .lobby-icon-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.shell-top-row .lobby-icon-btn span {
+    font-size: 24px;
 }
 
 .stat-pill {
@@ -503,4 +530,33 @@
     z-index: 100;
     font-weight: 700;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+}/* Floating Audio Toggle */
+.audio-toggle-btn {
+    background: rgba(8, 4, 8, 0.6) !important;
+    border: 1px solid rgba(255, 255, 255, 0.15) !important;
+    backdrop-filter: blur(10px);
+    width: 48px;
+    height: 48px;
+    border-radius: 50% !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: rgba(255, 255, 255, 0.7);
+    transition: all 0.2s;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.audio-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.4) !important;
+    transform: scale(1.05);
+}
+
+.audio-toggle-btn:active {
+    transform: scale(0.95);
+}
+
+.audio-toggle-btn span {
+    font-size: 24px;
 }

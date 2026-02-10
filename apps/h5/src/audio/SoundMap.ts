@@ -1,0 +1,51 @@
+export const SoundMap = {
+    // UI Sounds
+    UI_CLICK: 'ui_click',
+    UI_SLIDER: 'ui_slider',
+    UI_ERROR: 'ui_error',
+    UI_NOTIFY: 'ui_notify',
+
+    // Game Flow
+    GAME_START: 'game_start',
+    GAME_OVER: 'game_over',
+    TURN_ALERT: 'turn_alert',
+
+    // Actions
+    ACTION_CHECK: 'action_check',
+    ACTION_CALL: 'action_call',
+    ACTION_RAISE: 'action_raise',
+    ACTION_FOLD: 'action_fold',
+    ACTION_ALLIN: 'action_allin',
+
+    // Chips & Cards
+    CHIP_BET: 'chip_bet',
+    CHIP_COLLECT: 'chip_collect',
+    CARD_DEAL: 'card_deal',
+    CARD_FLIP: 'card_flip',
+    CARD_SLIDE: 'card_slide',
+
+    // Results
+    WIN_POT: 'win_pot',
+};
+
+// Placeholder for asset paths - in a real app these would be URLs or imported assets
+export const SoundAssets: Record<string, string> = {
+    [SoundMap.UI_CLICK]: '/sounds/ui_click.mp3',
+    [SoundMap.UI_SLIDER]: '/sounds/ui_slider.mp3',
+    [SoundMap.UI_ERROR]: '/sounds/ui_error.mp3',
+    [SoundMap.UI_NOTIFY]: '/sounds/ui_notify.mp3',
+    [SoundMap.GAME_START]: '/sounds/shuffle_deck.mp3',
+    [SoundMap.GAME_OVER]: '/sounds/game_over.mp3',
+    [SoundMap.TURN_ALERT]: '/sounds/ding.mp3',
+    [SoundMap.ACTION_CHECK]: '/sounds/check.mp3',
+    [SoundMap.ACTION_CALL]: '/sounds/call.mp3',
+    [SoundMap.ACTION_RAISE]: '/sounds/raise.mp3',
+    [SoundMap.ACTION_FOLD]: '/sounds/fold.mp3',
+    [SoundMap.ACTION_ALLIN]: '/sounds/allin.mp3',
+    [SoundMap.CHIP_BET]: '/sounds/chips_stack.mp3',
+    [SoundMap.CHIP_COLLECT]: '/sounds/chips_slide.mp3',
+    [SoundMap.CARD_DEAL]: '/sounds/card_deal.mp3',
+    [SoundMap.CARD_FLIP]: '/sounds/card_flip.mp3',
+    [SoundMap.CARD_SLIDE]: '/sounds/card_slide.mp3',
+    [SoundMap.WIN_POT]: '/sounds/win_coins.mp3',
+};
