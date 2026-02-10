@@ -30,6 +30,8 @@ const SEAT_POSITIONS = [
     { x: DESIGN_WIDTH * 0.85, y: 700 },   // [5] Bottom Right
 ];
 
+const DECK_POS = { x: DESIGN_WIDTH / 2, y: 400 };
+
 export class TableScene extends Container {
     private _game: GameApp;
     private potText!: Text;
@@ -478,6 +480,8 @@ export class TableScene extends Container {
 
     private handleHoleCards(deal: DealHoleCards): void {
         this.showMyCards(deal.cards);
+
+        // For other players, we show card backs at their seats (animated in updateSeats logic)
         this.updateSeats();
     }
 
@@ -636,7 +640,7 @@ export class TableScene extends Container {
                     viewIndex = hand.chair % 6;
                 }
                 if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
-                    this.seatViews[viewIndex].showCards(hand.holeCards);
+                    this.seatViews[viewIndex].showCards(hand.holeCards, true); // true for animate
                 }
             }
         }
@@ -696,6 +700,9 @@ export class TableScene extends Container {
     }
 
     private showMyCards(cards: Card[]): void {
+        // If cards are already shown and count matches, don't redo animation unless changed
+        if (this.myCards.children.length === cards.length) return;
+
         this.myCards.removeChildren();
         const cardW = 100;
         const cardH = 145;
@@ -704,58 +711,124 @@ export class TableScene extends Container {
         const startX = -totalWidth / 2;
 
         cards.forEach((card, i) => {
-            const cardView = this.createHeroCard(card, cardW, cardH);
-            cardView.x = startX + i * (cardW + gap) + cardW / 2;
-            cardView.y = 0;
-            cardView.rotation = (i - 0.5) * 0.12;
-            cardView.scale.set(0);
+            const cardView = this.createCard(card, cardW, cardH, true);
+
+            // Start from center of table (deck)
+            // But myCards is a child of actionPanel, so we need to adjust
+            const globalDeckX = DECK_POS.x;
+            const globalDeckY = DECK_POS.y;
+            const localPos = this.myCards.toLocal({ x: globalDeckX, y: globalDeckY });
+
+            cardView.x = localPos.x;
+            cardView.y = localPos.y;
+            cardView.scale.set(0.2);
+            cardView.alpha = 0;
             this.myCards.addChild(cardView);
-            // Animate scale to 1.2 for better fit
-            gsap.to(cardView.scale, { x: 1.2, y: 1.2, duration: 0.5, delay: i * 0.15, ease: 'back.out' });
+
+            const targetX = startX + i * (cardW + gap) + cardW / 2;
+            const targetRotation = (i - 0.5) * 0.12;
+
+            const tl = gsap.timeline({ delay: i * 0.2 });
+            tl.to(cardView, {
+                x: targetX,
+                y: 0,
+                rotation: targetRotation,
+                alpha: 1,
+                duration: 0.6,
+                ease: 'power2.out'
+            });
+            tl.to(cardView.scale, { x: 1.2, y: 1.2, duration: 0.4, ease: 'back.out(1.7)' }, "-=0.4");
+
+            // Flip animation
+            tl.to(cardView.scale, { x: 0, duration: 0.15, ease: 'sine.in' });
+            tl.add(() => {
+                const back = cardView.getChildByName('back');
+                const front = cardView.getChildByName('front');
+                if (back) back.visible = false;
+                if (front) front.visible = true;
+            });
+            tl.to(cardView.scale, { x: 1.2, duration: 0.15, ease: 'sine.out' });
         });
     }
 
-    private createHeroCard(card: Card, width: number, height: number): Container {
+    private createCard(card: Card, width: number, height: number, isHero: boolean): Container {
         const container = new Container();
-        const glow = new Graphics();
-        glow.roundRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16, 18);
-        glow.fill({ color: COLORS.primary, alpha: 0.4 });
-        container.addChild(glow);
+
+        // 1. Back Side
+        const back = new Container();
+        back.name = 'back';
+        const backBg = new Graphics();
+        backBg.roundRect(-width / 2, -height / 2, width, height, isHero ? 15 : 10);
+        backBg.fill({ color: 0x050b14 }); // Uniform deep cyber back
+        backBg.stroke({ color: COLORS.cyan, width: isHero ? 2 : 1.5, alpha: 0.5 });
+
+        // Uniform X pattern for all cards
+        const pattern = new Graphics();
+        const pSize = width * 0.3;
+        pattern.moveTo(-pSize, -pSize).lineTo(pSize, pSize);
+        pattern.moveTo(pSize, -pSize).lineTo(-pSize, pSize);
+        pattern.stroke({ color: COLORS.cyan, width: isHero ? 2 : 1, alpha: 0.2 });
+        back.addChild(backBg, pattern);
+        container.addChild(back);
+
+        // 2. Front Side
+        const front = new Container();
+        front.name = 'front';
+        front.visible = false;
+
+        if (isHero) {
+            const glow = new Graphics();
+            glow.roundRect(-width / 2 - 8, -height / 2 - 8, width + 16, height + 16, 18);
+            glow.fill({ color: COLORS.primary, alpha: 0.3 });
+            front.addChild(glow);
+        }
 
         const bg = new Graphics();
-        bg.roundRect(-width / 2, -height / 2, width, height, 15);
-        bg.fill({ color: 0x050205 });
-        bg.stroke({ color: COLORS.primary, width: 3, alpha: 0.8 });
-        container.addChild(bg);
-
-        const highlight = new Graphics();
-        highlight.roundRect(-width / 2, -height / 2, width, height / 2.5, 15);
-        highlight.fill({ color: COLORS.primary, alpha: 0.15 });
-        container.addChild(highlight);
+        bg.roundRect(-width / 2, -height / 2, width, height, isHero ? 15 : 10);
+        bg.fill({ color: 0x080608 }); // Consistency: deep cyber dark 
+        bg.stroke({
+            color: isHero ? COLORS.primary : COLORS.cyan,
+            width: isHero ? 3 : 1.5,
+            alpha: isHero ? 0.8 : 0.25
+        });
+        front.addChild(bg);
 
         const isRed = card.suit === Suit.HEART || card.suit === Suit.DIAMOND;
-        const color = isRed ? COLORS.cardRed : 0xffffff;
+        const color = isRed ? COLORS.cardRed : 0xe0ffff; // Cyan-tinted white for black suits
 
         const rankText = new Text({
             text: this.getRankString(card.rank),
-            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 40, fontWeight: '900', fill: color },
+            style: {
+                fontFamily: 'Space Grotesk, Inter, sans-serif',
+                fontSize: isHero ? 40 : width * 0.45,
+                fontWeight: '900',
+                fill: color
+            },
         });
         rankText.anchor.set(0.5);
-        rankText.y = -20;
-        container.addChild(rankText);
+        rankText.y = isHero ? -20 : -height * 0.12;
+        front.addChild(rankText);
 
         const suitText = new Text({
             text: this.getSuitSymbol(card.suit),
-            style: { fontFamily: 'Inter, sans-serif', fontSize: 48, fill: color },
+            style: {
+                fontFamily: 'Inter, sans-serif',
+                fontSize: isHero ? 48 : width * 0.55,
+                fill: color
+            },
         });
         suitText.anchor.set(0.5);
-        suitText.y = 35;
-        container.addChild(suitText);
+        suitText.y = isHero ? 35 : height * 0.18;
+        front.addChild(suitText);
+
+        container.addChild(front);
         return container;
     }
 
     private updateCommunityCards(cards: Card[]): void {
-        this.communityCards.removeChildren();
+        const currentCount = this.communityCards.children.filter(c => c.name === 'card').length;
+        if (currentCount === cards.length) return;
+
         const cardW = 55;
         const cardH = 85;
         const gap = 8;
@@ -763,50 +836,67 @@ export class TableScene extends Container {
         const totalWidth = totalCards * cardW + (totalCards - 1) * gap;
         const startX = -totalWidth / 2;
 
-        for (let i = 0; i < totalCards; i++) {
-            if (i < cards.length) {
-                const cardView = this.createCommunityCard(cards[i], cardW, cardH);
-                cardView.x = startX + i * (cardW + gap) + cardW / 2;
-                this.communityCards.addChild(cardView);
-            } else {
+        // 1. Ensure placeholders are there (only on first call or clear)
+        if (this.communityCards.children.length === 0) {
+            for (let i = 0; i < totalCards; i++) {
                 const placeholder = new Graphics();
+                placeholder.name = 'placeholder';
                 placeholder.roundRect(startX + i * (cardW + gap), -cardH / 2, cardW, cardH, 8);
                 placeholder.fill({ color: 0x000000, alpha: 0.3 });
                 placeholder.stroke({ color: 0x333333, width: 1, alpha: 0.5 });
                 this.communityCards.addChild(placeholder);
             }
         }
+
+        // 2. Add new cards
+        cards.forEach((card, i) => {
+            // Check if card at this index is already rendered
+            const existing = this.communityCards.children.find(c => c.name === 'card' && (c as any).boardIndex === i);
+            if (existing) return;
+
+            const cardView = this.createCard(card, cardW, cardH, false);
+            cardView.name = 'card';
+            (cardView as any).boardIndex = i;
+
+            // Spawn from deck
+            const localDeck = this.communityCards.toLocal(DECK_POS);
+            cardView.x = localDeck.x;
+            cardView.y = localDeck.y;
+            cardView.scale.set(0.1);
+            cardView.alpha = 0;
+            this.communityCards.addChild(cardView);
+
+            const targetX = startX + i * (cardW + gap) + cardW / 2;
+
+            const tl = gsap.timeline({ delay: (i - currentCount) * 0.15 });
+            tl.to(cardView, {
+                x: targetX,
+                y: 0,
+                alpha: 1,
+                duration: 0.5,
+                ease: 'power2.out'
+            });
+            tl.to(cardView.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out' }, "-=0.3");
+
+            // Flip
+            tl.to(cardView.scale, { x: 0, duration: 0.15 });
+            tl.add(() => {
+                cardView.getChildByName('back')!.visible = false;
+                cardView.getChildByName('front')!.visible = true;
+            });
+            tl.to(cardView.scale, { x: 1, duration: 0.15 });
+        });
     }
 
-    private createCommunityCard(card: Card, width: number, height: number): Container {
-        const container = new Container();
-        const bg = new Graphics();
-        bg.roundRect(-width / 2, -height / 2, width, height, 10);
-        bg.fill({ color: 0x120810 });
-        bg.stroke({ color: 0x333333, width: 1.5 });
-        container.addChild(bg);
-
-        const isRed = card.suit === Suit.HEART || card.suit === Suit.DIAMOND;
-        const color = isRed ? COLORS.cardRed : 0xdddddd;
-
-        const rankText = new Text({
-            text: this.getRankString(card.rank),
-            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 24, fontWeight: '800', fill: color },
-        });
-        rankText.anchor.set(0.5);
-        rankText.y = -15;
-        container.addChild(rankText);
-
-        const suitText = new Text({
-            text: this.getSuitSymbol(card.suit),
-            style: { fontFamily: 'Inter, sans-serif', fontSize: 28, fill: color },
-        });
-        suitText.anchor.set(0.5);
-        suitText.y = 18;
-        container.addChild(suitText);
-        return container;
+    private getSuitSymbol(suit: Suit): string {
+        switch (suit) {
+            case Suit.HEART: return '♥';
+            case Suit.DIAMOND: return '♦';
+            case Suit.CLUB: return '♣';
+            case Suit.SPADE: return '♠';
+            default: return '?';
+        }
     }
-
     private getRankString(rank: Rank): string {
         switch (rank) {
             case Rank.RANK_A: return 'A';
@@ -822,16 +912,6 @@ export class TableScene extends Container {
             case Rank.RANK_4: return '4';
             case Rank.RANK_3: return '3';
             case Rank.RANK_2: return '2';
-            default: return '?';
-        }
-    }
-
-    private getSuitSymbol(suit: Suit): string {
-        switch (suit) {
-            case Suit.SPADE: return '\u2660';
-            case Suit.HEART: return '\u2665';
-            case Suit.CLUB: return '\u2663';
-            case Suit.DIAMOND: return '\u2666';
             default: return '?';
         }
     }
@@ -901,12 +981,24 @@ class SeatView extends Container {
         this.cardBacks.visible = false;
         this.addChild(this.cardBacks);
 
+        const cbW = 28;
+        const cbH = 40;
         for (let i = 0; i < 2; i++) {
-            const cardBack = new Graphics();
-            cardBack.roundRect((i - 1) * 24 + 2, -20, 28, 40, 4);
-            cardBack.fill({ color: 0x1e40af });
-            cardBack.stroke({ color: 0x3b82f6, width: 1.5 });
-            this.cardBacks.addChild(cardBack);
+            const container = new Container();
+            container.x = (i - 0.5) * 28;
+
+            const backBg = new Graphics();
+            backBg.roundRect(-cbW / 2, -cbH / 2, cbW, cbH, 4);
+            backBg.fill({ color: 0x050b14 });
+            backBg.stroke({ color: COLORS.cyan, width: 1, alpha: 0.4 });
+
+            const pattern = new Graphics();
+            pattern.moveTo(-cbW / 4, -cbH / 4).lineTo(cbW / 4, cbH / 4);
+            pattern.moveTo(cbW / 4, -cbH / 4).lineTo(-cbW / 4, cbH / 4);
+            pattern.stroke({ color: COLORS.cyan, width: 1, alpha: 0.15 });
+
+            container.addChild(backBg, pattern);
+            this.cardBacks.addChild(container);
         }
 
         this.shownCards = new Container();
@@ -1123,26 +1215,29 @@ class SeatView extends Container {
         }
     }
 
-    showCards(cards: Card[]): void {
+    showCards(cards: Card[], animate: boolean = false): void {
         this.cardBacks.visible = false;
         this.shownCards.removeChildren();
         const cardW = 36;
         const cardH = 54;
         const gap = 6;
         cards.forEach((card, i) => {
-            const container = new Container();
+            const cardW = 36;
+            const cardH = 54;
+            // Use parent TableScene to create a unified card instance
+            const container = (this.parent as any).createCard(card, cardW, cardH, false);
             container.x = (i - 0.5) * (cardW + gap);
-            const bg = new Graphics();
-            bg.roundRect(-cardW / 2, -cardH / 2, cardW, cardH, 5);
-            bg.fill({ color: 0x1a1a1a });
-            bg.stroke({ color: 0x888888, width: 1 });
-            container.addChild(bg);
-            const isRed = card.suit === Suit.HEART || card.suit === Suit.DIAMOND;
-            const color = isRed ? 0xff4444 : 0xcccccc;
-            const text = new Text({ text: this.getRankString(card.rank), style: { fontFamily: 'Arial', fontSize: 16, fill: color, fontWeight: 'bold' } });
-            text.anchor.set(0.5);
-            container.addChild(text);
+
+            // Show front for showdown
+            container.getChildByName('back')!.visible = false;
+            container.getChildByName('front')!.visible = true;
+
             this.shownCards.addChild(container);
+
+            if (animate) {
+                container.scale.set(0);
+                gsap.to(container.scale, { x: 1, y: 1, duration: 0.4, delay: i * 0.1, ease: 'back.out' });
+            }
         });
     }
 
