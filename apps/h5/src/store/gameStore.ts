@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { ActionType } from '@gen/messages_pb';
 import type {
     ActionPrompt,
     ActionResult,
@@ -130,6 +131,22 @@ export const useGameStore = create<GameStoreState>((set) => ({
                     next.myBet = 0n;
                     break;
                 case 'actionResult':
+                    if (next.snapshot) {
+                        const { chair, newStack, amount, action } = event.value;
+                        const players = next.snapshot.players.map((p) => {
+                            if (p.chair === chair) {
+                                return {
+                                    ...p,
+                                    stack: newStack,
+                                    bet: amount,
+                                    folded: action === ActionType.ACTION_FOLD ? true : p.folded,
+                                    allIn: action === ActionType.ACTION_ALLIN ? true : p.allIn,
+                                };
+                            }
+                            return p;
+                        });
+                        next.snapshot = { ...next.snapshot, players };
+                    }
                     break;
                 case 'showdown':
                     break;
@@ -142,6 +159,31 @@ export const useGameStore = create<GameStoreState>((set) => ({
                     next.myBet = 0n;
                     break;
                 case 'seatUpdate':
+                    if (next.snapshot) {
+                        const { chair, update } = event.value;
+                        const players = [...next.snapshot.players];
+
+                        if (update.case === 'playerJoined') {
+                            const newPlayer = update.value;
+                            const idx = players.findIndex(p => p.chair === chair);
+                            if (idx !== -1) {
+                                players[idx] = newPlayer;
+                            } else {
+                                players.push(newPlayer);
+                            }
+                        } else if (update.case === 'playerLeftUserId') {
+                            next.snapshot.players = players.filter(p => p.chair !== chair);
+                        } else if (update.case === 'stackChange') {
+                            const idx = players.findIndex(p => p.chair === chair);
+                            if (idx !== -1) {
+                                players[idx] = { ...players[idx], stack: update.value };
+                            }
+                        }
+
+                        if (update.case !== 'playerLeftUserId') {
+                            next.snapshot = { ...next.snapshot, players };
+                        }
+                    }
                     break;
                 case 'error':
                     next.errorMessage = event.message;

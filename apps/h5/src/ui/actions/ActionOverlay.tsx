@@ -72,18 +72,14 @@ export function ActionOverlay(): JSX.Element | null {
         return errorMessage ? <div className="action-toast">{errorMessage}</div> : null;
     }
 
-    if (!isMyTurn && !errorMessage) {
-        return <NpcChat prompt={prompt} snapshot={snapshot} myChair={myChair} myStack={myStack} />;
-    }
-
     const primaryLabel = hasCall && !hasCheck ? 'CALL' : 'CHECK';
-    const tertiaryLabel = hasRaiseOnly ? 'RAISE' : (hasBet ? 'BET' : 'ALL IN');
+    const tertiaryLabel = hasRaiseOnly ? 'RAISE' : (hasBet ? 'BET' : (canAllIn ? 'ALL IN' : 'RAISE'));
     const callToMatch = prompt?.callAmount ?? 0n;
     const minRaiseTo = prompt?.minRaiseTo ?? 0n;
     const halfPotRaiseTo = prompt
         ? (() => {
             const halfPot = potTotal / 2n;
-            const target = prompt.callAmount + myBet + halfPot;
+            const target = prompt.callAmount + (myBet || 0n) + halfPot;
             return target > prompt.minRaiseTo ? target : prompt.minRaiseTo;
         })()
         : 0n;
@@ -95,7 +91,7 @@ export function ActionOverlay(): JSX.Element | null {
         } else if (hasBet) {
             gameClient.bet(amount);
         } else if (canAllIn) {
-            gameClient.allIn();
+            gameClient.allIn(myStack + (myBet || 0n));
         }
         dismissActionPrompt();
     };
@@ -113,7 +109,7 @@ export function ActionOverlay(): JSX.Element | null {
             return;
         }
         if (hasCall && !hasCheck) {
-            const totalCallAmount = prompt.callAmount + myBet;
+            const totalCallAmount = (prompt.callAmount || 0n) + (myBet || 0n);
             gameClient.call(totalCallAmount);
         } else {
             gameClient.check();
@@ -128,7 +124,7 @@ export function ActionOverlay(): JSX.Element | null {
 
     const submitAllIn = (): void => {
         if (!canQuickAllIn) return;
-        gameClient.allIn();
+        gameClient.allIn(myStack + (myBet || 0n));
         dismissActionPrompt();
     };
 
@@ -143,93 +139,94 @@ export function ActionOverlay(): JSX.Element | null {
     };
 
     return (
-        <>
-            {errorMessage ? <div className="action-toast">{errorMessage}</div> : null}
-            <div className="action-overlay">
-                <div className="action-overlay-shell">
-                    <div className="bet-arc-area">
-                        <div className="bet-arc-track">
-                            <button className="bet-arc-knob" type="button" disabled={!canQuickRaise}>
-                                ↕
-                            </button>
-                        </div>
-                        <div className="bet-pill">
-                            <p className="bet-pill-label">BET AMOUNT</p>
-                            <p className="bet-pill-value">$<NumberTicker value={minRaiseTo} /></p>
-                        </div>
-                    </div>
+        <div className="action-overlay">
+            {errorMessage && <div className="action-toast">{errorMessage}</div>}
+
+            <div className={`action-overlay-shell ${!isMyTurn ? 'is-npc-mode' : ''}`}>
+                <div className="shell-top-row">
+                    {/* Common Stats Area - Remains mounted for smooth Ticker and layout stability */}
                     <div className="action-stats">
                         <div className="action-stat is-left">
                             <span className="label">YOUR STACK</span>
                             <span className="value">$<NumberTicker value={myStack} /></span>
                         </div>
                         <div className="action-stat is-right">
-                            <span className="label">CALL TO MATCH</span>
-                            <span className="value value-cyan">$<NumberTicker value={callToMatch} /></span>
+                            <span className="label">{isMyTurn ? 'CALL TO MATCH' : 'ACTIVE_POT'}</span>
+                            <span className="value value-cyan">$<NumberTicker value={isMyTurn ? callToMatch : potTotal} /></span>
                         </div>
-                    </div>
-                    <div className="action-buttons">
-                        <button className="btn-tile btn-fold" disabled={!canFold} onClick={submitFold}>
-                            <span className="btn-icon">⊘</span>
-                            <span className="btn-label">FOLD</span>
-                        </button>
-                        <button className="btn-tile btn-check" disabled={!canPrimary} onClick={submitPrimary}>
-                            <span className="btn-icon">{hasCall && !hasCheck ? '◯' : '✓✓'}</span>
-                            <span className="btn-label">{primaryLabel}</span>
-                        </button>
-                        <button className="btn-tile btn-raise" disabled={!canRaiseTile} onClick={submitRaiseTile}>
-                            <span className="btn-icon">{hasRaise ? '↗' : '↑↑'}</span>
-                            <span className="btn-label">{tertiaryLabel}</span>
-                        </button>
-                    </div>
-                    <div className="quick-bets">
-                        <button className="quick-bet-btn" disabled={!canQuickRaise} onClick={submitMinQuick}>
-                            MIN
-                        </button>
-                        <button className="quick-bet-btn" disabled={!canQuickRaise} onClick={submitHalfPot}>
-                            1/2 POT
-                        </button>
-                        <button className="quick-bet-btn" disabled={!canQuickAllIn} onClick={submitAllIn}>
-                            ALL IN
-                        </button>
                     </div>
                 </div>
-            </div>
-        </>
-    );
-}
 
-function NpcChat({ prompt, snapshot, myChair, myStack }: { prompt: any; snapshot: any; myChair: number; myStack: bigint }): JSX.Element {
-    const activeChair = prompt?.chair ?? -1;
-    const activePlayer = snapshot?.players.find((p: any) => p.chair === activeChair);
-    const playerName = activePlayer ? `PLAYER_${activePlayer.userId}` : 'SYSTEM';
+                <div className="shell-main-content">
+                    {isMyTurn ? (
+                        <div className="player-controls fade-in">
+                            <div className="bet-arc-area">
+                                <div className="bet-arc-track">
+                                    <button className="bet-arc-knob" type="button" disabled={!canQuickRaise}>
+                                        ↕
+                                    </button>
+                                </div>
+                                <div className="bet-pill">
+                                    <p className="bet-pill-label">BET AMOUNT</p>
+                                    <p className="bet-pill-value">$<NumberTicker value={minRaiseTo} /></p>
+                                </div>
+                            </div>
 
-    return (
-        <div className="action-overlay">
-            <div className="npc-chat-box">
-                <div className="npc-avatar-wrap">
-                    <div className="npc-avatar-box">
-                        <div className="npc-avatar-scanline" />
-                        <div className="npc-avatar-noise" />
-                        <span className="material-symbols-outlined npc-placeholder">person</span>
-                    </div>
-                    <div className="npc-name-tag">{playerName}</div>
-                </div>
-                <div className="npc-content">
-                    <div className="npc-text-header">
-                        <div className="npc-status-left">
-                            <span className="npc-status-dot" />
-                            <span className="npc-status-text">THINKING_PROMPT_WAIT</span>
+                            <div className="action-buttons">
+                                <button className="btn-tile btn-fold" disabled={!canFold} onClick={submitFold}>
+                                    <span className="btn-icon">⊘</span>
+                                    <span className="btn-label">FOLD</span>
+                                </button>
+                                <button className="btn-tile btn-check" disabled={!canPrimary} onClick={submitPrimary}>
+                                    <span className="btn-icon">{hasCall && !hasCheck ? '◯' : '✓✓'}</span>
+                                    <span className="btn-label">{primaryLabel}</span>
+                                </button>
+                                <button className="btn-tile btn-raise" disabled={!canRaiseTile} onClick={submitRaiseTile}>
+                                    <span className="btn-icon">{hasRaise ? '↗' : '↑↑'}</span>
+                                    <span className="btn-label">{tertiaryLabel}</span>
+                                </button>
+                            </div>
+
+                            <div className="quick-bets">
+                                <button className="quick-bet-btn" disabled={!canQuickRaise} onClick={submitMinQuick}>
+                                    MIN
+                                </button>
+                                <button className="quick-bet-btn" disabled={!canQuickRaise} onClick={submitHalfPot}>
+                                    1/2 POT
+                                </button>
+                                <button className="quick-bet-btn" disabled={!canQuickAllIn} onClick={submitAllIn}>
+                                    ALL IN
+                                </button>
+                            </div>
                         </div>
-                        <div className="npc-stack-mini">
-                            <span className="label">YOUR STACK</span>
-                            <span className="value">$<NumberTicker value={myStack} /></span>
+                    ) : (
+                        <div className="npc-chat-content fade-in">
+                            <div className="npc-chat-layout">
+                                <div className="npc-avatar-wrap">
+                                    <div className="npc-avatar-box">
+                                        <div className="npc-avatar-scanline" />
+                                        <div className="npc-avatar-noise" />
+                                        <span className="material-symbols-outlined npc-placeholder">person</span>
+                                    </div>
+                                    <div className="npc-name-tag">
+                                        {prompt?.chair !== undefined ? `PLAYER_${snapshot?.players.find((p: any) => p.chair === prompt.chair)?.userId ?? '?'}` : 'SYSTEM'}
+                                    </div>
+                                </div>
+                                <div className="npc-content">
+                                    <div className="npc-text-header">
+                                        <div className="npc-status-left">
+                                            <span className="npc-status-dot amp-pulse" />
+                                            <span className="npc-status-text">THINKING_PROMPT_WAIT</span>
+                                        </div>
+                                    </div>
+                                    <div className="npc-text-body">
+                                        正在同步下注数据流... 系统评估分析建议：观察对手频率，当前胜率模型维持稳定预期。
+                                    </div>
+                                    <div className="npc-cursor" />
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                    <div className="npc-text-body">
-                        分析数据流中... 当前胜率计算结果偏向保守。正在评估对局者的心理博弈权重。系统建议：保持观察。
-                    </div>
-                    <div className="npc-cursor" />
+                    )}
                 </div>
             </div>
         </div>

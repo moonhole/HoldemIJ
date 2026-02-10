@@ -267,7 +267,7 @@ export class TableScene extends Container {
         // myCards will sit "on top" of the console
         this.myCards = new Container();
         this.myCards.x = DESIGN_WIDTH / 2;
-        this.myCards.y = 180; // Centered in the taller console space
+        this.myCards.y = 100; // Moved up from 180 to avoid UI overlay blocking
         this.actionPanel.addChild(this.myCards);
     }
 
@@ -347,16 +347,15 @@ export class TableScene extends Container {
     }
 
     private updateSeats(): void {
-        for (const sv of this.seatViews) sv.clear();
-        for (const [chair, player] of this.players) {
-            let viewIndex = -1;
-            if (this.myChair !== -1) {
-                viewIndex = (chair - this.myChair + 6) % 6;
+        for (let chair = 0; chair < 6; chair++) {
+            let viewIndex = (this.myChair !== -1) ? (chair - this.myChair + 6) % 6 : chair % 6;
+            const view = this.seatViews[viewIndex];
+            const player = this.players.get(chair);
+
+            if (player) {
+                view.setPlayer(player, chair === this.myChair);
             } else {
-                viewIndex = chair % 6;
-            }
-            if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
-                this.seatViews[viewIndex].setPlayer(player, chair === this.myChair);
+                view.clear();
             }
         }
     }
@@ -421,12 +420,19 @@ export class TableScene extends Container {
         this.boardCards = [...phaseChange.communityCards];
         this.updateCommunityCards(this.boardCards);
         this.updatePotFromPots(phaseChange.pots);
+
+        // Clear all player bets on phase change (they moved to pot)
+        for (const player of this.players.values()) {
+            player.bet = 0n;
+        }
+        this.updateSeats();
     }
 
     private handleActionResult(result: ActionResult): void {
         const player = this.players.get(result.chair);
         if (!player) return;
         player.stack = result.newStack;
+        player.bet = result.amount; // IMPORTANT: Update the per-round bet
         player.lastAction = result.action;
         if (result.action === ActionType.ACTION_FOLD) {
             player.folded = true;
@@ -533,8 +539,8 @@ export class TableScene extends Container {
             cardView.rotation = (i - 0.5) * 0.12;
             cardView.scale.set(0);
             this.myCards.addChild(cardView);
-            // Animate scale to 1.4 for extra "Hero" feel
-            gsap.to(cardView.scale, { x: 1.4, y: 1.4, duration: 0.5, delay: i * 0.15, ease: 'back.out' });
+            // Animate scale to 1.2 for better fit
+            gsap.to(cardView.scale, { x: 1.2, y: 1.2, duration: 0.5, delay: i * 0.15, ease: 'back.out' });
         });
     }
 
@@ -679,9 +685,14 @@ class SeatView extends Container {
     private cardBacks: Container;
     private shownCards: Container;
     private lightPoint: Graphics;
+    private betTag: Container;
+    private betBackground: Graphics;
+    private betText: Text;
     private _orbitTween: gsap.core.Tween | null = null;
     private _index: number;
     public userId: number = -1;
+    private _currentBet: bigint = 0n;
+    private _betTicker = { val: 0 };
 
     constructor(index: number) {
         super();
@@ -763,6 +774,62 @@ class SeatView extends Container {
         this.lightPoint.visible = false;
         this.addChild(this.lightPoint);
 
+        // 5. Cyber Bet Tag
+        this.betTag = new Container();
+        this.betTag.visible = false;
+        this.addChild(this.betTag);
+
+        this.betBackground = new Graphics();
+        // Skewed cyber pill shape
+        this.betBackground.moveTo(-35, -12).lineTo(40, -12).lineTo(35, 12).lineTo(-40, 12).closePath();
+        this.betBackground.fill({ color: 0x1a0c16, alpha: 0.95 });
+        this.betBackground.stroke({ color: COLORS.cyan, width: 1.5, alpha: 0.6 });
+        // Add a neon accent line
+        this.betBackground.moveTo(-30, 8).lineTo(10, 8);
+        this.betBackground.stroke({ color: COLORS.cyan, width: 2, alpha: 0.3 });
+        this.betTag.addChild(this.betBackground);
+
+        this.betText = new Text({
+            text: '$0',
+            style: {
+                fontFamily: 'Orbitron, Space Grotesk, Arial',
+                fontSize: 12,
+                fill: 0xffffff,
+                fontWeight: '900',
+                letterSpacing: 1
+            }
+        });
+        this.betText.anchor.set(0.5);
+        this.betText.y = -1;
+        this.betTag.addChild(this.betText);
+
+        // Position bet tag towards the center of table
+        const offset = 85;
+        switch (index) {
+            case 0: // Bottom Center
+                this.betTag.y = -offset;
+                break;
+            case 1: // Bottom Left
+                this.betTag.x = offset;
+                this.betTag.y = -offset * 0.4;
+                break;
+            case 2: // Top Left
+                this.betTag.x = offset;
+                this.betTag.y = offset * 0.4;
+                break;
+            case 3: // Top Center
+                this.betTag.y = offset;
+                break;
+            case 4: // Top Right
+                this.betTag.x = -offset;
+                this.betTag.y = offset * 0.4;
+                break;
+            case 5: // Bottom Right
+                this.betTag.x = -offset;
+                this.betTag.y = -offset * 0.4;
+                break;
+        }
+
         this.avatarContainer.visible = false;
         this.clear();
     }
@@ -816,6 +883,35 @@ class SeatView extends Container {
         const frameColor = player.folded ? 0x333333 : (isMe ? COLORS.cyan : COLORS.primary);
         this.drawHexagon(this.avatarFrame, 40, 0x0a0609, 1);
         this.avatarFrame.stroke({ color: frameColor, width: 2, alpha: player.folded ? 0.3 : 0.8 });
+
+        this.setBet(player.bet);
+    }
+
+    setBet(amount: bigint): void {
+        if (amount <= 0n) {
+            this.betTag.visible = false;
+            this._currentBet = 0n;
+            this._betTicker.val = 0;
+            return;
+        }
+
+        if (!this.betTag.visible) {
+            this.betTag.visible = true;
+            this.betTag.scale.set(0);
+            gsap.to(this.betTag.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out' });
+        }
+
+        if (amount !== this._currentBet) {
+            this._currentBet = amount;
+            gsap.to(this._betTicker, {
+                val: Number(amount),
+                duration: 0.6,
+                ease: 'power3.out',
+                onUpdate: () => {
+                    this.betText.text = `$${Math.floor(this._betTicker.val).toLocaleString()}`;
+                }
+            });
+        }
     }
 
     showCards(cards: Card[]): void {
@@ -908,6 +1004,7 @@ class SeatView extends Container {
         this.avatarFrame.clear();
         this.drawHexagon(this.avatarFrame, 40, 0x0a0609, 0.5);
         this.avatarFrame.stroke({ color: 0x333333, width: 1.5, alpha: 0.4 });
+        this.betTag.visible = false;
     }
 
     private getRankString(rank: Rank): string {

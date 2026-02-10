@@ -357,8 +357,8 @@ export class GameClient {
         this.action(ActionType.ACTION_RAISE, amount);
     }
 
-    allIn(): void {
-        this.action(ActionType.ACTION_ALLIN);
+    allIn(amount: bigint = 0n): void {
+        this.action(ActionType.ACTION_ALLIN, amount);
     }
 
     getMyBet(): bigint {

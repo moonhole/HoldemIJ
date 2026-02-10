@@ -1,4 +1,5 @@
 import { useUiStore } from '../../store/uiStore';
+import { NumberTicker } from '../common/NumberTicker';
 import './lobby-overlay.css';
 
 type LobbyTableItem = {
@@ -84,7 +85,7 @@ export function LobbyOverlay(): JSX.Element | null {
                         <div className="lobby-credits">
                             <span className="lobby-label lobby-label-right">Credits</span>
                             <span className="lobby-credits-value">
-                                <span className="dollar">$</span> 1,245,900
+                                <span className="dollar">$</span> <NumberTicker value={1245900} />
                             </span>
                         </div>
                     </div>
