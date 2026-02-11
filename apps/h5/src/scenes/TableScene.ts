@@ -58,6 +58,12 @@ export class TableScene extends Container {
     private lastPotTotal = 0n;
     private lastChipCollectSoundAt = 0;
 
+    // Showdown overlay state
+    private showdownOverlay: Container | null = null;
+    private showdownTimeline: gsap.core.Timeline | null = null;
+    private highlightedCardIndices: Set<number> = new Set();
+    private cardHighlightGraphics: Graphics[] = [];
+
     constructor(game: GameApp) {
         super();
         this._game = game;
@@ -463,6 +469,9 @@ export class TableScene extends Container {
     }
 
     private handleHandStart(start: HandStart): void {
+        // Clean up any showdown overlays from the previous hand
+        this.cleanupShowdown();
+
         audioManager.play(SoundMap.GAME_START);
         this.myCards.removeChildren();
         this.communityCards.removeChildren();
@@ -642,7 +651,27 @@ export class TableScene extends Container {
     }
 
     private handleShowdown(showdown: Showdown): void {
-        for (const hand of showdown.hands) {
+        // Kill any prior showdown timeline
+        this.cleanupShowdown();
+
+        const tl = gsap.timeline();
+        this.showdownTimeline = tl;
+
+        // Collect winner chairs from pot results
+        const winnerChairs = new Set<number>();
+        for (const pr of showdown.potResults) {
+            for (const w of pr.winners) {
+                winnerChairs.add(w.chair);
+            }
+        }
+
+        // Also collect from net results
+        for (const nr of showdown.netResults) {
+            if (nr.isWinner) winnerChairs.add(nr.chair);
+        }
+
+        // --- Phase 1: Reveal opponent hole cards (staggered) ---
+        showdown.hands.forEach((hand, i) => {
             if (hand.chair !== this.myChair) {
                 let viewIndex = -1;
                 if (this.myChair !== -1) {
@@ -651,9 +680,262 @@ export class TableScene extends Container {
                     viewIndex = hand.chair % 6;
                 }
                 if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
-                    this.seatViews[viewIndex].showCards(hand.holeCards, true); // true for animate
+                    tl.add(() => {
+                        this.seatViews[viewIndex].showCards(hand.holeCards, true);
+                    }, i * 0.3);
                 }
             }
+        });
+
+        // --- Phase 2: After cards revealed, highlight best5 on community + hand cards ---
+        const revealDuration = Math.max(showdown.hands.length * 0.3 + 0.5, 1);
+
+        // Find the primary winner's best5 for highlighting
+        const primaryWinnerHand = showdown.hands.find(h => winnerChairs.has(h.chair));
+        if (primaryWinnerHand && primaryWinnerHand.bestFive.length > 0) {
+            tl.add(() => {
+                this.highlightBest5Cards(primaryWinnerHand.bestFive, primaryWinnerHand.holeCards, primaryWinnerHand.chair);
+            }, revealDuration);
+        }
+
+        // --- Phase 3: Show hand rank label in center ---
+        if (primaryWinnerHand) {
+            tl.add(() => {
+                this.showHandRankOverlay(primaryWinnerHand.rank);
+            }, revealDuration + 0.3);
+        }
+
+        // --- Phase 4: Highlight winner seat(s) ---
+        for (const hand of showdown.hands) {
+            if (winnerChairs.has(hand.chair)) {
+                let viewIndex = -1;
+                if (this.myChair !== -1) {
+                    viewIndex = (hand.chair - this.myChair + 6) % 6;
+                } else {
+                    viewIndex = hand.chair % 6;
+                }
+                if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
+                    tl.add(() => {
+                        this.seatViews[viewIndex].setWinner(true);
+                    }, revealDuration + 0.5);
+                }
+            }
+        }
+
+        // --- Phase 5: Show per-winner win amount badges ---
+        for (const nr of showdown.netResults) {
+            if (nr.isWinner && nr.winAmount > 0n) {
+                let viewIndex = -1;
+                if (this.myChair !== -1) {
+                    viewIndex = (nr.chair - this.myChair + 6) % 6;
+                } else {
+                    viewIndex = nr.chair % 6;
+                }
+                if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
+                    tl.add(() => {
+                        this.seatViews[viewIndex].showWinAmount(nr.winAmount);
+                    }, revealDuration + 0.8);
+                }
+            }
+        }
+    }
+
+    /**
+     * Highlights all cards that are part of the winning best-5:
+     * community cards on the board AND hole cards in hand (hero or opponent seat).
+     */
+    private highlightBest5Cards(bestFive: Card[], holeCards: Card[], winnerChair: number): void {
+        this.highlightedCardIndices.clear();
+        this.clearCardHighlights();
+
+        // --- 1. Match best5 cards to board card indices ---
+        const boardCards = this.boardCards;
+        const usedBoard: boolean[] = new Array(boardCards.length).fill(false);
+        const matchedBest5: boolean[] = new Array(bestFive.length).fill(false);
+
+        for (let b = 0; b < bestFive.length; b++) {
+            const b5 = bestFive[b];
+            for (let i = 0; i < boardCards.length; i++) {
+                if (!usedBoard[i] && boardCards[i].suit === b5.suit && boardCards[i].rank === b5.rank) {
+                    usedBoard[i] = true;
+                    matchedBest5[b] = true;
+                    this.highlightedCardIndices.add(i);
+                    break;
+                }
+            }
+        }
+
+        // Add glowing highlights to matched community cards
+        const cardW = 75;
+        const cardH = 105;
+        const gap = 10;
+        const totalCards = 5;
+        const totalWidth = totalCards * cardW + (totalCards - 1) * gap;
+        const startX = -totalWidth / 2;
+
+        this.highlightedCardIndices.forEach(idx => {
+            const glow = new Graphics();
+            const cx = startX + idx * (cardW + gap) + cardW / 2;
+            const cy = 0;
+
+            // Outer glow aura
+            glow.roundRect(cx - cardW / 2 - 6, cy - cardH / 2 - 6, cardW + 12, cardH + 12, 12);
+            glow.fill({ color: COLORS.cyan, alpha: 0.15 });
+            glow.stroke({ color: COLORS.cyan, width: 3, alpha: 0.9 });
+
+            // Inner brighter border
+            glow.roundRect(cx - cardW / 2 - 2, cy - cardH / 2 - 2, cardW + 4, cardH + 4, 10);
+            glow.stroke({ color: 0xffffff, width: 1, alpha: 0.5 });
+
+            glow.alpha = 0;
+            this.communityCards.addChild(glow);
+            this.cardHighlightGraphics.push(glow);
+
+            gsap.to(glow, { alpha: 1, duration: 0.4, ease: 'power2.out' });
+            gsap.to(glow, { alpha: 0.6, duration: 0.8, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: 0.4 });
+        });
+
+        // --- 2. Remaining unmatched best5 cards are hole cards — highlight them ---
+        const holeCardsInBest5: Card[] = [];
+        for (let b = 0; b < bestFive.length; b++) {
+            if (!matchedBest5[b]) {
+                holeCardsInBest5.push(bestFive[b]);
+            }
+        }
+
+        if (holeCardsInBest5.length === 0) return;
+
+        if (winnerChair === this.myChair) {
+            // Highlight hero's hand cards in myCards
+            this.highlightHeroHandCards(holeCardsInBest5);
+        } else {
+            // Highlight the winner's seat shown cards
+            let viewIndex = -1;
+            if (this.myChair !== -1) {
+                viewIndex = (winnerChair - this.myChair + 6) % 6;
+            } else {
+                viewIndex = winnerChair % 6;
+            }
+            if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
+                this.seatViews[viewIndex].highlightCards(holeCardsInBest5, this.cardHighlightGraphics);
+            }
+        }
+    }
+
+    /**
+     * Highlights the hero's hand cards (in myCards container) that are part of best5.
+     */
+    private highlightHeroHandCards(cardsToHighlight: Card[]): void {
+        const heroCardW = 100;
+        const heroCardH = 145;
+
+        // myCards children are card containers with (card as any).cardData if we tag them
+        // Since we didn't tag them, we need to match by the holeCards data from the store
+        const state = useGameStore.getState();
+        const myHoleCards = state.holeCards?.cards ?? [];
+
+        for (const target of cardsToHighlight) {
+            for (let i = 0; i < myHoleCards.length; i++) {
+                if (myHoleCards[i].suit === target.suit && myHoleCards[i].rank === target.rank) {
+                    const cardContainer = this.myCards.children[i] as Container;
+                    if (!cardContainer) continue;
+
+                    const glow = new Graphics();
+                    // Draw glow relative to card center (cards are centered at their position)
+                    glow.roundRect(-heroCardW / 2 - 8, -heroCardH / 2 - 8, heroCardW + 16, heroCardH + 16, 18);
+                    glow.fill({ color: COLORS.cyan, alpha: 0.15 });
+                    glow.stroke({ color: COLORS.cyan, width: 3, alpha: 0.9 });
+
+                    glow.roundRect(-heroCardW / 2 - 3, -heroCardH / 2 - 3, heroCardW + 6, heroCardH + 6, 16);
+                    glow.stroke({ color: 0xffffff, width: 1, alpha: 0.5 });
+
+                    glow.alpha = 0;
+                    cardContainer.addChild(glow);
+                    this.cardHighlightGraphics.push(glow);
+
+                    gsap.to(glow, { alpha: 1, duration: 0.4, ease: 'power2.out' });
+                    gsap.to(glow, { alpha: 0.6, duration: 0.8, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: 0.4 });
+                    break;
+                }
+            }
+        }
+    }
+
+    /**
+     * Shows the hand rank label (e.g. "FULL HOUSE") as an overlay in the center.
+     */
+    private showHandRankOverlay(rank: HandRank): void {
+        this.removeShowdownOverlay();
+
+        const overlay = new Container();
+        overlay.x = DESIGN_WIDTH / 2;
+        overlay.y = 435;
+        this.addChild(overlay);
+        this.showdownOverlay = overlay;
+
+        // Background panel with cyber aesthetic
+        const bg = new Graphics();
+        const panelW = 420;
+        const panelH = 60;
+        bg.roundRect(-panelW / 2, -panelH / 2, panelW, panelH, 8);
+        bg.fill({ color: 0x050510, alpha: 0.85 });
+        bg.stroke({ color: COLORS.cyan, width: 2, alpha: 0.7 });
+        // Accent lines
+        bg.moveTo(-panelW / 2 + 10, panelH / 2 - 3);
+        bg.lineTo(panelW / 2 - 10, panelH / 2 - 3);
+        bg.stroke({ color: COLORS.primary, width: 2, alpha: 0.4 });
+        overlay.addChild(bg);
+
+        // Rank text
+        const label = new Text({
+            text: this.getHandRankLabel(rank).toUpperCase(),
+            style: {
+                fontFamily: 'Orbitron, Space Grotesk, Inter, sans-serif',
+                fontSize: 28,
+                fontWeight: '900',
+                letterSpacing: 6,
+                fill: COLORS.cyan,
+                dropShadow: { color: COLORS.cyan, alpha: 0.6, blur: 12, distance: 0 },
+            },
+        });
+        label.anchor.set(0.5);
+        overlay.addChild(label);
+
+        // Animate in
+        overlay.scale.set(0.3);
+        overlay.alpha = 0;
+        gsap.to(overlay.scale, { x: 1, y: 1, duration: 0.5, ease: 'back.out(1.7)' });
+        gsap.to(overlay, { alpha: 1, duration: 0.3, ease: 'power2.out' });
+    }
+
+    private removeShowdownOverlay(): void {
+        if (this.showdownOverlay) {
+            gsap.killTweensOf(this.showdownOverlay);
+            gsap.killTweensOf(this.showdownOverlay.scale);
+            this.showdownOverlay.destroy({ children: true });
+            this.showdownOverlay = null;
+        }
+    }
+
+    private clearCardHighlights(): void {
+        for (const g of this.cardHighlightGraphics) {
+            gsap.killTweensOf(g);
+            g.destroy();
+        }
+        this.cardHighlightGraphics = [];
+    }
+
+    private cleanupShowdown(): void {
+        if (this.showdownTimeline) {
+            this.showdownTimeline.kill();
+            this.showdownTimeline = null;
+        }
+        this.removeShowdownOverlay();
+        this.clearCardHighlights();
+        this.highlightedCardIndices.clear();
+        for (const sv of this.seatViews) {
+            sv.setWinner(false);
+            sv.clearWinAmount();
         }
     }
 
@@ -982,6 +1264,7 @@ export class TableScene extends Container {
 
     public dispose(): void {
         this.hideActionCountdown();
+        this.cleanupShowdown();
         if (this.unsubscribeStore) {
             this.unsubscribeStore();
             this.unsubscribeStore = null;
@@ -1012,6 +1295,10 @@ class SeatView extends Container {
     private _betTicker = { val: 0 };
     private _currentStack: bigint = -1n;
     private _stackTicker = { val: 0 };
+
+    // Showdown winner state
+    private winnerGlow: Graphics | null = null;
+    private winAmountBadge: Container | null = null;
 
     constructor(index: number) {
         super();
@@ -1292,6 +1579,9 @@ class SeatView extends Container {
             // Use parent TableScene to create a unified card instance
             const container = (this.parent as any).createCard(card, cardW, cardH, false);
             container.x = (i - 0.5) * (cardW + gap);
+            // Tag with card data for later highlight matching
+            (container as any)._cardSuit = card.suit;
+            (container as any)._cardRank = card.rank;
 
             // Show front for showdown
             container.getChildByName('back')!.visible = false;
@@ -1304,6 +1594,38 @@ class SeatView extends Container {
                 gsap.to(container.scale, { x: 1, y: 1, duration: 0.4, delay: i * 0.1, ease: 'back.out' });
             }
         });
+    }
+
+    /**
+     * Highlights specific cards in this seat's shownCards that match the given card list.
+     * Glow graphics are pushed into outGlowList for centralized cleanup.
+     */
+    highlightCards(cardsToHighlight: Card[], outGlowList: Graphics[]): void {
+        const seatCardW = 36;
+        const seatCardH = 54;
+
+        for (const target of cardsToHighlight) {
+            for (let i = 0; i < this.shownCards.children.length; i++) {
+                const child = this.shownCards.children[i] as any;
+                if (child._cardSuit === target.suit && child._cardRank === target.rank) {
+                    const glow = new Graphics();
+                    glow.roundRect(-seatCardW / 2 - 4, -seatCardH / 2 - 4, seatCardW + 8, seatCardH + 8, 8);
+                    glow.fill({ color: COLORS.cyan, alpha: 0.15 });
+                    glow.stroke({ color: COLORS.cyan, width: 2, alpha: 0.9 });
+
+                    glow.roundRect(-seatCardW / 2 - 1, -seatCardH / 2 - 1, seatCardW + 2, seatCardH + 2, 6);
+                    glow.stroke({ color: 0xffffff, width: 1, alpha: 0.5 });
+
+                    glow.alpha = 0;
+                    child.addChild(glow);
+                    outGlowList.push(glow);
+
+                    gsap.to(glow, { alpha: 1, duration: 0.4, ease: 'power2.out' });
+                    gsap.to(glow, { alpha: 0.6, duration: 0.8, yoyo: true, repeat: -1, ease: 'sine.inOut', delay: 0.4 });
+                    break;
+                }
+            }
+        }
     }
 
     setActive(isActive: boolean): void {
@@ -1385,6 +1707,127 @@ class SeatView extends Container {
             case 11: return 'J';
             case 10: return 'T';
             default: return String(rank);
+        }
+    }
+
+    /**
+     * Highlights this seat as a winner with a pulsing golden/cyber glow.
+     */
+    setWinner(isWinner: boolean): void {
+        if (!isWinner) {
+            if (this.winnerGlow) {
+                gsap.killTweensOf(this.winnerGlow);
+                gsap.killTweensOf(this.winnerGlow.scale);
+                this.winnerGlow.destroy();
+                this.winnerGlow = null;
+            }
+            return;
+        }
+
+        // Create winner glow behind avatar
+        const glow = new Graphics();
+
+        // Outer radiant aura
+        glow.circle(0, 0, 68);
+        glow.fill({ color: COLORS.primary, alpha: 0.12 });
+        glow.circle(0, 0, 58);
+        glow.fill({ color: COLORS.primary, alpha: 0.2 });
+
+        // Bright inner ring
+        const hexPoints: number[] = [];
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i - Math.PI / 2;
+            hexPoints.push(Math.cos(angle) * 54);
+            hexPoints.push(Math.sin(angle) * 54);
+        }
+        glow.poly(hexPoints);
+        glow.stroke({ color: COLORS.primary, width: 3, alpha: 0.9 });
+
+        // Outer hex ring
+        const outerHexPoints: number[] = [];
+        for (let i = 0; i < 6; i++) {
+            const angle = (Math.PI / 3) * i - Math.PI / 2;
+            outerHexPoints.push(Math.cos(angle) * 62);
+            outerHexPoints.push(Math.sin(angle) * 62);
+        }
+        glow.poly(outerHexPoints);
+        glow.stroke({ color: COLORS.primary, width: 1.5, alpha: 0.4 });
+
+        // Add below avatar but above background
+        const avatarIndex = this.getChildIndex(this.avatarFrame);
+        this.addChildAt(glow, avatarIndex);
+        this.winnerGlow = glow;
+
+        // Animate in with scale + alpha
+        glow.scale.set(0.3);
+        glow.alpha = 0;
+        gsap.to(glow.scale, { x: 1, y: 1, duration: 0.5, ease: 'back.out(1.7)' });
+        gsap.to(glow, { alpha: 1, duration: 0.3 });
+
+        // Pulse animation
+        gsap.to(glow.scale, {
+            x: 1.08, y: 1.08,
+            duration: 1.0,
+            yoyo: true,
+            repeat: -1,
+            ease: 'sine.inOut',
+            delay: 0.5,
+        });
+    }
+
+    /**
+     * Shows a floating win amount badge (e.g. "+$500") above the seat.
+     */
+    showWinAmount(amount: bigint): void {
+        this.clearWinAmount();
+
+        const badge = new Container();
+        badge.y = -110;
+
+        // Background pill
+        const bg = new Graphics();
+        const text = `+$${Number(amount).toLocaleString()}`;
+        const pillW = Math.max(100, text.length * 14 + 30);
+        const pillH = 36;
+        bg.roundRect(-pillW / 2, -pillH / 2, pillW, pillH, pillH / 2);
+        bg.fill({ color: 0x0a1a0a, alpha: 0.9 });
+        bg.stroke({ color: 0x00ff88, width: 2, alpha: 0.8 });
+        badge.addChild(bg);
+
+        const label = new Text({
+            text,
+            style: {
+                fontFamily: 'Orbitron, Space Grotesk, Inter, sans-serif',
+                fontSize: 18,
+                fontWeight: '900',
+                fill: 0x00ff88,
+                dropShadow: { color: 0x00ff88, alpha: 0.5, blur: 8, distance: 0 },
+            },
+        });
+        label.anchor.set(0.5);
+        badge.addChild(label);
+
+        this.addChild(badge);
+        this.winAmountBadge = badge;
+
+        // Animate: scale in + float up
+        badge.scale.set(0);
+        badge.alpha = 0;
+        const tl = gsap.timeline();
+        tl.to(badge.scale, { x: 1, y: 1, duration: 0.4, ease: 'back.out(2)' });
+        tl.to(badge, { alpha: 1, duration: 0.2 }, '<');
+        tl.to(badge, { y: badge.y - 15, duration: 2.0, ease: 'power1.out' }, '<0.3');
+    }
+
+    /**
+     * Removes the win amount badge.
+     */
+    clearWinAmount(): void {
+        if (this.winAmountBadge) {
+            gsap.killTweensOf(this.winAmountBadge);
+            gsap.killTweensOf(this.winAmountBadge.scale);
+            this.winAmountBadge.destroy({ children: true });
+            this.winAmountBadge = null;
         }
     }
 }

@@ -99,7 +99,8 @@ var ErrTableClosed = errors.New("table closed")
 
 const (
 	actionTimeLimitSec = int32(30)
-	interHandDelay     = 3 * time.Second
+	showdownHandDelay  = 8 * time.Second
+	foldHandDelay      = 3 * time.Second
 )
 
 // New creates a new table
@@ -318,6 +319,11 @@ func (t *Table) handleAction(userID uint64, action holdem.ActionType, amount int
 	if before.ActionChair != player.Chair {
 		return fmt.Errorf("not your turn")
 	}
+	// Client call amount may arrive as either total-to amount or delta-to-call.
+	// Normalize on server so CALL always targets current street bet.
+	if action == holdem.PlayerActionTypeCall {
+		amount = before.CurBet
+	}
 
 	result, err := t.game.Act(player.Chair, action, amount)
 	if err != nil {
@@ -401,7 +407,11 @@ func (t *Table) handleHandEnd(result *holdem.SettlementResult) {
 
 	// Schedule next hand from actor tick (no goroutine self-submit).
 	if len(t.seats) >= 2 {
-		t.nextHandAt = time.Now().Add(interHandDelay)
+		delay := foldHandDelay
+		if hasShowdownHands(result) {
+			delay = showdownHandDelay
+		}
+		t.nextHandAt = time.Now().Add(delay)
 	} else {
 		t.nextHandAt = time.Time{}
 	}

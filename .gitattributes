@@ -1,0 +1,11 @@
+# 默认强制使用 LF（推荐）
+* text=auto eol=lf
+
+# Windows 特定脚本（需要 CRLF）
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 保持二进制文件原样
+*.png binary
+*.jpg binary
+*.pdf binary
