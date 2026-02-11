@@ -61,6 +61,10 @@ func NewManager() *Manager {
 	}
 }
 
+func (m *Manager) Close() error {
+	return nil
+}
+
 func normalizeUsername(username string) string {
 	return strings.ToLower(strings.TrimSpace(username))
 }

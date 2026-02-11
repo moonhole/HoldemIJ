@@ -49,11 +49,11 @@ type Gateway struct {
 	userConns   map[uint64]*Connection // userID -> active connection
 	nextConnID  uint64
 	lobby       *lobby.Lobby
-	auth        *auth.Manager
+	auth        auth.Service
 }
 
 // New creates a new Gateway instance
-func New(lby *lobby.Lobby, authManager *auth.Manager) *Gateway {
+func New(lby *lobby.Lobby, authManager auth.Service) *Gateway {
 	if authManager == nil {
 		authManager = auth.NewManager()
 	}

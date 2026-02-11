@@ -8,7 +8,7 @@ import (
 )
 
 type HTTPHandler struct {
-	manager *Manager
+	manager Service
 }
 
 type credentialsRequest struct {
@@ -30,7 +30,7 @@ type errorResponse struct {
 	Error string `json:"error"`
 }
 
-func NewHTTPHandler(manager *Manager) *HTTPHandler {
+func NewHTTPHandler(manager Service) *HTTPHandler {
 	return &HTTPHandler{manager: manager}
 }
 
