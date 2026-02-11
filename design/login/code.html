@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Cyber-Terminal Login Screen</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "primary": "#f425af",
+                        "cyber-cyan": "#00f3ff",
+                        "terminal-grey": "#121212",
+                        "deep-charcoal": "#0a0a0a",
+                    },
+                    fontFamily: {
+                        "display": ["Space Grotesk", "sans-serif"],
+                        "mono": ["Space Mono", "monospace"]
+                    },
+                },
+            },
+        }
+    </script>
+<style type="text/tailwindcss">
+        @layer utilities {
+            .grid-bg {
+                background-image: linear-gradient(rgba(0, 243, 255, 0.03) 1px, transparent 1px), 
+                                  linear-gradient(90deg, rgba(0, 243, 255, 0.03) 1px, transparent 1px);
+                background-size: 40px 40px;
+            }
+            .scanline {
+                background: linear-gradient(to bottom, transparent, rgba(0, 243, 255, 0.02) 50%, transparent);
+            }
+            .neon-text-cyan {
+                text-shadow: 0 0 10px rgba(0, 243, 255, 0.5);
+            }
+            .neon-text-magenta {
+                text-shadow: 0 0 10px rgba(244, 37, 175, 0.5);
+            }
+            .glitch-hover:hover {
+                animation: glitch 0.3s cubic-bezier(.25,.46,.45,.94) both infinite;
+            }
+            @keyframes glitch {
+                0% { transform: translate(0) }
+                20% { transform: translate(-2px, 2px) }
+                40% { transform: translate(-2px, -2px) }
+                60% { transform: translate(2px, 2px) }
+                80% { transform: translate(2px, -2px) }
+                100% { transform: translate(0) }
+            }
+        }
+    </style>
+</head>
+<body class="bg-deep-charcoal font-display text-white overflow-hidden h-screen w-full selection:bg-primary/30">
+<div class="fixed inset-0 grid-bg z-0"></div>
+<div class="fixed inset-0 scanline pointer-events-none z-0"></div>
+<div class="fixed top-6 left-6 font-mono text-[10px] text-cyber-cyan/40 tracking-widest z-50">
+<p>SYSTEM_STATUS: <span class="animate-pulse">OK</span></p>
+<p>UPTIME: 99.98%</p>
+</div>
+<div class="fixed top-6 right-6 font-mono text-[10px] text-cyber-cyan/40 text-right tracking-widest z-50">
+<p>ENCRYPTION: AES-256</p>
+<p>UPLINK_ID: CT-9920</p>
+</div>
+<div class="fixed bottom-6 left-6 font-mono text-[10px] text-primary/40 tracking-widest z-50">
+<p>IP_TRACE: REDACTED</p>
+<p>LOC: OLYMPUS_HUB</p>
+</div>
+<div class="fixed bottom-6 right-6 font-mono text-[10px] text-primary/40 text-right tracking-widest z-50">
+<p>© 2024 CYBER_NETICS</p>
+<p>RE_ENTRY_POINT: 0x4F2A</p>
+</div>
+<div class="relative flex flex-col items-center justify-center min-h-screen px-4 z-10">
+<div class="w-full max-w-[360px] flex flex-col items-center">
+<div class="relative mb-16 group">
+<div class="absolute inset-0 bg-cyber-cyan/20 blur-2xl rounded-full scale-110"></div>
+<div class="relative size-32 border-2 border-cyber-cyan/50 rounded-full flex items-center justify-center shadow-[0_0_20px_rgba(0,243,255,0.2)]">
+<div class="relative size-24 border-4 border-dashed border-cyber-cyan/30 rounded-full flex items-center justify-center">
+<span class="material-symbols-outlined text-6xl text-cyber-cyan neon-text-cyan">token</span>
+<div class="absolute top-0 w-px h-4 bg-cyber-cyan/40 -translate-y-4"></div>
+<div class="absolute bottom-0 w-px h-4 bg-cyber-cyan/40 translate-y-4"></div>
+<div class="absolute left-0 h-px w-4 bg-cyber-cyan/40 -translate-x-4"></div>
+<div class="absolute right-0 h-px w-4 bg-cyber-cyan/40 translate-x-4"></div>
+</div>
+</div>
+</div>
+<div class="w-full space-y-6">
+<div class="space-y-2 group">
+<label class="block text-[10px] uppercase tracking-[0.3em] text-cyber-cyan/60 ml-1 font-mono">Neural ID</label>
+<div class="relative">
+<input class="w-full bg-transparent border border-white/10 px-4 py-3.5 text-sm font-mono tracking-wider focus:outline-none focus:border-cyber-cyan focus:ring-0 focus:shadow-[0_0_15px_rgba(0,243,255,0.15)] transition-all placeholder:text-white/10" placeholder="USERNAME_SEQUENCE" type="text"/>
+<div class="absolute right-3 top-1/2 -translate-y-1/2">
+<span class="material-symbols-outlined text-sm text-white/20">fingerprint</span>
+</div>
+</div>
+</div>
+<div class="space-y-2 group">
+<label class="block text-[10px] uppercase tracking-[0.3em] text-cyber-cyan/60 ml-1 font-mono">Access Key</label>
+<div class="relative">
+<input class="w-full bg-transparent border border-white/10 px-4 py-3.5 text-sm font-mono tracking-wider focus:outline-none focus:border-cyber-cyan focus:ring-0 focus:shadow-[0_0_15px_rgba(0,243,255,0.15)] transition-all placeholder:text-white/10" placeholder="********" type="password"/>
+<div class="absolute right-3 top-1/2 -translate-y-1/2">
+<span class="material-symbols-outlined text-sm text-white/20">lock_open</span>
+</div>
+</div>
+</div>
+<button class="w-full bg-primary text-white py-4 font-bold uppercase tracking-[0.4em] text-sm glitch-hover shadow-[0_4px_20px_rgba(244,37,175,0.3)] hover:shadow-[0_0_30px_rgba(244,37,175,0.6)] transition-all">
+                    Initialize Login
+                </button>
+</div>
+<div class="mt-12 flex items-center gap-8 font-mono">
+<a class="text-[10px] uppercase tracking-widest text-white/40 hover:text-cyber-cyan transition-colors flex items-center gap-2" href="#">
+<span class="w-1 h-1 bg-cyber-cyan/40"></span>
+                    New Uplink
+                </a>
+<a class="text-[10px] uppercase tracking-widest text-white/40 hover:text-primary transition-colors flex items-center gap-2" href="#">
+<span class="w-1 h-1 bg-primary/40"></span>
+                    Recover ID
+                </a>
+</div>
+</div>
+<div class="absolute bottom-20 left-1/2 -translate-x-1/2 w-px h-12 bg-gradient-to-t from-transparent via-cyber-cyan/20 to-transparent"></div>
+</div>
+
+</body></html>
