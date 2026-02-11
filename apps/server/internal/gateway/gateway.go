@@ -67,13 +67,18 @@ func New(lby *lobby.Lobby, authManager *auth.Manager) *Gateway {
 
 // HandleWebSocket handles WebSocket upgrade and connection
 func (g *Gateway) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
+	providedToken := r.URL.Query().Get("session_token")
+	userID, _, ok := g.auth.ResolveSession(providedToken)
+	if !ok {
+		http.Error(w, "unauthorized: invalid session token", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("[Gateway] Upgrade error: %v", err)
 		return
 	}
-	providedToken := r.URL.Query().Get("session_token")
-	userID, sessionToken, reusedAccount := g.auth.ResolveOrCreateAccount(providedToken)
 
 	var oldConn *Connection
 	var resumeTable *table.Table
@@ -84,7 +89,7 @@ func (g *Gateway) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 	c := &Connection{
 		ID:           connID,
 		UserID:       userID,
-		SessionToken: sessionToken,
+		SessionToken: providedToken,
 		Conn:         conn,
 		Send:         make(chan []byte, 256),
 		Gateway:      g,
@@ -112,7 +117,7 @@ func (g *Gateway) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	log.Printf("[Gateway] Client connected: %s (userID=%d reused=%t), total: %d", connID, userID, reusedAccount, len(g.connections))
+	log.Printf("[Gateway] Client connected: %s (userID=%d), total: %d", connID, userID, len(g.connections))
 
 	// Send initial LoginResponse
 	c.SendLoginResponse()

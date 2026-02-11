@@ -1,5 +1,6 @@
 import { audioManager } from '../../audio/AudioManager';
 import { SoundMap } from '../../audio/SoundMap';
+import { useAuthStore } from '../../store/authStore';
 import { useUiStore } from '../../store/uiStore';
 import { AudioToggle } from '../common/AudioToggle';
 import { NumberTicker } from '../common/NumberTicker';
@@ -65,6 +66,10 @@ export function LobbyOverlay(): JSX.Element | null {
     const quickStartLabel = useUiStore((s) => s.quickStartLabel);
     const quickStartError = useUiStore((s) => s.quickStartError);
     const startQuickStart = useUiStore((s) => s.startQuickStart);
+    const resetQuickStart = useUiStore((s) => s.resetQuickStart);
+    const requestScene = useUiStore((s) => s.requestScene);
+    const username = useAuthStore((s) => s.username);
+    const logout = useAuthStore((s) => s.logout);
 
     const playUiClick = (): void => {
         audioManager.play(SoundMap.UI_CLICK, 0.7);
@@ -90,7 +95,7 @@ export function LobbyOverlay(): JSX.Element | null {
                             </div>
                         </div>
                         <div className="lobby-credits">
-                            <span className="lobby-label lobby-label-right">Credits</span>
+                            <span className="lobby-label lobby-label-right">{username || 'Guest'}</span>
                             <span className="lobby-credits-value">
                                 <span className="dollar">$</span> <NumberTicker value={1245900} />
                             </span>
@@ -153,6 +158,19 @@ export function LobbyOverlay(): JSX.Element | null {
                         <button type="button" className="lobby-secondary-btn" onClick={playUiClick}>
                             <span className="material-symbols-outlined">add_box</span>
                             <span>Create Node</span>
+                        </button>
+                        <button
+                            type="button"
+                            className="lobby-secondary-btn"
+                            onClick={() => {
+                                playUiClick();
+                                void logout();
+                                resetQuickStart();
+                                requestScene('login');
+                            }}
+                        >
+                            <span className="material-symbols-outlined">logout</span>
+                            <span>Logout</span>
                         </button>
                         <button type="button" className="lobby-icon-btn" onClick={playUiClick}>
                             <span className="material-symbols-outlined">settings</span>

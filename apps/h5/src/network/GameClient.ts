@@ -51,6 +51,7 @@ export class GameClient {
     private sessionToken = '';
     private listeners = new Set<MessageHandler>();
     private reconnectTimer: number | null = null;
+    private shouldReconnect = true;
     private serverClockOffsetMs = 0;
     private hasServerClockSync = false;
 
@@ -88,6 +89,7 @@ export class GameClient {
     }
 
     connect(): Promise<void> {
+        this.shouldReconnect = true;
         return new Promise((resolve, reject) => {
             try {
                 this.ws = new WebSocket(this.withSessionToken(this.baseUrl));
@@ -102,7 +104,9 @@ export class GameClient {
                 this.ws.onclose = (event) => {
                     console.log('[GameClient] Disconnected', event.code, event.reason);
                     this.notify((h) => h.onDisconnect?.());
-                    this.scheduleReconnect();
+                    if (this.shouldReconnect) {
+                        this.scheduleReconnect();
+                    }
                 };
 
                 this.ws.onerror = (error) => {
@@ -382,7 +386,27 @@ export class GameClient {
         return this.myBet;
     }
 
+    getSessionToken(): string {
+        return this.sessionToken;
+    }
+
+    setSessionToken(token: string): void {
+        const nextToken = token.trim();
+        this.sessionToken = nextToken;
+        if (nextToken) {
+            this.persistSessionToken(nextToken);
+            return;
+        }
+        this.clearSessionTokenStorage();
+    }
+
+    clearSessionToken(): void {
+        this.sessionToken = '';
+        this.clearSessionTokenStorage();
+    }
+
     disconnect(): void {
+        this.shouldReconnect = false;
         if (this.reconnectTimer) {
             clearTimeout(this.reconnectTimer);
             this.reconnectTimer = null;
@@ -448,6 +472,16 @@ export class GameClient {
             const key = GameClient.SESSION_TOKEN_KEY;
             window.sessionStorage.setItem(key, token);
             // Clean old shared token to avoid cross-tab reuse after upgrade.
+            window.localStorage.removeItem(key);
+        } catch {
+            // Ignore storage quota or privacy mode failures.
+        }
+    }
+
+    private clearSessionTokenStorage(): void {
+        try {
+            const key = GameClient.SESSION_TOKEN_KEY;
+            window.sessionStorage.removeItem(key);
             window.localStorage.removeItem(key);
         } catch {
             // Ignore storage quota or privacy mode failures.

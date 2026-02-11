@@ -13,16 +13,19 @@ func main() {
 	lby := lobby.New()
 	authManager := auth.NewManager()
 	gw := gateway.New(lby, authManager)
+	authHTTP := auth.NewHTTPHandler(authManager)
 
-	http.HandleFunc("/ws", gw.HandleWebSocket)
-	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ws", gw.HandleWebSocket)
+	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("ok"))
 	})
+	authHTTP.RegisterRoutes(mux)
 
 	addr := ":8080"
 	log.Printf("[Server] Starting WebSocket server on %s", addr)
-	if err := http.ListenAndServe(addr, nil); err != nil {
+	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("[Server] Failed to start: %v", err)
 	}
 }

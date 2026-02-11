@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { requireCanvas, requireUiRoot } from './architecture/boundary';
 import { audioManager } from './audio/AudioManager';
+import { bootstrapAuthSession } from './store/authStore';
 import { bindGameClientToStore } from './store/gameStore';
 import { useUiStore, type SceneName } from './store/uiStore';
 import { UiLayerApp } from './ui/UiLayerApp';
@@ -15,7 +16,7 @@ const DESIGN_HEIGHT = DESIGN_WIDTH * (932 / 430);
 class GameApp {
     private app: Application;
     private currentScene: Container | null = null;
-    private currentSceneName: SceneName = 'boot';
+    private currentSceneName: SceneName = 'login';
     private uiRoot: Root | null = null;
     private unsubscribeUiStore: (() => void) | null = null;
     private viewportEl: HTMLElement | Window = window;
@@ -71,8 +72,8 @@ class GameApp {
         this.handleResize();
         window.addEventListener('resize', () => this.handleResize());
 
-        // Load boot scene
-        await this.loadScene('boot');
+        const authenticated = await bootstrapAuthSession();
+        await this.loadScene(authenticated ? 'lobby' : 'login');
 
         console.log('[GameApp] Initialized');
     }
@@ -120,6 +121,10 @@ class GameApp {
             case 'boot':
                 const { BootScene } = await import('./scenes/BootScene');
                 this.currentScene = new BootScene(this);
+                break;
+            case 'login':
+                const { LoginScene } = await import('./scenes/LoginScene');
+                this.currentScene = new LoginScene(this);
                 break;
             case 'lobby':
                 const { LobbyScene } = await import('./scenes/LobbyScene');

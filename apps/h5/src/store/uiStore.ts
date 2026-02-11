@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { gameClient } from '../network/GameClient';
 import { useGameStore } from './gameStore';
 
-export type SceneName = 'boot' | 'lobby' | 'table';
+export type SceneName = 'boot' | 'login' | 'lobby' | 'table';
 
 type QuickStartPhase = 'idle' | 'connecting' | 'sitting' | 'error';
 
@@ -28,7 +28,7 @@ function delay(ms: number): Promise<void> {
 }
 
 export const useUiStore = create<UiStoreState>((set) => ({
-    currentScene: 'boot',
+    currentScene: 'login',
     requestedScene: null,
 
     quickStartPhase: 'idle',
