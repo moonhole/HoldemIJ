@@ -21,6 +21,7 @@ class GameApp {
     private uiRoot: Root | null = null;
     private unsubscribeUiStore: (() => void) | null = null;
     private viewportEl: HTMLElement | Window = window;
+    private pendingDestroy: Container[] = [];
 
     constructor() {
         this.app = new Application();
@@ -66,6 +67,8 @@ class GameApp {
             background: '#120810',
             resizeTo: this.viewportEl,
             antialias: true,
+            // iOS Safari/PWA has better stability with WebGL forced.
+            preference: 'webgl',
             resolution: Math.min(window.devicePixelRatio, 2),
             autoDensity: true,
         });
@@ -115,7 +118,9 @@ class GameApp {
             const disposableScene = this.currentScene as Container & { dispose?: () => void };
             disposableScene.dispose?.();
             this.app.stage.removeChild(this.currentScene);
-            this.currentScene.destroy({ children: true });
+            // Defer actual destroy to next frame to avoid renderer traversal races.
+            this.pendingDestroy.push(this.currentScene);
+            this.flushPendingDestroySoon();
         }
 
         // Load new scene
@@ -149,6 +154,18 @@ class GameApp {
     get stage(): Container {
         return this.app.stage;
     }
+
+    private flushPendingDestroySoon(): void {
+        window.requestAnimationFrame(() => {
+            if (this.pendingDestroy.length === 0) {
+                return;
+            }
+            const scenes = this.pendingDestroy.splice(0, this.pendingDestroy.length);
+            for (const scene of scenes) {
+                scene.destroy({ children: true });
+            }
+        });
+    }
 }
 
 // Bootstrap
@@ -156,4 +173,3 @@ const game = new GameApp();
 game.init().catch(console.error);
 
 export { DESIGN_HEIGHT, DESIGN_WIDTH, GameApp };
-

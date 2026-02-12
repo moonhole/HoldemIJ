@@ -11,7 +11,7 @@
     "dependencies": {
         "@bufbuild/protobuf": "^2.2.3",
         "gsap": "^3.12.5",
-        "pixi.js": "^8.6.6",
+        "pixi.js": "8.6.6",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "zustand": "^5.0.2"

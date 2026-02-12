@@ -23,9 +23,52 @@ type UiStoreState = {
 };
 
 const QUICK_START_IDLE_LABEL = 'Quick Join';
+const QUICK_START_WAIT_SNAPSHOT_MS = 8000;
 
 function delay(ms: number): Promise<void> {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function waitForInitialSnapshot(timeoutMs: number, minStreamSeq: number): Promise<void> {
+    const state = useGameStore.getState();
+    if (state.streamSeq > minStreamSeq && state.lastEvent?.type === 'snapshot' && state.snapshot) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve, reject) => {
+        let settled = false;
+        const finalize = (fn: () => void): void => {
+            if (settled) {
+                return;
+            }
+            settled = true;
+            window.clearTimeout(timeoutId);
+            unsubscribe();
+            fn();
+        };
+
+        const timeoutId = window.setTimeout(() => {
+            finalize(() => reject(new Error('No table snapshot received. Check network/auth and retry.')));
+        }, timeoutMs);
+
+        const unsubscribe = useGameStore.subscribe((next, prev) => {
+            if (next.streamSeq <= minStreamSeq) {
+                return;
+            }
+            if (next.lastEvent?.type === 'snapshot' && next.snapshot) {
+                finalize(() => resolve());
+                return;
+            }
+            if (next.lastEvent?.type === 'error') {
+                const message = next.errorMessage || 'Table sync failed';
+                finalize(() => reject(new Error(message)));
+                return;
+            }
+            if (prev.connected && !next.connected) {
+                finalize(() => reject(new Error('WebSocket disconnected before table sync.')));
+            }
+        });
+    });
 }
 
 export const useUiStore = create<UiStoreState>((set) => ({
@@ -77,18 +120,25 @@ export const useUiStore = create<UiStoreState>((set) => ({
         }));
 
         try {
+            const gameState = useGameStore.getState();
+            if (gameClient.isConnected && !gameState.connected) {
+                gameClient.disconnect();
+                await delay(80);
+            }
+
             if (!gameClient.isConnected) {
                 await gameClient.connect();
             }
+            const minStreamSeq = useGameStore.getState().streamSeq;
             gameClient.joinTable();
 
             set((prev) => ({
                 ...prev,
                 quickStartPhase: 'sitting',
-                quickStartLabel: 'Joining table...',
+                quickStartLabel: 'Syncing table...',
             }));
 
-            await delay(500);
+            await waitForInitialSnapshot(QUICK_START_WAIT_SNAPSHOT_MS, minStreamSeq);
 
             set((prev) => ({
                 ...prev,

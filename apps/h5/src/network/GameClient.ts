@@ -42,6 +42,7 @@ export type MessageHandler = {
 
 export class GameClient {
     private static readonly SESSION_TOKEN_KEY = 'holdem.session.token';
+    private static readonly CONNECT_TIMEOUT_MS = 10000;
 
     private ws: WebSocket | null = null;
     private baseUrl: string;
@@ -91,35 +92,75 @@ export class GameClient {
 
     connect(): Promise<void> {
         this.shouldReconnect = true;
+        if (this.ws?.readyState === WebSocket.OPEN) {
+            return Promise.resolve();
+        }
         return new Promise((resolve, reject) => {
+            let settled = false;
+            let hasOpened = false;
+            const finalize = (fn: () => void): void => {
+                if (settled) {
+                    return;
+                }
+                settled = true;
+                fn();
+            };
+
             try {
+                if (this.ws?.readyState === WebSocket.CONNECTING) {
+                    this.ws.close();
+                }
+
                 this.ws = new WebSocket(this.withSessionToken(this.baseUrl));
                 this.ws.binaryType = 'arraybuffer';
 
+                const timeoutId = window.setTimeout(() => {
+                    finalize(() => {
+                        this.ws?.close();
+                        reject(new Error('WebSocket connect timeout'));
+                    });
+                }, GameClient.CONNECT_TIMEOUT_MS);
+
                 this.ws.onopen = () => {
-                    console.log('[GameClient] Connected');
-                    this.notify((h) => h.onConnect?.());
-                    resolve();
+                    hasOpened = true;
+                    finalize(() => {
+                        window.clearTimeout(timeoutId);
+                        console.log('[GameClient] Connected');
+                        this.notify((h) => h.onConnect?.());
+                        resolve();
+                    });
                 };
 
                 this.ws.onclose = (event) => {
+                    window.clearTimeout(timeoutId);
                     console.log('[GameClient] Disconnected', event.code, event.reason);
                     this.notify((h) => h.onDisconnect?.());
+                    if (!hasOpened) {
+                        finalize(() => reject(new Error(`WebSocket closed before ready (${event.code})`)));
+                        return;
+                    }
                     if (this.shouldReconnect) {
                         this.scheduleReconnect();
                     }
                 };
 
                 this.ws.onerror = (error) => {
-                    console.error('[GameClient] Error', error);
-                    reject(error);
+                    finalize(() => {
+                        window.clearTimeout(timeoutId);
+                        console.error('[GameClient] Error', error);
+                        if (!hasOpened) {
+                            reject(error);
+                        }
+                    });
                 };
 
                 this.ws.onmessage = (event) => {
-                    this.handleMessage(event.data as ArrayBuffer);
+                    this.handleMessage(event.data).catch((error) => {
+                        console.error('[GameClient] Failed to handle message', error);
+                    });
                 };
             } catch (error) {
-                reject(error);
+                finalize(() => reject(error));
             }
         });
     }
@@ -133,9 +174,20 @@ export class GameClient {
         }, 3000);
     }
 
-    private handleMessage(data: ArrayBuffer): void {
+    private async handleMessage(data: ArrayBuffer | ArrayBufferView | Blob | string): Promise<void> {
         try {
-            const env = fromBinary(ServerEnvelopeSchema, new Uint8Array(data));
+            let bytes: Uint8Array;
+            if (data instanceof ArrayBuffer) {
+                bytes = new Uint8Array(data);
+            } else if (ArrayBuffer.isView(data)) {
+                bytes = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+            } else if (data instanceof Blob) {
+                bytes = new Uint8Array(await data.arrayBuffer());
+            } else {
+                console.warn('[GameClient] Ignoring non-binary websocket message');
+                return;
+            }
+            const env = fromBinary(ServerEnvelopeSchema, bytes);
             console.log('[GameClient] Received', env.payload.case, env.serverSeq);
 
             this.updateServerClockOffset(Number(env.serverTsMs));
@@ -339,7 +391,13 @@ export class GameClient {
         });
 
         const data = toBinary(ClientEnvelopeSchema, env);
-        this.ws.send(data);
+        // Safari on some iOS versions is flaky with direct Uint8Array send.
+        // Always send an exact ArrayBuffer slice for consistent wire bytes.
+        const binary =
+            data.byteOffset === 0 && data.byteLength === data.buffer.byteLength
+                ? data.buffer
+                : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
+        this.ws.send(binary);
         console.log('[GameClient] Sent', payload.case, 'seq', this.seq);
     }
 
