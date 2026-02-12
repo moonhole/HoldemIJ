@@ -58,6 +58,7 @@ type GameStoreState = {
     dismissActionPrompt: () => void;
     clearError: () => void;
     setExpectedHeroChair: (chair: number) => void;
+    resetForReplay: (heroChair?: number) => void;
 };
 
 function applyMeta(next: GameStoreState, meta?: StoreMeta): void {
@@ -274,6 +275,23 @@ export const useGameStore = create<GameStoreState>((set) => ({
         set((state) => ({
             ...state,
             myChair: chair,
+        })),
+
+    resetForReplay: (heroChair = -1) =>
+        set((state) => ({
+            ...state,
+            connected: false,
+            streamSeq: 0,
+            lastEvent: null,
+            myChair: heroChair,
+            myBet: 0n,
+            snapshot: null,
+            handStart: null,
+            holeCards: null,
+            actionPrompt: null,
+            phaseChange: null,
+            potUpdate: null,
+            errorMessage: '',
         })),
 }));
 

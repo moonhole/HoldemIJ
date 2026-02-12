@@ -1,0 +1,59 @@
+.replay-overlay {
+    position: absolute;
+    top: 16px;
+    left: 16px;
+    z-index: 220;
+    pointer-events: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 260px;
+    padding: 12px;
+    border: 1px solid rgba(0, 243, 255, 0.45);
+    background: rgba(8, 18, 24, 0.86);
+    box-shadow: 0 0 14px rgba(0, 243, 255, 0.25);
+    color: #d9faff;
+    font-family: "Space Grotesk", sans-serif;
+}
+
+.replay-title {
+    font-size: 12px;
+    letter-spacing: 1px;
+    opacity: 0.92;
+}
+
+.replay-meta {
+    font-size: 11px;
+    opacity: 0.88;
+}
+
+.replay-row {
+    display: flex;
+    gap: 8px;
+}
+
+.replay-btn {
+    flex: 1;
+    border: 1px solid rgba(0, 243, 255, 0.4);
+    background: rgba(0, 243, 255, 0.12);
+    color: #e6fbff;
+    font-size: 12px;
+    line-height: 1;
+    padding: 8px 10px;
+    cursor: pointer;
+}
+
+.replay-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+
+.replay-range {
+    width: 100%;
+}
+
+.replay-error {
+    color: #ff7b7b;
+    font-size: 11px;
+}
+

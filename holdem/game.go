@@ -201,7 +201,9 @@ func (g *Game) StartHand() error {
 	g.shuffle()
 
 	// Select dealer
-	g.selectDealer()
+	if err := g.selectDealer(); err != nil {
+		return err
+	}
 
 	// Select blinds & first action position
 	g.selectBlindsByDealer(g.dealerNode)
@@ -426,13 +428,17 @@ func (g *Game) onPhaseStartLocked() {
 }
 
 func (g *Game) shuffle() {
+	if len(g.cfg.DeckOverride) > 0 {
+		g.stockCards.Init(g.cfg.DeckOverride)
+		return
+	}
 	cards := make([]card.Card, len(HoldemCards))
 	copy(cards, HoldemCards)
 	g.rng.Shuffle(len(cards), func(i, j int) { cards[i], cards[j] = cards[j], cards[i] })
 	g.stockCards.Init(cards)
 }
 
-func (g *Game) selectDealer() {
+func (g *Game) selectDealer() error {
 	nodes := make([]*PlayerNode, 0, len(g.chairIDNodes))
 	for _, n := range g.chairIDNodes {
 		nodes = append(nodes, n)
@@ -440,24 +446,33 @@ func (g *Game) selectDealer() {
 	sort.Slice(nodes, func(i, j int) bool { return nodes[i].ChairID < nodes[j].ChairID })
 	if len(nodes) == 0 {
 		g.dealerNode = nil
-		return
+		return nil
+	}
+
+	if g.cfg.ForcedDealerChair != nil {
+		if forced, ok := g.chairIDNodes[*g.cfg.ForcedDealerChair]; ok {
+			g.dealerNode = forced
+			return nil
+		}
+		return fmt.Errorf("forced dealer chair %d is not active", *g.cfg.ForcedDealerChair)
 	}
 
 	// first hand: random dealer
 	if g.round == 1 || g.dealerNode == nil {
 		g.dealerNode = nodes[g.rng.Intn(len(nodes))]
-		return
+		return nil
 	}
 
 	// move button to next active seat (based on previous dealer chair)
 	prevChair := g.dealerNode.ChairID
 	if prevNode, ok := g.chairIDNodes[prevChair]; ok && prevNode.Next != nil {
 		g.dealerNode = prevNode.Next
-		return
+		return nil
 	}
 
 	// fallback
 	g.dealerNode = nodes[g.rng.Intn(len(nodes))]
+	return nil
 }
 
 func (g *Game) selectBlindsByDealer(dealer *PlayerNode) {

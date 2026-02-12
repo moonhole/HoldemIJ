@@ -16,6 +16,7 @@ export class LoginScene extends Container {
     private grid: Graphics;
     private _ticker: (t: any) => void;
     private isGlitching = false;
+    private glitchTimeline: gsap.core.Timeline | null = null;
 
     constructor(game: GameApp) {
         super();
@@ -100,10 +101,18 @@ export class LoginScene extends Container {
 
     public triggerGlitch() {
         if (this.isGlitching) return;
+        if (this.destroyed) return;
         this.isGlitching = true;
+        this.glitchTimeline?.kill();
+        this.glitchTimeline = null;
+        gsap.killTweensOf(this);
 
         const tl = gsap.timeline({
             onComplete: () => {
+                this.glitchTimeline = null;
+                if (this.destroyed) {
+                    return;
+                }
                 this.isGlitching = false;
                 this.x = 0;
                 this.y = 0;
@@ -118,6 +127,7 @@ export class LoginScene extends Container {
                 this.particles.forEach(p => this.addChild(p.sprite));
             }
         });
+        this.glitchTimeline = tl;
 
         // Fast violent glitch sequence
         for (let i = 0; i < 8; i++) {
@@ -131,6 +141,9 @@ export class LoginScene extends Container {
 
             // Random color overlay flashes
             tl.add(() => {
+                if (this.destroyed) {
+                    return;
+                }
                 const overlay = new Graphics();
                 overlay.rect(0, Math.random() * DESIGN_HEIGHT, DESIGN_WIDTH, Math.random() * 100);
                 overlay.fill({ color: Math.random() > 0.5 ? COLORS.cyan : COLORS.magenta, alpha: 0.4 });
@@ -145,6 +158,8 @@ export class LoginScene extends Container {
     public dispose() {
         Ticker.shared.remove(this._ticker);
         (window as any).__TRIGGER_LOGIN_GLITCH = null;
+        this.glitchTimeline?.kill();
+        this.glitchTimeline = null;
+        gsap.killTweensOf(this);
     }
 }
-

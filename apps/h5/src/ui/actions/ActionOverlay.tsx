@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { audioManager } from '../../audio/AudioManager';
 import { SoundMap } from '../../audio/SoundMap';
 import { gameClient } from '../../network/GameClient';
+import { useReplayStore } from '../../replay/replayStore';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
 import { AudioToggle } from '../common/AudioToggle';
@@ -18,6 +19,7 @@ function sumPots(pots: Array<{ amount: bigint }> | undefined): bigint {
 
 export function ActionOverlay(): JSX.Element | null {
     const currentScene = useUiStore((s) => s.currentScene);
+    const replayMode = useReplayStore((s) => s.mode);
     const prompt = useGameStore((s) => s.actionPrompt);
     const snapshot = useGameStore((s) => s.snapshot);
     const potUpdate = useGameStore((s) => s.potUpdate);
@@ -149,6 +151,10 @@ export function ActionOverlay(): JSX.Element | null {
         }
         audioManager.play(SoundMap.TURN_ALERT);
     }, [prompt?.chair, prompt?.actionDeadlineMs, myChair]);
+
+    if (replayMode === 'loaded') {
+        return null;
+    }
 
     if (currentScene !== 'table') {
         return errorMessage ? <div className="action-toast">{errorMessage}</div> : null;

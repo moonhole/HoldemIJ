@@ -33,12 +33,12 @@ export type SoundAssetSpec = string | { aliasOf: string };
 // A sound key can point to a file path, or alias another key to share one file.
 export const SoundAssets: Record<string, SoundAssetSpec> = {
     [SoundMap.UI_CLICK]: '/sounds/ui_click.mp3',
-    [SoundMap.UI_SLIDER]: '/sounds/ui_slider.mp3',
+    [SoundMap.UI_SLIDER]: { aliasOf: SoundMap.UI_CLICK },
     [SoundMap.UI_ERROR]: '/sounds/ui_error.mp3',
-    [SoundMap.UI_NOTIFY]: '/sounds/ui_notify.mp3',
-    [SoundMap.GAME_START]: '/sounds/shuffle_deck.mp3',
+    [SoundMap.UI_NOTIFY]: { aliasOf: SoundMap.UI_CLICK },
+    [SoundMap.GAME_START]: { aliasOf: SoundMap.CARD_DEAL },
     [SoundMap.GAME_OVER]: '/sounds/game_over.mp3',
-    [SoundMap.TURN_ALERT]: '/sounds/ding.mp3',
+    [SoundMap.TURN_ALERT]: { aliasOf: SoundMap.UI_ERROR },
     [SoundMap.ACTION_CHECK]: '/sounds/check.mp3',
     [SoundMap.ACTION_CALL]: '/sounds/call.mp3',
     [SoundMap.ACTION_RAISE]: '/sounds/raise.mp3',
@@ -48,6 +48,6 @@ export const SoundAssets: Record<string, SoundAssetSpec> = {
     [SoundMap.CHIP_COLLECT]: '/sounds/chips_slide.mp3',
     [SoundMap.CARD_DEAL]: '/sounds/card_deal.mp3',
     [SoundMap.CARD_FLIP]: '/sounds/card_flip.mp3',
-    [SoundMap.CARD_SLIDE]: '/sounds/card_slide.mp3',
+    [SoundMap.CARD_SLIDE]: { aliasOf: SoundMap.CARD_DEAL },
     [SoundMap.WIN_POT]: '/sounds/win_coins.mp3',
 };

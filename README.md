@@ -136,6 +136,9 @@ pnpm dev:server
 # H5 production build
 pnpm build
 
+# Build replay WASM bundle for local replay controls
+pnpm build:replay-wasm
+
 # Regenerate protobuf code
 pnpm proto
 ```

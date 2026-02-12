@@ -6,6 +6,7 @@
     "dev": "pnpm --filter h5 dev",
     "dev:server": "cd apps/server && go run .",
     "build": "pnpm --filter h5 build",
+    "build:replay-wasm": "node scripts/build-replay-wasm.mjs",
     "proto": "cd proto && buf generate"
   },
   "devDependencies": {
