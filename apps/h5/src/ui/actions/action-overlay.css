@@ -17,6 +17,42 @@
     padding-bottom: calc(8px * var(--stage-scale, 1));
 }
 
+.top-left-hud {
+    position: absolute;
+    top: 24px;
+    left: 24px;
+    z-index: 105;
+    pointer-events: auto;
+}
+
+.lobby-return-btn {
+    height: 44px;
+    padding: 0 14px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 243, 255, 0.45);
+    background: rgba(5, 14, 20, 0.82);
+    color: rgba(215, 248, 255, 0.95);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    cursor: pointer;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    transition: all 0.18s ease;
+}
+
+.lobby-return-btn:hover {
+    border-color: rgba(0, 243, 255, 0.85);
+    background: rgba(9, 30, 41, 0.9);
+    color: #ffffff;
+}
+
+.lobby-return-btn .material-symbols-outlined {
+    font-size: 18px;
+}
+
 .action-overlay-shell {
     width: calc(100% - 40px);
     max-width: 800px;
@@ -452,6 +488,19 @@
 
 /* Mobile Adjustments */
 @media (max-width: 640px) {
+    .top-left-hud {
+        top: 12px;
+        left: 12px;
+    }
+
+    .lobby-return-btn {
+        height: 38px;
+        padding: 0 10px;
+        gap: 4px;
+        letter-spacing: 0.1em;
+        font-size: 10px;
+    }
+
     .action-overlay-shell {
         width: calc(100% - 16px);
         padding: 12px;
@@ -500,6 +549,10 @@
     .preset-btn {
         padding: 4px 8px;
     }
+
+    .live-player-card-backdrop {
+        padding-top: calc(72px * var(--stage-scale, 1));
+    }
 }
 
 .fade-in {
@@ -530,7 +583,110 @@
     z-index: 100;
     font-weight: 700;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-}/* Floating Audio Toggle */
+}
+
+.live-player-card-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 130;
+    pointer-events: auto;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding-top: calc(96px * var(--stage-scale, 1));
+    background: linear-gradient(180deg, rgba(2, 0, 3, 0.32), rgba(2, 0, 3, 0.62));
+}
+
+.live-player-card {
+    width: min(360px, calc(100% - 28px));
+    border-radius: 18px;
+    border: 1px solid rgba(0, 243, 255, 0.4);
+    background:
+        linear-gradient(rgba(7, 5, 11, 0.97), rgba(7, 5, 11, 0.97)),
+        radial-gradient(circle at 75% 0%, rgba(0, 243, 255, 0.16), transparent 58%);
+    padding: 18px;
+    box-shadow: 0 24px 56px rgba(0, 0, 0, 0.65);
+}
+
+.live-player-card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.live-player-card-tag {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    color: rgba(0, 243, 255, 0.92);
+    font-weight: 700;
+}
+
+.live-player-card-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.03);
+    color: rgba(255, 255, 255, 0.72);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.live-player-card-close:hover {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.34);
+}
+
+.live-player-card-close .material-symbols-outlined {
+    font-size: 18px;
+}
+
+.live-player-card-name {
+    margin-top: 6px;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    color: #ffffff;
+}
+
+.live-player-card-meta {
+    margin-top: 4px;
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.live-player-card-stack {
+    margin-top: 16px;
+    font-size: 18px;
+    font-weight: 800;
+    color: #00f3ff;
+    letter-spacing: 0.05em;
+}
+
+.live-player-leave-btn {
+    width: 100%;
+    margin-top: 18px;
+    height: 42px;
+    border-radius: 12px;
+    border: 1px solid rgba(244, 37, 175, 0.6);
+    background: rgba(244, 37, 175, 0.18);
+    color: #ffe6f8;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.live-player-leave-btn:hover {
+    border-color: rgba(244, 37, 175, 0.95);
+    background: rgba(244, 37, 175, 0.3);
+}
+
+/* Floating Audio Toggle */
 .audio-toggle-btn {
     background: rgba(8, 4, 8, 0.6) !important;
     border: 1px solid rgba(255, 255, 255, 0.15) !important;

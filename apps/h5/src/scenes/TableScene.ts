@@ -1,7 +1,7 @@
 import type { ActionPrompt, ActionResult, Card, DealBoard, DealHoleCards, HandEnd, HandStart, PhaseChange, PlayerState, Pot, PotUpdate, SeatUpdate, Showdown, TableSnapshot, WinByFold } from '@gen/messages_pb';
 import { ActionType, HandRank, Phase, Rank, Suit } from '@gen/messages_pb';
 import { gsap } from 'gsap';
-import { Container, Graphics, Text } from 'pixi.js';
+import { Circle, Container, Graphics, Text } from 'pixi.js';
 import { audioManager } from '../audio/AudioManager';
 import { SoundMap } from '../audio/SoundMap';
 import type { GameApp } from '../main';
@@ -9,6 +9,7 @@ import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../main';
 import { gameClient } from '../network/GameClient';
 import { useReplayStore } from '../replay/replayStore';
 import { useGameStore } from '../store/gameStore';
+import { useLiveUiStore } from '../store/liveUiStore';
 
 // Colors from cyber-poker design
 const COLORS = {
@@ -347,7 +348,7 @@ export class TableScene extends Container {
     private createSeatGrid(): void {
         for (let i = 0; i < 6; i++) {
             const pos = SEAT_POSITIONS[i];
-            const seat = new SeatView(i);
+            const seat = new SeatView(i, (seatView) => this.handleSeatTap(seatView));
             seat.x = pos.x;
             seat.y = pos.y;
             this.addChild(seat);
@@ -449,6 +450,7 @@ export class TableScene extends Container {
             let viewIndex = (this.myChair !== -1) ? (chair - this.myChair + 6) % 6 : chair % 6;
             const view = this.seatViews[viewIndex];
             const player = players.find(p => p.chair === chair);
+            view.setTableChair(chair);
 
             if (player) {
                 view.setPlayer(player, chair === this.myChair, { instant: !!options?.silentFx });
@@ -456,6 +458,34 @@ export class TableScene extends Container {
                 view.clear();
             }
         }
+    }
+
+    private handleSeatTap(seat: SeatView): void {
+        if (useReplayStore.getState().mode === 'loaded') {
+            return;
+        }
+        if (seat.chair < 0) {
+            return;
+        }
+        const state = useGameStore.getState();
+        const snapshot = state.snapshot;
+        if (!snapshot?.config) {
+            return;
+        }
+        const occupied = snapshot.players.some((p) => p.chair === seat.chair);
+        if (occupied) {
+            useLiveUiStore.getState().openPlayerCard(seat.chair);
+            return;
+        }
+
+        if (state.myChair !== -1) {
+            return;
+        }
+
+        const minBuyIn = snapshot.config.minBuyIn > 0n ? snapshot.config.minBuyIn : 0n;
+        const fallbackBuyIn = snapshot.config.maxBuyIn > 0n ? snapshot.config.maxBuyIn : 1000n;
+        gameClient.sitDown(seat.chair, minBuyIn > 0n ? minBuyIn : fallbackBuyIn);
+        useLiveUiStore.getState().closePlayerCard();
     }
 
     private updateActivePlayer(actionChair: number): void {
@@ -1352,6 +1382,7 @@ export class TableScene extends Container {
             this.unsubscribeStore();
             this.unsubscribeStore = null;
         }
+        useLiveUiStore.getState().clearLiveUi();
     }
 
     private clearContainerSafely(container: Container): void {
@@ -1398,18 +1429,22 @@ class SeatView extends Container {
     private _orbitTween: gsap.core.Tween | null = null;
     private _index: number;
     public userId: bigint = 0n;
+    public chair: number = -1;
+    public isHero: boolean = false;
     private _currentBet: bigint = 0n;
     private _betTicker = { val: 0 };
     private _currentStack: bigint = -1n;
     private _stackTicker = { val: 0 };
+    private onSeatTap: ((seat: SeatView) => void) | null;
 
     // Showdown winner state
     private winnerGlow: Graphics | null = null;
     private winAmountBadge: Container | null = null;
 
-    constructor(index: number) {
+    constructor(index: number, onSeatTap?: (seat: SeatView) => void) {
         super();
         this._index = index;
+        this.onSeatTap = onSeatTap ?? null;
 
         this.avatarFrame = new Graphics();
         this.addChild(this.avatarFrame);
@@ -1573,6 +1608,15 @@ class SeatView extends Container {
         }
 
         this.avatarContainer.visible = false;
+        this.eventMode = 'none';
+        this.cursor = 'default';
+        this.hitArea = new Circle(0, 0, 56);
+        this.on('pointertap', () => {
+            if (this.chair < 0 || !this.onSeatTap) {
+                return;
+            }
+            this.onSeatTap(this);
+        });
         this.clear();
     }
 
@@ -1614,12 +1658,20 @@ class SeatView extends Container {
         g.stroke({ color: 0xffffff, width: 1, alpha: 0.1 });
     }
 
+    setTableChair(chair: number): void {
+        this.chair = chair;
+    }
+
     setPlayer(player: PlayerState, isMe: boolean, options?: { instant?: boolean }): void {
         const instant = !!options?.instant;
         this.userId = player.userId;
+        this.chair = player.chair;
+        this.isHero = isMe;
         this.visible = true;
         this.emptyIcon.visible = false;
         this.avatarContainer.visible = true;
+        this.eventMode = 'static';
+        this.cursor = 'pointer';
         this.nameText.text = isMe ? 'YOU' : `PLAYER_${player.userId.toString()}`;
         this.nameText.style.fill = isMe ? COLORS.primary : 0xcccccc;
 
@@ -1823,7 +1875,10 @@ class SeatView extends Container {
 
     clear(): void {
         this.userId = 0n;
+        this.isHero = false;
         this.visible = true;
+        this.eventMode = this.chair >= 0 ? 'static' : 'none';
+        this.cursor = this.chair >= 0 ? 'pointer' : 'default';
         this.nameText.text = 'EMPTY';
         this.nameText.style.fill = 0x444444;
         this.stackText.text = '';

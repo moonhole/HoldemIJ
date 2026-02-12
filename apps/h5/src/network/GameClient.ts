@@ -4,6 +4,7 @@ import {
     ServerEnvelopeSchema,
     JoinTableRequestSchema,
     SitDownRequestSchema,
+    StandUpRequestSchema,
     ActionRequestSchema,
     ActionType,
     type ClientEnvelope,
@@ -232,6 +233,16 @@ export class GameClient {
                 case 'seatUpdate':
                     {
                         const value = env.payload.value;
+                        if (value.update.case === 'playerJoined' && value.update.value.userId === this.userId) {
+                            this.myChair = value.chair;
+                            this.myBet = value.update.value.bet;
+                        } else if (value.update.case === 'playerLeftUserId') {
+                            if (value.update.value === this.userId || value.chair === this.myChair) {
+                                this.myChair = -1;
+                                this.myBet = 0n;
+                                this.lastActionPrompt = null;
+                            }
+                        }
                         this.notify((h) => h.onSeatUpdate?.(value));
                         break;
                     }
@@ -273,6 +284,9 @@ export class GameClient {
                     return;
                 }
             }
+            this.myChair = -1;
+            this.myBet = 0n;
+            return;
         }
 
         for (const player of snapshot.players) {
@@ -345,6 +359,13 @@ export class GameClient {
                 chair,
                 buyInAmount,
             }),
+        });
+    }
+
+    standUp(): void {
+        this.send({
+            case: 'standUp',
+            value: create(StandUpRequestSchema, {}),
         });
     }
 

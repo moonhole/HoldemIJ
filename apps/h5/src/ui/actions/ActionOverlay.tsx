@@ -6,6 +6,7 @@ import { gameClient } from '../../network/GameClient';
 import { useReiStore } from '../../rei/reiStore';
 import { useReplayStore } from '../../replay/replayStore';
 import { useGameStore } from '../../store/gameStore';
+import { useLiveUiStore } from '../../store/liveUiStore';
 import { useUiStore } from '../../store/uiStore';
 import { AudioToggle } from '../common/AudioToggle';
 import { NumberTicker } from '../common/NumberTicker';
@@ -20,6 +21,7 @@ function sumPots(pots: Array<{ amount: bigint }> | undefined): bigint {
 
 export function ActionOverlay(): JSX.Element | null {
     const currentScene = useUiStore((s) => s.currentScene);
+    const requestScene = useUiStore((s) => s.requestScene);
     const replayMode = useReplayStore((s) => s.mode);
     const reiStatusTag = useReiStore((s) => s.statusTag);
     const reiKeyLine = useReiStore((s) => s.keyLine);
@@ -31,6 +33,8 @@ export function ActionOverlay(): JSX.Element | null {
     const errorMessage = useGameStore((s) => s.errorMessage);
     const dismissActionPrompt = useGameStore((s) => s.dismissActionPrompt);
     const clearError = useGameStore((s) => s.clearError);
+    const selectedPlayerChair = useLiveUiStore((s) => s.selectedPlayerChair);
+    const closePlayerCard = useLiveUiStore((s) => s.closePlayerCard);
     const [remainingActionMs, setRemainingActionMs] = useState(0);
     const [raiseAmount, setRaiseAmount] = useState(0n);
     const lastSliderSoundAt = useRef(0);
@@ -83,6 +87,13 @@ export function ActionOverlay(): JSX.Element | null {
         const player = snapshot?.players.find((p) => p.chair === myChair);
         return player?.stack ?? 0n;
     }, [snapshot, myChair]);
+
+    const selectedPlayer = useMemo(() => {
+        if (!snapshot || selectedPlayerChair < 0) {
+            return null;
+        }
+        return snapshot.players.find((p) => p.chair === selectedPlayerChair) ?? null;
+    }, [snapshot, selectedPlayerChair]);
 
     const potTotal = useMemo(() => {
         const collectedPots = potUpdate ? sumPots(potUpdate.pots) : sumPots(snapshot?.pots);
@@ -154,6 +165,22 @@ export function ActionOverlay(): JSX.Element | null {
         }
         audioManager.play(SoundMap.TURN_ALERT);
     }, [prompt?.chair, prompt?.actionDeadlineMs, myChair]);
+
+    useEffect(() => {
+        if (currentScene !== 'table' || replayMode === 'loaded') {
+            closePlayerCard();
+        }
+    }, [currentScene, replayMode, closePlayerCard]);
+
+    useEffect(() => {
+        if (selectedPlayerChair < 0 || !snapshot) {
+            return;
+        }
+        const exists = snapshot.players.some((p) => p.chair === selectedPlayerChair);
+        if (!exists) {
+            closePlayerCard();
+        }
+    }, [selectedPlayerChair, snapshot, closePlayerCard]);
 
     if (replayMode === 'loaded') {
         return null;
@@ -238,9 +265,38 @@ export function ActionOverlay(): JSX.Element | null {
         submitSmartRaise(prompt.minRaiseTo);
     };
 
+    const leaveSeat = (): void => {
+        playUiClick();
+        if (myChair !== -1) {
+            gameClient.standUp();
+        }
+        closePlayerCard();
+    };
+
+    const returnLobby = (): void => {
+        playUiClick();
+        if (myChair !== -1) {
+            gameClient.standUp();
+        }
+        requestScene('lobby');
+        closePlayerCard();
+    };
+
+    const selectedPlayerName = selectedPlayer
+        ? (selectedPlayer.nickname.trim() || `PLAYER_${selectedPlayer.userId.toString()}`)
+        : '';
+    const selectedIsSelf = !!selectedPlayer && selectedPlayer.chair === myChair;
+
     return (
         <div className="action-overlay">
             {errorMessage && <div className="action-toast">{errorMessage}</div>}
+
+            <div className="top-left-hud">
+                <button type="button" className="lobby-return-btn" onClick={returnLobby}>
+                    <span className="material-symbols-outlined">arrow_back</span>
+                    <span>LOBBY</span>
+                </button>
+            </div>
 
             {/* Floating Top Right Controls */}
             <div className="top-right-hud" style={{ position: 'absolute', top: '24px', right: '24px', pointerEvents: 'auto', zIndex: 100, display: 'flex', gap: '12px' }}>
@@ -352,6 +408,29 @@ export function ActionOverlay(): JSX.Element | null {
                     </div>
                 </div>
             </div>
+
+            {selectedPlayer && (
+                <div className="live-player-card-backdrop" onPointerDown={closePlayerCard}>
+                    <div className="live-player-card" onPointerDown={(event) => event.stopPropagation()}>
+                        <div className="live-player-card-header">
+                            <span className="live-player-card-tag">{selectedIsSelf ? 'YOU' : 'PLAYER'}</span>
+                            <button type="button" className="live-player-card-close" onClick={closePlayerCard}>
+                                <span className="material-symbols-outlined">close</span>
+                            </button>
+                        </div>
+                        <div className="live-player-card-name">{selectedPlayerName}</div>
+                        <div className="live-player-card-meta">Seat {selectedPlayer.chair + 1}</div>
+                        <div className="live-player-card-stack">
+                            STACK ${selectedPlayer.stack.toLocaleString()}
+                        </div>
+                        {selectedIsSelf && (
+                            <button type="button" className="live-player-leave-btn" onClick={leaveSeat}>
+                                LEAVE TABLE
+                            </button>
+                        )}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
