@@ -9,14 +9,15 @@
         "preview": "vite preview"
     },
     "dependencies": {
+        "@bufbuild/protobuf": "^2.2.3",
+        "gsap": "^3.12.5",
+        "pixi.js": "^8.6.6",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
-        "zustand": "^5.0.2",
-        "pixi.js": "^8.6.6",
-        "gsap": "^3.12.5",
-        "@bufbuild/protobuf": "^2.2.3"
+        "zustand": "^5.0.2"
     },
     "devDependencies": {
+        "@types/node": "^25.2.3",
         "@types/react": "^18.3.12",
         "@types/react-dom": "^18.3.1",
         "typescript": "^5.7.0",
