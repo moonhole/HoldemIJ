@@ -115,6 +115,7 @@ export function LobbyOverlay(): JSX.Element | null {
     const logout = useAuthStore((s) => s.logout);
     const loadReplayTape = useReplayStore((s) => s.loadTape);
     const [auditOpen, setAuditOpen] = useState(false);
+    const [settingsOpen, setSettingsOpen] = useState(false);
     const [auditLoading, setAuditLoading] = useState(false);
     const [auditError, setAuditError] = useState('');
     const [auditItems, setAuditItems] = useState<AuditRecentHandItem[]>([]);
@@ -150,6 +151,13 @@ export function LobbyOverlay(): JSX.Element | null {
         return () => {
             cancelled = true;
         };
+    }, [auditOpen]);
+
+    useEffect(() => {
+        if (!auditOpen) {
+            return;
+        }
+        setSettingsOpen(false);
     }, [auditOpen]);
 
     if (currentScene !== 'lobby') {
@@ -281,7 +289,14 @@ export function LobbyOverlay(): JSX.Element | null {
                             <span className="material-symbols-outlined">logout</span>
                             <span>Logout</span>
                         </button>
-                        <button type="button" className="lobby-icon-btn" onClick={playUiClick}>
+                        <button
+                            type="button"
+                            className="lobby-icon-btn"
+                            onClick={() => {
+                                playUiClick();
+                                setSettingsOpen((prev) => !prev);
+                            }}
+                        >
                             <span className="material-symbols-outlined">settings</span>
                         </button>
                     </div>
@@ -289,16 +304,35 @@ export function LobbyOverlay(): JSX.Element | null {
                     {quickStartError ? <div className="lobby-quick-start-error">{quickStartError}</div> : null}
                 </div>
 
-                {/* Floating Top Right Controls */}
-                <div className="top-right-hud" style={{ position: 'absolute', top: '24px', right: '24px', pointerEvents: 'auto', zIndex: 100, display: 'flex', gap: '12px' }}>
-                    <button type="button" className="lobby-icon-btn hud-btn chat-btn" onClick={playUiClick}>
-                        <span className="material-symbols-outlined">chat_bubble</span>
-                    </button>
-                    <button type="button" className="lobby-icon-btn hud-btn settings-btn" onClick={playUiClick}>
-                        <span className="material-symbols-outlined">settings</span>
-                    </button>
-                    <AudioToggle />
-                </div>
+                {settingsOpen ? (
+                    <div
+                        className="settings-modal-backdrop"
+                        onClick={() => {
+                            playUiClick();
+                            setSettingsOpen(false);
+                        }}
+                    >
+                        <section className="settings-modal" onClick={(event) => event.stopPropagation()}>
+                            <header className="settings-modal-header">
+                                <h3>SETTINGS</h3>
+                                <button
+                                    type="button"
+                                    className="settings-close-btn"
+                                    onClick={() => {
+                                        playUiClick();
+                                        setSettingsOpen(false);
+                                    }}
+                                >
+                                    CLOSE
+                                </button>
+                            </header>
+                            <div className="settings-item-row">
+                                <span className="settings-item-label">Audio</span>
+                                <AudioToggle />
+                            </div>
+                        </section>
+                    </div>
+                ) : null}
 
                 {auditOpen ? (
                     <div className="audit-modal-backdrop">

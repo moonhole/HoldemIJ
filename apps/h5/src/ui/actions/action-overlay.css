@@ -17,36 +17,48 @@
     padding-bottom: calc(8px * var(--stage-scale, 1));
 }
 
-.top-left-hud {
+.top-right-return {
     position: absolute;
     top: 24px;
-    left: 24px;
+    right: 24px;
     z-index: 105;
     pointer-events: auto;
 }
 
 .lobby-return-btn {
-    height: 44px;
-    padding: 0 14px;
-    border-radius: 12px;
-    border: 1px solid rgba(0, 243, 255, 0.45);
-    background: rgba(5, 14, 20, 0.82);
-    color: rgba(215, 248, 255, 0.95);
+    height: 46px;
+    padding: 0 16px;
+    border-radius: 13px;
+    border: 1px solid rgba(244, 37, 175, 0.45);
+    background:
+        linear-gradient(110deg, rgba(6, 23, 32, 0.92), rgba(31, 8, 26, 0.92)),
+        radial-gradient(circle at 20% 0%, rgba(0, 243, 255, 0.22), transparent 62%),
+        radial-gradient(circle at 90% 100%, rgba(244, 37, 175, 0.2), transparent 60%);
+    color: rgba(235, 249, 255, 0.96);
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    font-size: 12px;
-    font-weight: 800;
-    letter-spacing: 0.14em;
+    gap: 7px;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.16em;
     cursor: pointer;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    box-shadow:
+        0 12px 26px rgba(0, 0, 0, 0.45),
+        inset 0 0 24px rgba(0, 243, 255, 0.08);
     transition: all 0.18s ease;
+    text-transform: uppercase;
 }
 
 .lobby-return-btn:hover {
-    border-color: rgba(0, 243, 255, 0.85);
-    background: rgba(9, 30, 41, 0.9);
+    border-color: rgba(0, 243, 255, 0.78);
+    box-shadow:
+        0 14px 30px rgba(0, 0, 0, 0.56),
+        0 0 16px rgba(0, 243, 255, 0.28);
     color: #ffffff;
+}
+
+.lobby-return-btn:active {
+    transform: translateY(1px) scale(0.99);
 }
 
 .lobby-return-btn .material-symbols-outlined {
@@ -129,30 +141,6 @@
     display: flex;
     gap: 12px;
     flex: 1; /* Take available space */
-}
-
-/* Audio Button styling within ActionOverlay */
-.shell-top-row .lobby-icon-btn {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    border-radius: 12px;
-    width: 52px; /* Approx match height of pills */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: rgba(255, 255, 255, 0.6);
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.shell-top-row .lobby-icon-btn:hover {
-    background: rgba(255, 255, 255, 0.1);
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.2);
-}
-
-.shell-top-row .lobby-icon-btn span {
-    font-size: 24px;
 }
 
 .stat-pill {
@@ -488,16 +476,16 @@
 
 /* Mobile Adjustments */
 @media (max-width: 640px) {
-    .top-left-hud {
+    .top-right-return {
         top: 12px;
-        left: 12px;
+        right: 12px;
     }
 
     .lobby-return-btn {
-        height: 38px;
-        padding: 0 10px;
+        height: 40px;
+        padding: 0 12px;
         gap: 4px;
-        letter-spacing: 0.1em;
+        letter-spacing: 0.09em;
         font-size: 10px;
     }
 
@@ -684,35 +672,4 @@
 .live-player-leave-btn:hover {
     border-color: rgba(244, 37, 175, 0.95);
     background: rgba(244, 37, 175, 0.3);
-}
-
-/* Floating Audio Toggle */
-.audio-toggle-btn {
-    background: rgba(8, 4, 8, 0.6) !important;
-    border: 1px solid rgba(255, 255, 255, 0.15) !important;
-    backdrop-filter: blur(10px);
-    width: 48px;
-    height: 48px;
-    border-radius: 50% !important;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: rgba(255, 255, 255, 0.7);
-    transition: all 0.2s;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-}
-
-.audio-toggle-btn:hover {
-    background: rgba(255, 255, 255, 0.1) !important;
-    color: #fff;
-    border-color: rgba(255, 255, 255, 0.4) !important;
-    transform: scale(1.05);
-}
-
-.audio-toggle-btn:active {
-    transform: scale(0.95);
-}
-
-.audio-toggle-btn span {
-    font-size: 24px;
 }

@@ -8,7 +8,6 @@ import { useReplayStore } from '../../replay/replayStore';
 import { useGameStore } from '../../store/gameStore';
 import { useLiveUiStore } from '../../store/liveUiStore';
 import { useUiStore } from '../../store/uiStore';
-import { AudioToggle } from '../common/AudioToggle';
 import { NumberTicker } from '../common/NumberTicker';
 import './action-overlay.css';
 
@@ -291,22 +290,11 @@ export function ActionOverlay(): JSX.Element | null {
         <div className="action-overlay">
             {errorMessage && <div className="action-toast">{errorMessage}</div>}
 
-            <div className="top-left-hud">
+            <div className="top-right-return">
                 <button type="button" className="lobby-return-btn" onClick={returnLobby}>
                     <span className="material-symbols-outlined">arrow_back</span>
-                    <span>LOBBY</span>
+                    <span>RETURN LOBBY</span>
                 </button>
-            </div>
-
-            {/* Floating Top Right Controls */}
-            <div className="top-right-hud" style={{ position: 'absolute', top: '24px', right: '24px', pointerEvents: 'auto', zIndex: 100, display: 'flex', gap: '12px' }}>
-                <button type="button" className="lobby-icon-btn hud-btn chat-btn" onClick={playUiClick}>
-                    <span className="material-symbols-outlined">chat_bubble</span>
-                </button>
-                <button type="button" className="lobby-icon-btn hud-btn settings-btn" onClick={playUiClick}>
-                    <span className="material-symbols-outlined">settings</span>
-                </button>
-                <AudioToggle />
             </div>
 
             <div className="action-overlay-shell">

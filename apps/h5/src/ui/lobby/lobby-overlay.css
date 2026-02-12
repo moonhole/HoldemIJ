@@ -388,6 +388,73 @@
     pointer-events: auto;
 }
 
+.settings-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 170;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(6, 4, 8, 0.58);
+    pointer-events: auto;
+}
+
+.settings-modal {
+    width: min(420px, 100%);
+    border: 1px solid rgba(244, 37, 175, 0.26);
+    background: rgba(15, 10, 18, 0.96);
+    border-radius: 12px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    overflow: hidden;
+}
+
+.settings-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(244, 37, 175, 0.08);
+    border-bottom: 1px solid rgba(244, 37, 175, 0.25);
+}
+
+.settings-modal-header h3 {
+    margin: 0;
+    color: rgba(255, 228, 245, 0.94);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.settings-close-btn {
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 243, 255, 0.35);
+    background: rgba(0, 243, 255, 0.1);
+    color: #defbff;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.settings-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px;
+    gap: 12px;
+}
+
+.settings-item-label {
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
 .audit-modal {
     width: min(520px, 100%);
     max-height: min(680px, calc(100% - 40px));
