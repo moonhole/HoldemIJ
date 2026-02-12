@@ -9,10 +9,17 @@ This doc describes a minimal, shippable design for:
 
 Target: NLH only (Texas Hold'em No-Limit), single-hand replay/analysis.
 
+Naming in this doc follows `audit.md`:
+
+- `ledger`: internal append-only fact stream core.
+- `audit`: product experience for history query/review.
+- `sandbox`: product experience for branch simulation.
+
 See also:
 
 - `agent.md` (HandSpecBuilder, Director, BotPolicy)
 - `rei.md` (REI narration layer consuming replay/live context)
+- `audit.md` (Audit Product + Ledger Core)
 
 ---
 
@@ -44,6 +51,12 @@ This fits the existing client architecture:
 
 - Live mode: WebSocket -> `ServerEnvelope` -> store reducers -> Pixi + UI.
 - Replay mode: `ReplayTape` -> same store reducers -> Pixi + UI.
+
+System role:
+
+- Replay is the deterministic simulation and timeline engine.
+- Replay does not define persistence policy by itself.
+- If persistence is needed, replay outputs are appended into `ledger` and then consumed by product projections (`audit` / `sandbox`).
 
 ---
 
@@ -141,6 +154,11 @@ Example `ReplayTape` (JSON):
 
 Important: The *shape* should match what the store reduces today (snapshot/handStart/holeCards/board/potUpdate/phaseChange/actionResult/...).
 
+Persistence note:
+
+- `ReplayTape` is runtime transport for playback.
+- Persisted source of truth is `ledger_event_stream` (see `audit.md`), keyed by `source + scenario_id + hand_id + seq`.
+
 ### ReplayError
 
 When replay generation fails (illegal action / missing info), return:
@@ -215,6 +233,11 @@ In a WebWorker:
 - `branch(spec: HandSpec, branchAt: number, overrideAction: ActionSpec): ReplayInitResult`
   - recompute from a modified line (what-if)
 
+When branch output should be retained:
+
+- `audit` flow: append retained replay lines to `ledger` with `source=replay`.
+- `sandbox` flow: append branch lines to `ledger` with `source=sandbox` and a unique `scenario_id`.
+
 Why recompute instead of "incremental stepping in WASM":
 
 - A single hand is small; recompute cost is low.
@@ -275,6 +298,7 @@ At a chosen `cursor`:
 - Let user override the next action (hero only, or any seat).
 - Call WASM `branch(...)` to regenerate a new tape starting from the same initial conditions with altered action line.
 - UI treats it as a new tape with a parent pointer for navigation (optional).
+- Persisting a branch is optional and policy-driven by product layer (`audit` vs `sandbox`).
 
 ---
 
@@ -297,6 +321,12 @@ Implementation:
 
 - Template library + rule engine in TS (cheap, easy to iterate).
 - Later, subscription tier replaces/extends this with LLM output.
+
+Boundary with ledger/audit:
+
+- Replay provides factual timeline and state transitions.
+- REI provides explanation text.
+- Audit UI may show factual step text without REI; REI remains optional overlay.
 
 ---
 

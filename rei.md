@@ -10,10 +10,17 @@ REI is the in-game cyberpunk robot narrator that lives in the bottom panel:
 This doc focuses on the **minimum technical design** needed to ship a believable REI experience now,
 while keeping a clean seam for future expansion.
 
+Naming in this doc follows `audit.md`:
+
+- `ledger`: internal append-only fact stream core.
+- `audit`: product experience for history query/review.
+- `sandbox`: product experience for branch simulation.
+
 See also:
 
 - `replay.md` (local replay pipeline: `HandSpec -> ReplayTape`)
 - `agent.md` (hand reconstruction + director/bot agents)
+- `audit.md` (Audit Product + Ledger Core)
 
 ---
 
@@ -24,6 +31,7 @@ See also:
 - Minimal coupling: REI consumes a small, stable `ReiContext` derived from game state/events.
 - Cost control: Online mode should have strict output limits, caching, and safe downgrade.
 - Cyberpunk voice: short, confident, low-jargon by default; deeper analysis only on demand.
+- Clear boundary: REI is an explanation layer, not the source of truth for hand facts.
 
 ## Non-Goals (MVP)
 
@@ -109,7 +117,7 @@ Animation style (cyberpunk):
 
 REI should consume a small, stable context object, created from:
 
-- last streamed event (live) OR replay event (replay)
+- last streamed event (live) OR replay event (replay), both normalized from `ledger` facts
 - latest table snapshot
 - hero seat/chair
 - optional opponent stats (later)
@@ -171,6 +179,7 @@ Integration note:
 
 - Live mode already has `snapshot` and `lastEvent` in `apps/h5/src/store/gameStore.ts`.
 - Replay mode uses the same event types (see `replay.md`).
+- For persisted history/review flows, `ReiContext` should come from `ReiContextProjection` over `ledger_event_stream`.
 
 ---
 
@@ -235,6 +244,11 @@ Pick templates based on priority:
 1. safety-critical / decision point
 2. street transitions
 3. atmosphere filler (only if nothing else)
+
+Boundary rule:
+
+- Template output is derived text and can change with version updates.
+- Any historical accuracy or reconciliation should rely on `ledger` facts, not stored REI text.
 
 ### Example Lite Lines (Chinese, cyberpunk-ish)
 
@@ -345,6 +359,11 @@ Branching:
 
 - When a branch is created, REI should label it:
   - `IF: 你在这里选择 {action} ...`
+
+Product integration:
+
+- In `audit`, REI is optional enhancement over factual timeline.
+- In `sandbox`, REI can pair with `agent` outputs, but both still consume the same `ledger`-projected context.
 
 ---
 
