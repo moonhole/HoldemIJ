@@ -50,4 +50,5 @@ export type ReiRuntimeInput = {
     actionPromptChair: number | null;
     replayCursor: number;
     replayStepCount: number;
+    replaySeeking: boolean;
 };

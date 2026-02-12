@@ -1,4 +1,5 @@
 import { ActionType } from '@gen/messages_pb';
+import { useReplayStore } from '../replay/replayStore';
 import { useGameStore } from '../store/gameStore';
 import { audioManager } from './AudioManager';
 import { SoundMap } from './SoundMap';
@@ -14,6 +15,7 @@ export function setupAudioBindings() {
 
         const event = state.lastEvent;
         if (!event) return;
+        if (useReplayStore.getState().silentFx) return;
 
         // Map events to sounds
         switch (event.type) {

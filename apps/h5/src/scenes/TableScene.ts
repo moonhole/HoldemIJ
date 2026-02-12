@@ -34,6 +34,7 @@ const SEAT_POSITIONS = [
 ];
 
 const DECK_POS = { x: DESIGN_WIDTH / 2, y: 400 };
+type ReplayApplyOptions = { silentFx?: boolean };
 
 export class TableScene extends Container {
     private _game: GameApp;
@@ -379,23 +380,24 @@ export class TableScene extends Container {
         this.unsubscribeStore = useGameStore.subscribe((state, prev) => {
             this.myChair = state.myChair;
             if (state.streamSeq === prev.streamSeq || !state.lastEvent) return;
+            const applyOptions: ReplayApplyOptions = { silentFx: useReplayStore.getState().silentFx };
             const event = state.lastEvent;
             switch (event.type) {
                 case 'snapshot': this.handleSnapshot(event.value); break;
-                case 'handStart': this.handleHandStart(event.value); break;
-                case 'holeCards': this.handleHoleCards(event.value); break;
-                case 'board': this.handleBoard(event.value); break;
-                case 'potUpdate': this.handlePotUpdate(event.value); break;
-                case 'phaseChange': this.handlePhaseChange(event.value); break;
+                case 'handStart': this.handleHandStart(event.value, applyOptions); break;
+                case 'holeCards': this.handleHoleCards(event.value, applyOptions); break;
+                case 'board': this.handleBoard(event.value, applyOptions); break;
+                case 'potUpdate': this.handlePotUpdate(event.value, applyOptions); break;
+                case 'phaseChange': this.handlePhaseChange(event.value, applyOptions); break;
                 case 'actionPrompt': this.handleActionPrompt(event.value); break;
                 case 'actionResult':
-                    this.handleActionResult(event.value);
-                    this.updatePot(event.value.newPotTotal);
+                    this.handleActionResult(event.value, applyOptions);
+                    this.updatePot(event.value.newPotTotal, { instant: !!applyOptions.silentFx });
                     break;
-                case 'handEnd': this.handleHandEnd(event.value); break;
+                case 'handEnd': this.handleHandEnd(event.value, applyOptions); break;
                 case 'seatUpdate': this.handleSeatUpdate(event.value); break;
-                case 'showdown': this.handleShowdown(event.value); break;
-                case 'winByFold': this.handleWinByFold(event.value); break;
+                case 'showdown': this.handleShowdown(event.value, applyOptions); break;
+                case 'winByFold': this.handleWinByFold(event.value, applyOptions); break;
             }
         });
     }
@@ -440,7 +442,7 @@ export class TableScene extends Container {
         this.updateSeats();
     }
 
-    private updateSeats(): void {
+    private updateSeats(options?: ReplayApplyOptions): void {
         const players = this.getPlayers();
         for (let chair = 0; chair < 6; chair++) {
             let viewIndex = (this.myChair !== -1) ? (chair - this.myChair + 6) % 6 : chair % 6;
@@ -448,7 +450,7 @@ export class TableScene extends Container {
             const player = players.find(p => p.chair === chair);
 
             if (player) {
-                view.setPlayer(player, chair === this.myChair);
+                view.setPlayer(player, chair === this.myChair, { instant: !!options?.silentFx });
             } else {
                 view.clear();
             }
@@ -471,22 +473,25 @@ export class TableScene extends Container {
         }
     }
 
-    private handleHandStart(start: HandStart): void {
+    private handleHandStart(start: HandStart, options?: ReplayApplyOptions): void {
         // Clean up any showdown overlays from the previous hand
         this.cleanupShowdown();
 
-        audioManager.play(SoundMap.GAME_START);
+        const silentFx = !!options?.silentFx;
+        if (!silentFx) {
+            audioManager.play(SoundMap.GAME_START);
+        }
         this.myCards.removeChildren();
         this.communityCards.removeChildren();
         this.boardCards = [];
         this.lastPotTotal = 0n;
-        this.updatePot(0n);
+        this.updatePot(0n, { instant: silentFx });
         this.hideActionCountdown();
 
         for (const sv of this.seatViews) sv.clearCards();
 
         // Update seats to show blinds (already updated in gameStore)
-        this.updateSeats();
+        this.updateSeats(options);
 
         // Update dealer buttons
         for (let chair = 0; chair < 6; chair++) {
@@ -498,14 +503,14 @@ export class TableScene extends Container {
         this.updateActivePlayer(-1);
     }
 
-    private handleHoleCards(deal: DealHoleCards): void {
-        this.showMyCards(deal.cards);
+    private handleHoleCards(deal: DealHoleCards, options?: ReplayApplyOptions): void {
+        this.showMyCards(deal.cards, { instant: !!options?.silentFx });
 
         // For other players, we show card backs at their seats (animated in updateSeats logic)
-        this.updateSeats();
+        this.updateSeats(options);
     }
 
-    private handleBoard(board: DealBoard): void {
+    private handleBoard(board: DealBoard, options?: ReplayApplyOptions): void {
         if (board.phase === Phase.FLOP) {
             this.boardCards = [...board.cards];
         } else {
@@ -513,29 +518,29 @@ export class TableScene extends Container {
             if (board.phase === Phase.TURN) this.boardCards = this.boardCards.slice(0, 4);
             else if (board.phase === Phase.RIVER) this.boardCards = this.boardCards.slice(0, 5);
         }
-        this.updateCommunityCards(this.boardCards);
+        this.updateCommunityCards(this.boardCards, { instant: !!options?.silentFx });
     }
 
-    private handlePotUpdate(update: PotUpdate): void {
-        this.updatePotFromPots(update.pots);
+    private handlePotUpdate(update: PotUpdate, options?: ReplayApplyOptions): void {
+        this.updatePotFromPots(update.pots, { silent: !!options?.silentFx, instant: !!options?.silentFx });
     }
 
-    private handlePhaseChange(phaseChange: PhaseChange): void {
+    private handlePhaseChange(phaseChange: PhaseChange, options?: ReplayApplyOptions): void {
         this.boardCards = [...phaseChange.communityCards];
-        this.updateCommunityCards(this.boardCards);
-        this.updatePotFromPots(phaseChange.pots);
-        this.updateSeats();
+        this.updateCommunityCards(this.boardCards, { instant: !!options?.silentFx });
+        this.updatePotFromPots(phaseChange.pots, { silent: !!options?.silentFx, instant: !!options?.silentFx });
+        this.updateSeats(options);
     }
 
-    private handleActionResult(result: ActionResult): void {
+    private handleActionResult(result: ActionResult, options?: ReplayApplyOptions): void {
         this.hideActionCountdown();
         if (result.action === ActionType.ACTION_FOLD && result.chair === this.myChair) {
             this.myCards.removeChildren();
         }
-        if (result.chair !== this.myChair) {
+        if (!options?.silentFx && result.chair !== this.myChair) {
             this.playActionResultSound(result.action);
         }
-        this.updateSeats();
+        this.updateSeats(options);
     }
 
     private handleActionPrompt(prompt: ActionPrompt): void {
@@ -668,7 +673,23 @@ export class TableScene extends Container {
         return `CHAIR_${chair + 1}`;
     }
 
-    private handleShowdown(showdown: Showdown): void {
+    private handleShowdown(showdown: Showdown, options?: ReplayApplyOptions): void {
+        if (options?.silentFx) {
+            this.cleanupShowdown();
+            showdown.hands.forEach((hand) => {
+                if (hand.chair === this.myChair) {
+                    return;
+                }
+                const viewIndex = this.myChair !== -1
+                    ? (hand.chair - this.myChair + 6) % 6
+                    : hand.chair % 6;
+                if (viewIndex >= 0 && viewIndex < this.seatViews.length) {
+                    this.seatViews[viewIndex].showCards(hand.holeCards, false);
+                }
+            });
+            return;
+        }
+
         // Kill any prior showdown timeline
         this.cleanupShowdown();
 
@@ -991,25 +1012,27 @@ export class TableScene extends Container {
         audioManager.play(SoundMap.CHIP_COLLECT);
     }
 
-    private handleHandEnd(end: HandEnd): void {
-        audioManager.play(SoundMap.WIN_POT);
+    private handleHandEnd(end: HandEnd, options?: ReplayApplyOptions): void {
+        if (!options?.silentFx) {
+            audioManager.play(SoundMap.WIN_POT);
+        }
         this.hideActionCountdown();
         this.updateActivePlayer(-1);
-        this.updateSeats();
+        this.updateSeats(options);
         this.lastPotTotal = 0n;
-        this.updatePot(0n); // Animate pot down to zero as chips flow to winners
+        this.updatePot(0n, { instant: !!options?.silentFx }); // Animate pot down to zero as chips flow to winners
     }
 
-    private handleWinByFold(winByFold: WinByFold): void {
+    private handleWinByFold(winByFold: WinByFold, options?: ReplayApplyOptions): void {
         this.hideActionCountdown();
         this.updateActivePlayer(-1);
         // We'll let handleHandEnd (which follows) handle the definitive stack updates
         // Just animate the pot clearing for visual feedback
         this.lastPotTotal = 0n;
-        this.updatePot(0n);
+        this.updatePot(0n, { instant: !!options?.silentFx });
     }
 
-    private updatePotFromPots(pots: Pot[], options?: { silent?: boolean }): void {
+    private updatePotFromPots(pots: Pot[], options?: { silent?: boolean; instant?: boolean }): void {
         let potTotal = 0n;
         for (const pot of pots) potTotal += pot.amount;
         const changed = potTotal !== this.lastPotTotal;
@@ -1020,7 +1043,7 @@ export class TableScene extends Container {
             this.playChipCollectSound();
         }
 
-        this.updatePot(potTotal);
+        this.updatePot(potTotal, { instant: !!options?.instant });
     }
 
     private getHandRankLabel(rank: HandRank): string {
@@ -1039,8 +1062,17 @@ export class TableScene extends Container {
         }
     }
 
-    private updatePot(amount: bigint): void {
+    private updatePot(amount: bigint, options?: { instant?: boolean }): void {
         const target = Number(amount);
+        if (options?.instant) {
+            gsap.killTweensOf(this._potTickerValue);
+            this._potTickerValue.val = target;
+            this.potAmount.text = Math.floor(this._potTickerValue.val).toLocaleString();
+            const totalWidth = this.currencySymbol.width + 8 + this.potAmount.width;
+            const centerBias = (this.potAmount.width - (this.currencySymbol.width + 8)) / 2;
+            this.potValueContainer.x = -centerBias;
+            return;
+        }
         gsap.to(this._potTickerValue, {
             val: target,
             duration: 1.2,
@@ -1055,7 +1087,7 @@ export class TableScene extends Container {
         });
     }
 
-    private showMyCards(cards: Card[]): void {
+    private showMyCards(cards: Card[], options?: { instant?: boolean }): void {
         // If cards are already shown and count matches, don't redo animation unless changed
         if (this.myCards.children.length === cards.length) return;
 
@@ -1069,6 +1101,22 @@ export class TableScene extends Container {
         cards.forEach((card, i) => {
             const cardView = this.createCard(card, cardW, cardH, true);
             cardView.zIndex = 300 + i;
+            const targetX = startX + i * (cardW + gap) + cardW / 2;
+            const targetRotation = (i - 0.5) * 0.12;
+
+            if (options?.instant) {
+                cardView.x = targetX;
+                cardView.y = 0;
+                cardView.rotation = targetRotation;
+                cardView.alpha = 1;
+                cardView.scale.set(1.2);
+                const back = cardView.getChildByName('back');
+                const front = cardView.getChildByName('front');
+                if (back) back.visible = false;
+                if (front) front.visible = true;
+                this.myCards.addChild(cardView);
+                return;
+            }
 
             // Start from center of table (deck)
             // But myCards is a child of actionPanel, so we need to adjust
@@ -1081,9 +1129,6 @@ export class TableScene extends Container {
             cardView.scale.set(0.2);
             cardView.alpha = 0;
             this.myCards.addChild(cardView);
-
-            const targetX = startX + i * (cardW + gap) + cardW / 2;
-            const targetRotation = (i - 0.5) * 0.12;
 
             const tl = gsap.timeline({ delay: i * 0.2 });
             tl.add(() => {
@@ -1186,7 +1231,7 @@ export class TableScene extends Container {
         return container;
     }
 
-    private updateCommunityCards(cards: Card[]): void {
+    private updateCommunityCards(cards: Card[], options?: { instant?: boolean }): void {
         const currentCount = this.communityCards.children.filter(c => c.name === 'card').length;
         if (currentCount === cards.length) return;
 
@@ -1228,6 +1273,15 @@ export class TableScene extends Container {
             this.communityCards.addChild(cardView);
 
             const targetX = startX + i * (cardW + gap) + cardW / 2;
+            if (options?.instant) {
+                cardView.x = targetX;
+                cardView.y = 0;
+                cardView.alpha = 1;
+                cardView.scale.set(1);
+                cardView.getChildByName('back')!.visible = false;
+                cardView.getChildByName('front')!.visible = true;
+                return;
+            }
 
             const tl = gsap.timeline({ delay: (i - currentCount) * 0.15 });
             tl.add(() => {
@@ -1507,7 +1561,8 @@ class SeatView extends Container {
         g.stroke({ color: 0xffffff, width: 1, alpha: 0.1 });
     }
 
-    setPlayer(player: PlayerState, isMe: boolean): void {
+    setPlayer(player: PlayerState, isMe: boolean, options?: { instant?: boolean }): void {
+        const instant = !!options?.instant;
         this.userId = player.userId;
         this.visible = true;
         this.emptyIcon.visible = false;
@@ -1522,14 +1577,20 @@ class SeatView extends Container {
             this.stackText.text = `$${this._stackTicker.val.toLocaleString()}`;
         } else if (this._currentStack !== player.stack) {
             this._currentStack = player.stack;
-            gsap.to(this._stackTicker, {
-                val: Number(player.stack),
-                duration: 1.5,
-                ease: 'power2.out',
-                onUpdate: () => {
-                    this.stackText.text = `$${Math.floor(this._stackTicker.val).toLocaleString()}`;
-                }
-            });
+            if (instant) {
+                gsap.killTweensOf(this._stackTicker);
+                this._stackTicker.val = Number(player.stack);
+                this.stackText.text = `$${Math.floor(this._stackTicker.val).toLocaleString()}`;
+            } else {
+                gsap.to(this._stackTicker, {
+                    val: Number(player.stack),
+                    duration: 1.5,
+                    ease: 'power2.out',
+                    onUpdate: () => {
+                        this.stackText.text = `$${Math.floor(this._stackTicker.val).toLocaleString()}`;
+                    }
+                });
+            }
         }
 
         this.stackText.visible = true;
@@ -1556,10 +1617,11 @@ class SeatView extends Container {
         this.drawHexagon(this.avatarFrame, 50, 0x0a0609, 1); // Increased from 40
         this.avatarFrame.stroke({ color: frameColor, width: 2, alpha: player.folded ? 0.3 : 0.8 });
 
-        this.setBet(player.bet);
+        this.setBet(player.bet, options);
     }
 
-    setBet(amount: bigint): void {
+    setBet(amount: bigint, options?: { instant?: boolean }): void {
+        const instant = !!options?.instant;
         if (amount <= 0n) {
             this.betTag.visible = false;
             this._currentBet = 0n;
@@ -1569,20 +1631,30 @@ class SeatView extends Container {
 
         if (!this.betTag.visible) {
             this.betTag.visible = true;
-            this.betTag.scale.set(0);
-            gsap.to(this.betTag.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out' });
+            if (instant) {
+                this.betTag.scale.set(1);
+            } else {
+                this.betTag.scale.set(0);
+                gsap.to(this.betTag.scale, { x: 1, y: 1, duration: 0.3, ease: 'back.out' });
+            }
         }
 
         if (amount !== this._currentBet) {
             this._currentBet = amount;
-            gsap.to(this._betTicker, {
-                val: Number(amount),
-                duration: 0.6,
-                ease: 'power3.out',
-                onUpdate: () => {
-                    this.betText.text = `$${Math.floor(this._betTicker.val).toLocaleString()}`;
-                }
-            });
+            if (instant) {
+                gsap.killTweensOf(this._betTicker);
+                this._betTicker.val = Number(amount);
+                this.betText.text = `$${Math.floor(this._betTicker.val).toLocaleString()}`;
+            } else {
+                gsap.to(this._betTicker, {
+                    val: Number(amount),
+                    duration: 0.6,
+                    ease: 'power3.out',
+                    onUpdate: () => {
+                        this.betText.text = `$${Math.floor(this._betTicker.val).toLocaleString()}`;
+                    }
+                });
+            }
         }
     }
 

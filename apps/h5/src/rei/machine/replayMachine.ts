@@ -18,6 +18,7 @@ export type ReiReplayInput = {
     streamSeq: number;
     cursor: number;
     stepCount: number;
+    seeking: boolean;
     lastEvent: GameStreamEvent | null;
 };
 
@@ -42,6 +43,10 @@ export function reduceReplayMachine(prev: ReiReplaySnapshot, input: ReiReplayInp
             lastCursor: input.cursor,
             lastStreamSeq: input.streamSeq,
         };
+    }
+
+    if (input.seeking) {
+        return prev;
     }
 
     if (input.cursor < 0) {

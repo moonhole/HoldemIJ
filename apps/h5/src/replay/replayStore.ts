@@ -15,6 +15,8 @@ type ReplayMode = 'idle' | 'loaded';
 type ReplayState = {
     mode: ReplayMode;
     tape: ReplayTape | null;
+    isSeeking: boolean;
+    silentFx: boolean;
     // Visual cursor index (compressed steps), -1 means before first event.
     cursor: number;
     // Maps visual cursor -> raw event index in tape.events.
@@ -24,6 +26,8 @@ type ReplayState = {
     stepForward: () => void;
     stepBack: () => void;
     seek: (targetCursor: number) => void;
+    beginSeek: () => void;
+    endSeek: () => void;
 };
 
 function applyTapeToRawCursor(tape: ReplayTape, targetRawCursor: number): void {
@@ -196,6 +200,8 @@ function visualToRawCursor(visualSteps: number[], visualCursor: number): number 
 export const useReplayStore = create<ReplayState>((set, get) => ({
     mode: 'idle',
     tape: null,
+    isSeeking: false,
+    silentFx: false,
     cursor: -1,
     visualSteps: [],
 
@@ -205,6 +211,8 @@ export const useReplayStore = create<ReplayState>((set, get) => ({
         set(() => ({
             mode: 'loaded',
             tape,
+            isSeeking: false,
+            silentFx: false,
             cursor: -1,
             visualSteps,
         }));
@@ -215,6 +223,8 @@ export const useReplayStore = create<ReplayState>((set, get) => ({
         set(() => ({
             mode: 'idle',
             tape: null,
+            isSeeking: false,
+            silentFx: false,
             cursor: -1,
             visualSteps: [],
         }));
@@ -233,7 +243,7 @@ export const useReplayStore = create<ReplayState>((set, get) => ({
             if (!event) break;
             useGameStore.getState().ingest(event);
         }
-        set(() => ({ cursor: nextCursor }));
+        set(() => ({ cursor: nextCursor, isSeeking: false }));
     },
 
     stepBack: () => {
@@ -241,8 +251,13 @@ export const useReplayStore = create<ReplayState>((set, get) => ({
         if (!state.tape) return;
         const nextCursor = Math.max(-1, state.cursor - 1);
         const nextRaw = visualToRawCursor(state.visualSteps, nextCursor);
-        applyTapeToRawCursor(state.tape, nextRaw);
-        set(() => ({ cursor: nextCursor }));
+        set(() => ({ silentFx: true }));
+        try {
+            applyTapeToRawCursor(state.tape, nextRaw);
+            set(() => ({ cursor: nextCursor, isSeeking: false }));
+        } finally {
+            set(() => ({ silentFx: false }));
+        }
     },
 
     seek: (targetCursor) => {
@@ -252,5 +267,21 @@ export const useReplayStore = create<ReplayState>((set, get) => ({
         const nextRaw = visualToRawCursor(state.visualSteps, clamped);
         applyTapeToRawCursor(state.tape, nextRaw);
         set(() => ({ cursor: clamped }));
+    },
+
+    beginSeek: () => {
+        const state = get();
+        if (state.mode !== 'loaded') {
+            return;
+        }
+        set(() => ({ isSeeking: true }));
+    },
+
+    endSeek: () => {
+        const state = get();
+        if (!state.isSeeking) {
+            return;
+        }
+        set(() => ({ isSeeking: false }));
     },
 }));

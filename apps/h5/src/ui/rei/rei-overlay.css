@@ -29,6 +29,17 @@
     text-transform: uppercase;
 }
 
+.rei-seeking-dot {
+    background: #00f3ff !important;
+    box-shadow: 0 0 0 2px rgba(0, 243, 255, 0.2), 0 0 14px rgba(0, 243, 255, 0.75);
+    animation: rei-seeking-pulse 0.9s ease-in-out infinite;
+}
+
+.rei-seeking-text {
+    color: #00f3ff !important;
+    text-shadow: 0 0 10px rgba(0, 243, 255, 0.48);
+}
+
 .rei-replay-shell .npc-chat-content {
     height: 100%;
 }
@@ -123,5 +134,22 @@
 
     100% {
         transform: translateY(-4px);
+    }
+}
+
+@keyframes rei-seeking-pulse {
+    0% {
+        transform: scale(1);
+        opacity: 0.92;
+    }
+
+    50% {
+        transform: scale(1.18);
+        opacity: 1;
+    }
+
+    100% {
+        transform: scale(1);
+        opacity: 0.92;
     }
 }

@@ -7,6 +7,7 @@ import './rei-overlay.css';
 export function ReiOverlay(): JSX.Element | null {
     const currentScene = useUiStore((s) => s.currentScene);
     const replayMode = useReplayStore((s) => s.mode);
+    const replaySeeking = useReplayStore((s) => s.isSeeking);
     const statusTag = useReiStore((s) => s.statusTag);
     const keyLine = useReiStore((s) => s.keyLine);
     const details = useReiStore((s) => s.details);
@@ -80,6 +81,8 @@ export function ReiOverlay(): JSX.Element | null {
         return null;
     }
 
+    const statusLabel = replaySeeking ? 'SEEKING' : statusTag;
+
     return (
         <div className="action-overlay rei-replay-overlay">
             <div className="action-overlay-shell rei-replay-shell">
@@ -98,8 +101,14 @@ export function ReiOverlay(): JSX.Element | null {
                                 <div className="npc-content">
                                     <div className="npc-text-header">
                                         <div className="npc-status-left">
-                                            <span className="npc-status-dot amp-pulse" />
-                                            <span className="npc-status-text">{statusTag}</span>
+                                            <span
+                                                className={`npc-status-dot ${replaySeeking ? 'rei-seeking-dot' : 'amp-pulse'}`}
+                                            />
+                                            <span
+                                                className={`npc-status-text ${replaySeeking ? 'rei-seeking-text' : ''}`}
+                                            >
+                                                {statusLabel}
+                                            </span>
                                         </div>
                                     </div>
                                     <div className="rei-replay-scroll-wrap">

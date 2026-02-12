@@ -76,6 +76,7 @@ export const useReiStore = create<ReiStoreState>((set, get) => ({
             streamSeq: input.streamSeq,
             cursor: input.replayCursor,
             stepCount: input.replayStepCount,
+            seeking: input.replaySeeking,
             lastEvent: input.lastEvent,
         });
 

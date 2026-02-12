@@ -20,6 +20,7 @@ function tickReiRuntime(): void {
         actionPromptChair: game.actionPrompt?.chair ?? null,
         replayCursor: replay.cursor,
         replayStepCount: replay.visualSteps.length,
+        replaySeeking: replay.isSeeking,
     });
 }
 

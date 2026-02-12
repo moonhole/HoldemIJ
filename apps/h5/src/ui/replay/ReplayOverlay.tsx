@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { audioManager } from '../../audio/AudioManager';
 import { SoundMap } from '../../audio/SoundMap';
 import { auditApi, type AuditHandEvent, type AuditRecentHandItem } from '../../network/auditApi';
@@ -56,12 +56,16 @@ export function ReplayOverlay(): JSX.Element | null {
     const stepForward = useReplayStore((s) => s.stepForward);
     const stepBack = useReplayStore((s) => s.stepBack);
     const seek = useReplayStore((s) => s.seek);
+    const beginSeek = useReplayStore((s) => s.beginSeek);
+    const endSeek = useReplayStore((s) => s.endSeek);
+    const isSeeking = useReplayStore((s) => s.isSeeking);
     const loadReplayTape = useReplayStore((s) => s.loadTape);
     const [listOpen, setListOpen] = useState(false);
     const [listLoading, setListLoading] = useState(false);
     const [listError, setListError] = useState('');
     const [listItems, setListItems] = useState<AuditRecentHandItem[]>([]);
     const [openingHandId, setOpeningHandId] = useState('');
+    const [draftSliderValue, setDraftSliderValue] = useState<number | null>(null);
 
     const playUiClick = (): void => {
         audioManager.play(SoundMap.UI_CLICK, 0.7);
@@ -131,11 +135,42 @@ export function ReplayOverlay(): JSX.Element | null {
     }, [cursor, visualSteps]);
 
     const maxSlider = Math.max(0, totalVisualSteps);
+    const renderedSliderValue = draftSliderValue ?? sliderValue;
 
     const onSeekChange = (value: number): void => {
         if (!tape) return;
         seek(value - 1);
     };
+
+    const commitSeek = useCallback((): void => {
+        if (!isSeeking) {
+            return;
+        }
+        if (tape) {
+            const target = draftSliderValue ?? sliderValue;
+            seek(target - 1);
+        }
+        endSeek();
+        setDraftSliderValue(null);
+    }, [draftSliderValue, endSeek, isSeeking, seek, sliderValue, tape]);
+
+    useEffect(() => {
+        if (!isSeeking) {
+            setDraftSliderValue(null);
+        }
+    }, [isSeeking]);
+
+    useEffect(() => {
+        const handlePointerEnd = (): void => {
+            commitSeek();
+        };
+        window.addEventListener('pointerup', handlePointerEnd);
+        window.addEventListener('pointercancel', handlePointerEnd);
+        return () => {
+            window.removeEventListener('pointerup', handlePointerEnd);
+            window.removeEventListener('pointercancel', handlePointerEnd);
+        };
+    }, [commitSeek]);
 
     const openReplayFromList = async (item: AuditRecentHandItem): Promise<void> => {
         setOpeningHandId(item.handId);
@@ -189,9 +224,23 @@ export function ReplayOverlay(): JSX.Element | null {
                     min={0}
                     max={maxSlider}
                     step={1}
-                    value={sliderValue}
+                    value={renderedSliderValue}
                     disabled={mode !== 'loaded'}
-                    onChange={(e) => onSeekChange(Number(e.target.value))}
+                    onPointerDown={() => {
+                        beginSeek();
+                        setDraftSliderValue(sliderValue);
+                    }}
+                    onPointerUp={() => commitSeek()}
+                    onPointerCancel={() => commitSeek()}
+                    onBlur={() => commitSeek()}
+                    onChange={(e) => {
+                        const next = Number(e.target.value);
+                        if (isSeeking) {
+                            setDraftSliderValue(next);
+                            return;
+                        }
+                        onSeekChange(next);
+                    }}
                 />
 
                 <div className="replay-row">
