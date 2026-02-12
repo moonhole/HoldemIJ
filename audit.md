@@ -99,6 +99,15 @@
 
 `sandbox` 必须使用独立命名空间（如 `source=sandbox` + `scenario_id`），避免污染 live/audit 主流水。
 
+### 4.4 存储部署策略（推荐）
+
+- **云数据库为主存**：`ledger_event_stream` 作为权威事实源，`audit_user_hand_history` 作为服务端投影结果。
+- **本地仅做缓存/暂存**：客户端（IndexedDB/SQLite）仅保留会话级 replay/sandbox 数据和待上传队列，不作为最终事实源。
+- **显式上传时机**：用户点击“保存”或网络恢复后，将本地待上传事件写入云端。
+- **幂等写入要求**：上传必须带稳定键（建议 `source + scenario_id + hand_id + seq`），服务端重复写入不产生重复事件。
+- **冲突处理**：以云端已存在记录为准；客户端收到冲突时仅做本地标记并拉取最新手牌详情。
+- **删除策略**：本地缓存可按 LRU/容量裁剪；云端按 `X/Y` 配额和策略裁剪。
+
 ---
 
 ## 5. 数据模型（建议）
@@ -210,13 +219,15 @@
 
 1. replay step 事实投影文字
 2. 增加“保存 replay 到账号”接口
-3. replay 入库后走同一配额策略
+3. 增加客户端离线暂存与回传队列（失败重试 + 幂等键）
+4. replay 入库后走同一配额策略
 
 ### 阶段 C（扩展 sandbox）
 
 1. 增加 `source=sandbox` + `scenario_id`
 2. 接入 `AgentContextProjection`
-3. 在 sandbox UI 中展示分支对比
+3. sandbox 本地分支可选上传云端（按账号隔离）
+4. 在 sandbox UI 中展示分支对比
 
 ---
 
@@ -227,6 +238,7 @@
 - 配额正确性：`X`/`Y` 边界行为稳定。
 - 幂等性：重复写入不产生重复 hand 记录。
 - 隔离性：sandbox 不污染 live/audit 主流水。
+- 同步一致性：离线缓存回传后，与云端投影结果一致。
 
 ---
 

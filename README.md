@@ -15,6 +15,8 @@ This README reflects the current state of the project (auth + DB + H5 flow).
 - Auth persistence modes:
   - `db` (PostgreSQL, default)
   - `memory` (in-memory, for quick local runs)
+- Ledger/Audit persistence:
+  - follows DB mode (`AUTH_MODE=db`) and stores live hand events/history in PostgreSQL
 
 ## Repo layout
 ```text
@@ -27,6 +29,7 @@ apps/
       create_database.sql
       schema.sql
       002_seed.sql
+      003_ledger_audit.sql
 proto/
 holdem/
 card/
@@ -52,6 +55,7 @@ Run once:
 ```bash
 psql -U postgres -d postgres -f apps/server/db/create_database.sql
 psql -U postgres -d holdem_lite -f apps/server/db/schema.sql
+psql -U postgres -d holdem_lite -f apps/server/db/003_ledger_audit.sql
 psql -U postgres -d holdem_lite -f apps/server/db/002_seed.sql
 ```
 
@@ -112,6 +116,15 @@ Base URL: `http://127.0.0.1:8080`
 - `POST /api/auth/login`
 - `POST /api/auth/logout`
 - `GET /api/auth/me`
+- `GET /api/audit/live/recent?limit=20`
+- `GET /api/audit/live/hands/{hand_id}`
+- `POST /api/audit/live/hands/{hand_id}/save`
+- `DELETE /api/audit/live/hands/{hand_id}/save`
+- `GET /api/audit/replay/recent?limit=20`
+- `GET /api/audit/replay/hands/{hand_id}`
+- `POST /api/audit/replay/hands/{hand_id}` (upsert replay tape/events)
+- `POST /api/audit/replay/hands/{hand_id}/save`
+- `DELETE /api/audit/replay/hands/{hand_id}/save`
 - `GET /health`
 - `GET /ws?session_token=...`
 
@@ -148,6 +161,9 @@ pnpm proto
 - `AUTH_DATABASE_DSN`: postgres DSN used when `AUTH_MODE=db`
 - `DATABASE_URL`: fallback DSN if `AUTH_DATABASE_DSN` is empty
 - `AUTH_SESSION_TTL`: Go duration string, default `720h` (30 days)
+- `LEDGER_DATABASE_DSN`: optional DSN override for ledger/audit tables (defaults to `AUTH_DATABASE_DSN`)
+- `AUDIT_RECENT_LIMIT_X`: recent unsaved hands retained per user/source (default `200`)
+- `AUDIT_SAVED_LIMIT_Y`: max saved hands per user/source (default `50`)
 
 ## Common issues
 1. `auth schema not initialized: missing table accounts`

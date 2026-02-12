@@ -376,6 +376,144 @@
     animation: lobby-scan 6s linear infinite;
 }
 
+.audit-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 180;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(6, 4, 8, 0.72);
+    pointer-events: auto;
+}
+
+.audit-modal {
+    width: min(520px, 100%);
+    max-height: min(680px, calc(100% - 40px));
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(0, 243, 255, 0.28);
+    background: rgba(12, 9, 14, 0.96);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.audit-modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(0, 243, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 243, 255, 0.25);
+}
+
+.audit-modal-header h3 {
+    margin: 0;
+    color: rgba(220, 249, 255, 0.94);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.audit-close-btn {
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(244, 37, 175, 0.35);
+    background: rgba(244, 37, 175, 0.12);
+    color: #ffd6ef;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.audit-state {
+    padding: 24px 16px;
+    color: rgba(255, 255, 255, 0.72);
+    text-align: center;
+    font-size: 12px;
+}
+
+.audit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    overflow: auto;
+}
+
+.audit-item {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.audit-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.audit-hand-id {
+    color: rgba(239, 250, 255, 0.95);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.audit-hand-meta {
+    color: rgba(255, 255, 255, 0.62);
+    font-size: 11px;
+}
+
+.audit-delta {
+    min-width: 72px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.audit-delta.is-pos {
+    color: #00f3ff;
+}
+
+.audit-delta.is-neg {
+    color: #ff9dbf;
+}
+
+.audit-replay-btn {
+    min-height: 30px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 243, 255, 0.4);
+    background: rgba(0, 243, 255, 0.12);
+    color: #defbff;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.audit-replay-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.audit-error {
+    padding: 10px 14px 14px;
+    color: #ff9d9d;
+    font-size: 12px;
+}
+
 .material-symbols-outlined {
     font-family: 'Material Symbols Outlined';
     font-weight: normal;

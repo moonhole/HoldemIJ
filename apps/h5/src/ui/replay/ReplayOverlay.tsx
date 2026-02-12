@@ -1,8 +1,5 @@
-import { useMemo, useState } from 'react';
-import { demoHandSpec } from '../../replay/demoSpec';
-import { decodeReplayServerTape } from '../../replay/replayCodec';
+import { useMemo } from 'react';
 import { useReplayStore } from '../../replay/replayStore';
-import { replayWasmClient } from '../../replay/replayWasmClient';
 import { useUiStore } from '../../store/uiStore';
 import './replay-overlay.css';
 
@@ -12,48 +9,35 @@ export function ReplayOverlay(): JSX.Element | null {
     const mode = useReplayStore((s) => s.mode);
     const tape = useReplayStore((s) => s.tape);
     const cursor = useReplayStore((s) => s.cursor);
-    const loadTape = useReplayStore((s) => s.loadTape);
+    const visualSteps = useReplayStore((s) => s.visualSteps);
     const clearTape = useReplayStore((s) => s.clearTape);
     const stepForward = useReplayStore((s) => s.stepForward);
     const stepBack = useReplayStore((s) => s.stepBack);
     const seek = useReplayStore((s) => s.seek);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
 
-    const totalEvents = tape?.events.length ?? 0;
+    const totalVisualSteps = visualSteps.length;
+    const totalRawEvents = tape?.events.length ?? 0;
     const canBack = mode === 'loaded' && cursor >= 0;
-    const canForward = mode === 'loaded' && cursor < totalEvents - 1;
+    const canForward = mode === 'loaded' && cursor < totalVisualSteps - 1;
 
     const sliderValue = useMemo(() => {
         if (cursor < 0) return 0;
         return cursor + 1;
     }, [cursor]);
 
-    const maxSlider = Math.max(1, totalEvents);
+    const rawCursor = useMemo(() => {
+        if (cursor < 0) return -1;
+        return visualSteps[cursor] ?? -1;
+    }, [cursor, visualSteps]);
 
-    const loadDemo = async (): Promise<void> => {
-        setLoading(true);
-        setError('');
-        try {
-            const serverTape = await replayWasmClient.init(demoHandSpec);
-            const decoded = decodeReplayServerTape(serverTape);
-            loadTape(decoded);
-            if (currentScene !== 'table') {
-                requestScene('table');
-            }
-        } catch (err) {
-            setError(err instanceof Error ? err.message : 'failed to load replay');
-        } finally {
-            setLoading(false);
-        }
-    };
+    const maxSlider = Math.max(0, totalVisualSteps);
 
     const onSeekChange = (value: number): void => {
         if (!tape) return;
         seek(value - 1);
     };
 
-    if (currentScene === 'login') {
+    if (currentScene !== 'table' || mode !== 'loaded') {
         return null;
     }
 
@@ -61,14 +45,21 @@ export function ReplayOverlay(): JSX.Element | null {
         <div className="replay-overlay">
             <div className="replay-title">REPLAY CONTROL</div>
             <div className="replay-meta">
-                Mode: {mode.toUpperCase()} | Cursor: {cursor} / {Math.max(totalEvents - 1, -1)}
+                Mode: {mode.toUpperCase()} | Visual: {cursor} / {Math.max(totalVisualSteps - 1, -1)} | Raw:{' '}
+                {rawCursor} / {Math.max(totalRawEvents - 1, -1)}
             </div>
 
             <div className="replay-row">
-                <button className="replay-btn" onClick={loadDemo} disabled={loading}>
-                    {loading ? 'LOADING...' : 'LOAD DEMO'}
+                <button
+                    className="replay-btn"
+                    onClick={() => {
+                        clearTape();
+                        requestScene('lobby');
+                    }}
+                >
+                    EXIT
                 </button>
-                <button className="replay-btn" onClick={clearTape} disabled={mode !== 'loaded'}>
+                <button className="replay-btn" onClick={clearTape}>
                     CLEAR
                 </button>
             </div>
@@ -92,8 +83,6 @@ export function ReplayOverlay(): JSX.Element | null {
                 disabled={mode !== 'loaded'}
                 onChange={(e) => onSeekChange(Number(e.target.value))}
             />
-
-            {error ? <div className="replay-error">{error}</div> : null}
         </div>
     );
 }

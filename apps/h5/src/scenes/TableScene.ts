@@ -7,6 +7,7 @@ import { SoundMap } from '../audio/SoundMap';
 import type { GameApp } from '../main';
 import { DESIGN_HEIGHT, DESIGN_WIDTH } from '../main';
 import { gameClient } from '../network/GameClient';
+import { useReplayStore } from '../replay/replayStore';
 import { useGameStore } from '../store/gameStore';
 
 // Colors from cyber-poker design
@@ -550,6 +551,9 @@ export class TableScene extends Container {
     }
 
     private shouldShowActionCountdown(prompt: ActionPrompt): boolean {
+        if (useReplayStore.getState().mode === 'loaded') {
+            return false;
+        }
         return prompt.timeLimitSec > 0 || prompt.actionDeadlineMs > 0n;
     }
 

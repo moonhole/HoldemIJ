@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { gameClient } from '../network/GameClient';
 import { useGameStore } from './gameStore';
+import { useReplayStore } from '../replay/replayStore';
 
 export type SceneName = 'boot' | 'login' | 'lobby' | 'table';
 
@@ -64,6 +65,9 @@ export const useUiStore = create<UiStoreState>((set) => ({
         if (state.quickStartPhase === 'connecting' || state.quickStartPhase === 'sitting') {
             return;
         }
+
+        // Entering live table should always leave replay mode.
+        useReplayStore.getState().clearTape();
 
         set((prev) => ({
             ...prev,

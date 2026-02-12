@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"holdem-lite/apps/server/internal/ledger"
 	"holdem-lite/apps/server/internal/table"
 )
 
@@ -27,10 +28,11 @@ type Lobby struct {
 	cleanupInterval time.Duration
 	done            chan struct{}
 	stopOnce        sync.Once
+	ledger          ledger.Service
 }
 
 // New creates a new lobby
-func New() *Lobby {
+func New(ledgerService ledger.Service) *Lobby {
 	l := &Lobby{
 		tables: make(map[string]*table.Table),
 		defaultConfig: table.TableConfig{
@@ -44,6 +46,7 @@ func New() *Lobby {
 		idleTableTTL:    defaultIdleTableTTL,
 		cleanupInterval: defaultCleanupInterval,
 		done:            make(chan struct{}),
+		ledger:          ledgerService,
 	}
 	go l.cleanupLoop()
 	return l
@@ -85,7 +88,7 @@ func (l *Lobby) QuickStart(userID uint64, broadcastFn func(userID uint64, data [
 	// Create new table
 	l.nextID++
 	tableID := fmt.Sprintf("table_%d", l.nextID)
-	t := table.New(tableID, l.defaultConfig, broadcastFn)
+	t := table.New(tableID, l.defaultConfig, broadcastFn, l.ledger)
 	if t == nil {
 		return nil, fmt.Errorf("failed to create table")
 	}

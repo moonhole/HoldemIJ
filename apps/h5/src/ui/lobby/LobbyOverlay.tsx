@@ -1,5 +1,10 @@
+import { useEffect, useState } from 'react';
 import { audioManager } from '../../audio/AudioManager';
 import { SoundMap } from '../../audio/SoundMap';
+import { auditApi, type AuditHandEvent, type AuditRecentHandItem } from '../../network/auditApi';
+import { gameClient } from '../../network/GameClient';
+import { decodeReplayServerTape, type ReplayServerTape } from '../../replay/replayCodec';
+import { useReplayStore } from '../../replay/replayStore';
 import { useAuthStore } from '../../store/authStore';
 import { useUiStore } from '../../store/uiStore';
 import { AudioToggle } from '../common/AudioToggle';
@@ -60,6 +65,44 @@ const MOCK_TABLES: LobbyTableItem[] = [
     },
 ];
 
+function toHeroChair(summary: Record<string, unknown>): number {
+    const raw = summary.chair;
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+        return Math.trunc(raw);
+    }
+    if (typeof raw === 'string') {
+        const parsed = Number(raw);
+        if (Number.isFinite(parsed)) {
+            return Math.trunc(parsed);
+        }
+    }
+    return -1;
+}
+
+function toSignedDelta(summary: Record<string, unknown>): string {
+    const raw = summary.delta;
+    if (typeof raw !== 'number' || !Number.isFinite(raw)) {
+        return '--';
+    }
+    if (raw > 0) {
+        return `+${raw}`;
+    }
+    return `${raw}`;
+}
+
+function buildReplayTape(handId: string, heroChair: number, events: AuditHandEvent[]): ReplayServerTape {
+    return {
+        tapeVersion: 1,
+        tableId: `audit_${handId}`,
+        heroChair,
+        events: events.map((event) => ({
+            type: event.eventType,
+            seq: event.seq,
+            envelopeB64: event.envelopeB64,
+        })),
+    };
+}
+
 export function LobbyOverlay(): JSX.Element | null {
     const currentScene = useUiStore((s) => s.currentScene);
     const quickStartPhase = useUiStore((s) => s.quickStartPhase);
@@ -70,14 +113,73 @@ export function LobbyOverlay(): JSX.Element | null {
     const requestScene = useUiStore((s) => s.requestScene);
     const username = useAuthStore((s) => s.username);
     const logout = useAuthStore((s) => s.logout);
+    const loadReplayTape = useReplayStore((s) => s.loadTape);
+    const [auditOpen, setAuditOpen] = useState(false);
+    const [auditLoading, setAuditLoading] = useState(false);
+    const [auditError, setAuditError] = useState('');
+    const [auditItems, setAuditItems] = useState<AuditRecentHandItem[]>([]);
+    const [openingHandId, setOpeningHandId] = useState('');
 
     const playUiClick = (): void => {
         audioManager.play(SoundMap.UI_CLICK, 0.7);
     };
 
+    useEffect(() => {
+        if (!auditOpen) {
+            return;
+        }
+        let cancelled = false;
+        void (async () => {
+            setAuditLoading(true);
+            setAuditError('');
+            try {
+                const items = await auditApi.listRecent('live', 20);
+                if (!cancelled) {
+                    setAuditItems(items);
+                }
+            } catch (error) {
+                if (!cancelled) {
+                    setAuditError(error instanceof Error ? error.message : 'Failed to load audit');
+                }
+            } finally {
+                if (!cancelled) {
+                    setAuditLoading(false);
+                }
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [auditOpen]);
+
     if (currentScene !== 'lobby') {
         return null;
     }
+
+    const openAuditReplay = async (item: AuditRecentHandItem): Promise<void> => {
+        setOpeningHandId(item.handId);
+        setAuditError('');
+        try {
+            const events = await auditApi.getHand('live', item.handId);
+            if (events.length === 0) {
+                throw new Error('This hand has no replayable events');
+            }
+            const serverTape = buildReplayTape(item.handId, toHeroChair(item.summary), events);
+            const tape = decodeReplayServerTape(serverTape);
+            if (tape.events.length === 0) {
+                throw new Error('No supported replay events found');
+            }
+
+            gameClient.disconnect();
+            loadReplayTape(tape);
+            setAuditOpen(false);
+            requestScene('table');
+        } catch (error) {
+            setAuditError(error instanceof Error ? error.message : 'Failed to open replay');
+        } finally {
+            setOpeningHandId('');
+        }
+    };
 
     const busy = quickStartPhase === 'connecting' || quickStartPhase === 'sitting';
 
@@ -155,9 +257,16 @@ export function LobbyOverlay(): JSX.Element | null {
                         <span>{quickStartLabel}</span>
                     </button>
                     <div className="lobby-footer-row">
-                        <button type="button" className="lobby-secondary-btn" onClick={playUiClick}>
-                            <span className="material-symbols-outlined">add_box</span>
-                            <span>Create Node</span>
+                        <button
+                            type="button"
+                            className="lobby-secondary-btn"
+                            onClick={() => {
+                                playUiClick();
+                                setAuditOpen(true);
+                            }}
+                        >
+                            <span className="material-symbols-outlined">history</span>
+                            <span>Audit</span>
                         </button>
                         <button
                             type="button"
@@ -190,6 +299,67 @@ export function LobbyOverlay(): JSX.Element | null {
                     </button>
                     <AudioToggle />
                 </div>
+
+                {auditOpen ? (
+                    <div className="audit-modal-backdrop">
+                        <section className="audit-modal" aria-label="audit recent hands">
+                            <header className="audit-modal-header">
+                                <h3>AUDIT / RECENT HANDS</h3>
+                                <button
+                                    type="button"
+                                    className="audit-close-btn"
+                                    onClick={() => {
+                                        playUiClick();
+                                        setAuditOpen(false);
+                                    }}
+                                >
+                                    CLOSE
+                                </button>
+                            </header>
+
+                            {auditLoading ? <div className="audit-state">Loading...</div> : null}
+                            {!auditLoading && auditItems.length === 0 ? (
+                                <div className="audit-state">No hands yet.</div>
+                            ) : null}
+                            {!auditLoading && auditItems.length > 0 ? (
+                                <div className="audit-list">
+                                    {auditItems.map((item) => (
+                                        <article key={item.handId} className="audit-item">
+                                            <div className="audit-item-row">
+                                                <div>
+                                                    <div className="audit-hand-id">{item.handId}</div>
+                                                    <div className="audit-hand-meta">
+                                                        {new Date(item.playedAt).toLocaleString()}
+                                                    </div>
+                                                </div>
+                                                <div className={`audit-delta ${toSignedDelta(item.summary).startsWith('+') ? 'is-pos' : 'is-neg'}`}>
+                                                    {toSignedDelta(item.summary)}
+                                                </div>
+                                            </div>
+                                            <div className="audit-item-row">
+                                                <span className="audit-hand-meta">
+                                                    Chair: {toHeroChair(item.summary)}
+                                                </span>
+                                                <button
+                                                    type="button"
+                                                    className="audit-replay-btn"
+                                                    disabled={openingHandId === item.handId}
+                                                    onClick={() => {
+                                                        playUiClick();
+                                                        void openAuditReplay(item);
+                                                    }}
+                                                >
+                                                    {openingHandId === item.handId ? 'OPENING...' : 'OPEN REPLAY'}
+                                                </button>
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                            ) : null}
+                            {auditError ? <div className="audit-error">{auditError}</div> : null}
+                        </section>
+                    </div>
+                ) : null}
                 <div className="lobby-scanline" />
             </div>
         </div>

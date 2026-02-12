@@ -1,14 +1,17 @@
 package table
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	pb "holdem-lite/apps/server/gen"
+	"holdem-lite/apps/server/internal/ledger"
 	"holdem-lite/card"
 	"holdem-lite/holdem"
 
@@ -44,7 +47,10 @@ type Table struct {
 	emptySince         time.Time
 
 	// Callback to broadcast messages
-	broadcast func(userID uint64, data []byte)
+	broadcast    func(userID uint64, data []byte)
+	ledger       ledger.Service
+	handID       string
+	userHandTape map[uint64][]ledger.EventItem
 }
 
 // TableConfig contains table settings
@@ -104,7 +110,12 @@ const (
 )
 
 // New creates a new table
-func New(id string, cfg TableConfig, broadcastFn func(userID uint64, data []byte)) *Table {
+func New(
+	id string,
+	cfg TableConfig,
+	broadcastFn func(userID uint64, data []byte),
+	ledgerService ledger.Service,
+) *Table {
 	t := &Table{
 		ID:                 id,
 		Config:             cfg,
@@ -114,8 +125,10 @@ func New(id string, cfg TableConfig, broadcastFn func(userID uint64, data []byte
 		events:             make(chan Event, 256),
 		done:               make(chan struct{}),
 		broadcast:          broadcastFn,
+		ledger:             ledgerService,
 		actionTimeoutChair: holdem.InvalidChair,
 		emptySince:         time.Now(),
+		userHandTape:       make(map[uint64][]ledger.EventItem),
 	}
 
 	// Create game engine
@@ -379,6 +392,9 @@ func (t *Table) handleStartHand() error {
 		return err
 	}
 	t.round++
+	t.handID = t.buildHandID()
+	t.userHandTape = make(map[uint64][]ledger.EventItem, len(t.seats))
+	t.appendReplayBootstrapSnapshots()
 
 	snap := t.game.Snapshot()
 	t.syncPlayerStacksFromSnapshot(snap)
@@ -400,10 +416,14 @@ func (t *Table) handleStartHand() error {
 
 func (t *Table) handleHandEnd(result *holdem.SettlementResult) {
 	log.Printf("[Table %s] Hand ended. Winners: %v", t.ID, result)
+	endedAt := time.Now().UTC()
+	handID := t.handID
 
 	// Broadcast showdown/hand end
 	t.broadcastHandEnd(result)
 	t.clearActionTimeoutLocked()
+	t.persistLiveHandHistory(handID, endedAt, result)
+	t.handID = ""
 
 	// Schedule next hand from actor tick (no goroutine self-submit).
 	if len(t.seats) >= 2 {
@@ -632,30 +652,79 @@ func (t *Table) nextSeq() uint64 {
 	return t.serverSeq
 }
 
-func (t *Table) sendToUser(userID uint64, env *pb.ServerEnvelope) {
-	data, err := proto.Marshal(env)
-	if err != nil {
-		log.Printf("[Table %s] Failed to marshal message: %v", t.ID, err)
-		return
+func (t *Table) buildHandID() string {
+	if t.round == 0 {
+		return ""
 	}
-	t.broadcast(userID, data)
+	return fmt.Sprintf("%s_r%d", t.ID, t.round)
 }
 
-func (t *Table) broadcastToAll(env *pb.ServerEnvelope) {
-	data, err := proto.Marshal(env)
-	if err != nil {
-		log.Printf("[Table %s] Failed to marshal message: %v", t.ID, err)
+func (t *Table) appendLiveLedgerEvent(env *pb.ServerEnvelope, data []byte) {
+	if t.ledger == nil {
 		return
 	}
-	for userID := range t.players {
-		t.broadcast(userID, data)
+	handID := strings.TrimSpace(t.handID)
+	if handID == "" {
+		return
+	}
+	// Keep a stable copy to avoid accidental reuse by callers.
+	encoded := make([]byte, len(data))
+	copy(encoded, data)
+	go t.ledger.AppendLiveEvent(handID, env, encoded)
+}
+
+func (t *Table) appendUserHandTape(userID uint64, env *pb.ServerEnvelope, data []byte) {
+	if userID == 0 || env == nil || len(data) == 0 {
+		return
+	}
+	if strings.TrimSpace(t.handID) == "" {
+		return
+	}
+	// Ignore runtime snapshots during hand replay capture. We keep only the
+	// bootstrap snapshot (seq=0) to avoid mid-hand resets in replay.
+	if _, ok := env.GetPayload().(*pb.ServerEnvelope_TableSnapshot); ok && env.GetServerSeq() > 0 {
+		return
+	}
+	serverTs := env.GetServerTsMs()
+	item := ledger.EventItem{
+		Seq:         env.GetServerSeq(),
+		EventType:   serverEnvelopeType(env),
+		EnvelopeB64: base64.StdEncoding.EncodeToString(data),
+	}
+	if serverTs > 0 {
+		v := serverTs
+		item.ServerTsMs = &v
+	}
+	t.userHandTape[userID] = append(t.userHandTape[userID], item)
+}
+
+func (t *Table) appendReplayBootstrapSnapshots() {
+	if strings.TrimSpace(t.handID) == "" {
+		return
+	}
+	for chair, userID := range t.seats {
+		if userID == 0 || chair == holdem.InvalidChair {
+			continue
+		}
+		snapshot := t.buildReplayBootstrapSnapshotForUser(userID)
+		env := &pb.ServerEnvelope{
+			TableId:    t.ID,
+			ServerSeq:  0,
+			ServerTsMs: time.Now().UnixMilli(),
+			Payload: &pb.ServerEnvelope_TableSnapshot{
+				TableSnapshot: snapshot,
+			},
+		}
+		data, err := proto.Marshal(env)
+		if err != nil {
+			continue
+		}
+		t.appendUserHandTape(userID, env, data)
 	}
 }
 
-func (t *Table) sendSnapshot(userID uint64) {
+func (t *Table) buildTableSnapshotForUser(userID uint64) *pb.TableSnapshot {
 	snap := t.game.Snapshot()
-	log.Printf("[Table %s] Sending snapshot to %d", t.ID, userID)
-
 	ts := &pb.TableSnapshot{
 		Config: &pb.TableConfig{
 			MaxPlayers: uint32(t.Config.MaxPlayers),
@@ -674,11 +743,9 @@ func (t *Table) sendSnapshot(userID uint64) {
 		CurBet:          snap.CurBet,
 		MinRaiseDelta:   snap.MinRaiseDelta,
 	}
-
 	for _, c := range snap.CommunityCards {
 		ts.CommunityCards = append(ts.CommunityCards, cardToProto(c))
 	}
-
 	for _, pot := range snap.Pots {
 		p := &pb.Pot{Amount: pot.Amount}
 		for _, chair := range pot.EligiblePlayers {
@@ -686,7 +753,6 @@ func (t *Table) sendSnapshot(userID uint64) {
 		}
 		ts.Pots = append(ts.Pots, p)
 	}
-
 	for _, ps := range snap.Players {
 		player := &pb.PlayerState{
 			UserId:     ps.ID,
@@ -698,7 +764,7 @@ func (t *Table) sendSnapshot(userID uint64) {
 			LastAction: actionToProto(ps.LastAction),
 			HasCards:   len(ps.HandCards) > 0,
 		}
-		// Only send hole cards to the player themselves
+		// Only expose hole cards for the current user.
 		if ps.ID == userID {
 			for _, c := range ps.HandCards {
 				player.HandCards = append(player.HandCards, cardToProto(c))
@@ -706,6 +772,90 @@ func (t *Table) sendSnapshot(userID uint64) {
 		}
 		ts.Players = append(ts.Players, player)
 	}
+	return ts
+}
+
+func (t *Table) buildReplayBootstrapSnapshotForUser(userID uint64) *pb.TableSnapshot {
+	// Bootstrap snapshot should represent pre-hand state:
+	// no private cards, no live bet commitments. This prevents replay from
+	// visually "dealing twice" when handStart/dealHoleCards events arrive.
+	ts := t.buildTableSnapshotForUser(userID)
+	for _, p := range ts.Players {
+		p.HandCards = nil
+		p.HasCards = false
+		p.Folded = false
+		p.AllIn = false
+		p.Bet = 0
+		if startStack, ok := t.handStartStacks[uint16(p.Chair)]; ok {
+			p.Stack = startStack
+		}
+	}
+	ts.CurBet = 0
+	ts.Pots = nil
+	return ts
+}
+
+func serverEnvelopeType(env *pb.ServerEnvelope) string {
+	switch env.GetPayload().(type) {
+	case *pb.ServerEnvelope_TableSnapshot:
+		return "tableSnapshot"
+	case *pb.ServerEnvelope_SeatUpdate:
+		return "seatUpdate"
+	case *pb.ServerEnvelope_HandStart:
+		return "handStart"
+	case *pb.ServerEnvelope_DealHoleCards:
+		return "dealHoleCards"
+	case *pb.ServerEnvelope_ActionPrompt:
+		return "actionPrompt"
+	case *pb.ServerEnvelope_ActionResult:
+		return "actionResult"
+	case *pb.ServerEnvelope_DealBoard:
+		return "dealBoard"
+	case *pb.ServerEnvelope_PotUpdate:
+		return "potUpdate"
+	case *pb.ServerEnvelope_PhaseChange:
+		return "phaseChange"
+	case *pb.ServerEnvelope_WinByFold:
+		return "winByFold"
+	case *pb.ServerEnvelope_Showdown:
+		return "showdown"
+	case *pb.ServerEnvelope_HandEnd:
+		return "handEnd"
+	case *pb.ServerEnvelope_Error:
+		return "error"
+	case *pb.ServerEnvelope_LoginResponse:
+		return "loginResponse"
+	default:
+		return "unknown"
+	}
+}
+
+func (t *Table) sendToUser(userID uint64, env *pb.ServerEnvelope) {
+	data, err := proto.Marshal(env)
+	if err != nil {
+		log.Printf("[Table %s] Failed to marshal message: %v", t.ID, err)
+		return
+	}
+	t.appendUserHandTape(userID, env, data)
+	t.broadcast(userID, data)
+}
+
+func (t *Table) broadcastToAll(env *pb.ServerEnvelope) {
+	data, err := proto.Marshal(env)
+	if err != nil {
+		log.Printf("[Table %s] Failed to marshal message: %v", t.ID, err)
+		return
+	}
+	t.appendLiveLedgerEvent(env, data)
+	for userID := range t.players {
+		t.appendUserHandTape(userID, env, data)
+		t.broadcast(userID, data)
+	}
+}
+
+func (t *Table) sendSnapshot(userID uint64) {
+	log.Printf("[Table %s] Sending snapshot to %d", t.ID, userID)
+	ts := t.buildTableSnapshotForUser(userID)
 
 	env := &pb.ServerEnvelope{
 		TableId:    t.ID,
@@ -1078,6 +1228,7 @@ func (t *Table) broadcastPhaseChange(phase holdem.Phase, board []card.Card, pots
 		return
 	}
 
+	ledgerLogged := false
 	for userID, pc := range t.players {
 		msg := &pb.PhaseChange{
 			Phase:          base.Phase,
@@ -1097,6 +1248,21 @@ func (t *Table) broadcastPhaseChange(phase holdem.Phase, board []card.Card, pots
 			Payload: &pb.ServerEnvelope_PhaseChange{
 				PhaseChange: msg,
 			},
+		}
+		if !ledgerLogged {
+			canonical := &pb.ServerEnvelope{
+				TableId:    t.ID,
+				ServerSeq:  env.ServerSeq,
+				ServerTsMs: env.ServerTsMs,
+				Payload: &pb.ServerEnvelope_PhaseChange{
+					PhaseChange: base,
+				},
+			}
+			data, err := proto.Marshal(canonical)
+			if err == nil {
+				t.appendLiveLedgerEvent(canonical, data)
+			}
+			ledgerLogged = true
 		}
 		t.sendToUser(userID, env)
 	}
@@ -1151,6 +1317,50 @@ func (t *Table) buildStackDeltas(snap holdem.Snapshot) []*pb.StackDelta {
 		})
 	}
 	return stackDeltas
+}
+
+func (t *Table) persistLiveHandHistory(handID string, playedAt time.Time, result *holdem.SettlementResult) {
+	if t.ledger == nil || strings.TrimSpace(handID) == "" || result == nil {
+		return
+	}
+	snap := t.game.Snapshot()
+	perChair := make(map[uint16]holdem.ShowdownPlayerResult, len(result.PlayerResults))
+	for _, pr := range result.PlayerResults {
+		perChair[pr.Chair] = pr
+	}
+
+	for _, ps := range snap.Players {
+		userID := t.seats[ps.Chair]
+		if userID == 0 {
+			continue
+		}
+		startStack := ps.Stack
+		if v, ok := t.handStartStacks[ps.Chair]; ok {
+			startStack = v
+		}
+		delta := ps.Stack - startStack
+
+		chairResult, ok := perChair[ps.Chair]
+		isWinner := ok && chairResult.IsWinner
+		winAmount := int64(0)
+		if ok {
+			winAmount = chairResult.WinAmount
+		}
+
+		summary := map[string]any{
+			"table_id":    t.ID,
+			"round":       t.round,
+			"chair":       ps.Chair,
+			"delta":       delta,
+			"is_winner":   isWinner,
+			"win_amount":  winAmount,
+			"ended_phase": holdem.PhaseTypeDictionary[snap.Phase],
+			"stack_start": startStack,
+			"stack_end":   ps.Stack,
+		}
+		userEvents := append([]ledger.EventItem(nil), t.userHandTape[userID]...)
+		go t.ledger.UpsertLiveHistoryWithEvents(userID, handID, playedAt, summary, userEvents)
+	}
 }
 
 func buildShowdown(result *holdem.SettlementResult, excessRefund *pb.ExcessRefund, netResults []*pb.NetResult) *pb.Showdown {
