@@ -59,6 +59,7 @@ export class TableScene extends Container {
     private _potTickerValue = { val: 0 };
     private lastPotTotal = 0n;
     private lastChipCollectSoundAt = 0;
+    private deskGridTween: gsap.core.Tween | null = null;
 
     // Showdown overlay state
     private showdownOverlay: Container | null = null;
@@ -111,7 +112,7 @@ export class TableScene extends Container {
         gridContainer.addChild(deskGrid);
 
         // Infinite slow scroll to the right
-        gsap.to(deskGrid, {
+        this.deskGridTween = gsap.to(deskGrid, {
             x: gridSize,
             duration: 10,
             repeat: -1,
@@ -481,8 +482,8 @@ export class TableScene extends Container {
         if (!silentFx) {
             audioManager.play(SoundMap.GAME_START);
         }
-        this.myCards.removeChildren();
-        this.communityCards.removeChildren();
+        this.clearContainerSafely(this.myCards);
+        this.clearContainerSafely(this.communityCards);
         this.boardCards = [];
         this.lastPotTotal = 0n;
         this.updatePot(0n, { instant: silentFx });
@@ -535,7 +536,7 @@ export class TableScene extends Container {
     private handleActionResult(result: ActionResult, options?: ReplayApplyOptions): void {
         this.hideActionCountdown();
         if (result.action === ActionType.ACTION_FOLD && result.chair === this.myChair) {
-            this.myCards.removeChildren();
+            this.clearContainerSafely(this.myCards);
         }
         if (!options?.silentFx && result.chair !== this.myChair) {
             this.playActionResultSound(result.action);
@@ -1091,7 +1092,7 @@ export class TableScene extends Container {
         // If cards are already shown and count matches, don't redo animation unless changed
         if (this.myCards.children.length === cards.length) return;
 
-        this.myCards.removeChildren();
+        this.clearContainerSafely(this.myCards);
         const cardW = 100;
         const cardH = 145;
         const gap = 16;
@@ -1336,11 +1337,44 @@ export class TableScene extends Container {
     }
 
     public dispose(): void {
+        if (this.deskGridTween) {
+            this.deskGridTween.kill();
+            this.deskGridTween = null;
+        }
+        for (const sv of this.seatViews) {
+            sv.disposeTweens();
+        }
+        this.killTweensRecursive(this);
+        gsap.killTweensOf(this._potTickerValue);
         this.hideActionCountdown();
         this.cleanupShowdown();
         if (this.unsubscribeStore) {
             this.unsubscribeStore();
             this.unsubscribeStore = null;
+        }
+    }
+
+    private clearContainerSafely(container: Container): void {
+        for (const child of container.children) {
+            this.killTweensRecursive(child);
+        }
+        container.removeChildren();
+    }
+
+    private killTweensRecursive(target: unknown): void {
+        if (!target || typeof target !== 'object') {
+            return;
+        }
+        const obj = target as { scale?: unknown; children?: unknown[] };
+        gsap.killTweensOf(obj);
+        if (obj.scale) {
+            gsap.killTweensOf(obj.scale);
+        }
+        if (!obj.children || obj.children.length === 0) {
+            return;
+        }
+        for (const child of obj.children) {
+            this.killTweensRecursive(child);
         }
     }
 }
@@ -1540,6 +1574,25 @@ class SeatView extends Container {
 
         this.avatarContainer.visible = false;
         this.clear();
+    }
+
+    disposeTweens(): void {
+        if (this._orbitTween) {
+            this._orbitTween.kill();
+            this._orbitTween = null;
+        }
+        gsap.killTweensOf(this._stackTicker);
+        gsap.killTweensOf(this._betTicker);
+        gsap.killTweensOf(this.betTag.scale);
+        gsap.killTweensOf(this.lightPoint);
+        if (this.winnerGlow) {
+            gsap.killTweensOf(this.winnerGlow);
+            gsap.killTweensOf(this.winnerGlow.scale);
+        }
+        if (this.winAmountBadge) {
+            gsap.killTweensOf(this.winAmountBadge);
+            gsap.killTweensOf(this.winAmountBadge.scale);
+        }
     }
 
     private drawHexagon(g: Graphics, size: number, color: number, alpha: number = 1): void {
