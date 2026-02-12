@@ -122,13 +122,6 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
 
     logout: async () => {
         const token = gameClient.getSessionToken();
-        if (token) {
-            try {
-                await authApi.logout(token);
-            } catch {
-                // Ignore network errors on local logout.
-            }
-        }
         gameClient.disconnect();
         gameClient.clearSessionToken();
         set((state) => ({
@@ -138,6 +131,16 @@ export const useAuthStore = create<AuthStoreState>((set) => ({
             username: '',
             errorMessage: '',
         }));
+
+        if (!token) {
+            return;
+        }
+
+        try {
+            await authApi.logout(token);
+        } catch {
+            // Ignore network errors on local logout.
+        }
     },
 
     clearError: () =>

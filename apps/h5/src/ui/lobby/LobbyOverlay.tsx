@@ -279,9 +279,9 @@ export function LobbyOverlay(): JSX.Element | null {
                         <button
                             type="button"
                             className="lobby-secondary-btn"
-                            onClick={() => {
+                            onClick={async () => {
                                 playUiClick();
-                                void logout();
+                                await logout();
                                 resetQuickStart();
                                 requestScene('login');
                             }}

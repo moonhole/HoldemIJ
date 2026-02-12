@@ -25,6 +25,12 @@ export function LoginOverlay(): JSX.Element | null {
         }
     }, [phase, currentScene, requestScene]);
 
+    useEffect(() => {
+        if (currentScene === 'login') {
+            setIsGlitching(false);
+        }
+    }, [currentScene]);
+
     if (currentScene !== 'login') {
         return null;
     }
@@ -169,4 +175,3 @@ export function LoginOverlay(): JSX.Element | null {
         </div>
     );
 }
-
