@@ -542,7 +542,15 @@ export class TableScene extends Container {
             this.updateSeats();
         }
         this.updateActivePlayer(prompt.chair);
-        this.showActionCountdown(prompt);
+        if (this.shouldShowActionCountdown(prompt)) {
+            this.showActionCountdown(prompt);
+        } else {
+            this.hideActionCountdown();
+        }
+    }
+
+    private shouldShowActionCountdown(prompt: ActionPrompt): boolean {
+        return prompt.timeLimitSec > 0 || prompt.actionDeadlineMs > 0n;
     }
 
     private showActionCountdown(prompt: ActionPrompt): void {
@@ -573,6 +581,10 @@ export class TableScene extends Container {
         const prompt = this.currentActionPrompt;
         if (!prompt) {
             this.actionTimerContainer.visible = false;
+            return;
+        }
+        if (!this.shouldShowActionCountdown(prompt)) {
+            this.hideActionCountdown();
             return;
         }
 

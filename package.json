@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "pnpm build:replay-wasm",
     "dev": "pnpm --filter h5 dev",
     "dev:server": "cd apps/server && go run .",
     "build": "pnpm --filter h5 build",

@@ -222,7 +222,7 @@ func buildActionPrompt(g *holdem.Game, chair uint16) (*pb.ActionPrompt, error) {
 		LegalActions:     legal,
 		MinRaiseTo:       minRaiseTo,
 		CallAmount:       callAmount,
-		TimeLimitSec:     30,
+		TimeLimitSec:     0,
 		ActionDeadlineMs: 0,
 	}, nil
 }
