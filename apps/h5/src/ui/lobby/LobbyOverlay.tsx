@@ -64,6 +64,7 @@ const MOCK_TABLES: LobbyTableItem[] = [
         tone: 'cyan',
     },
 ];
+const LOBBY_WS_IDLE_DISCONNECT_MS = 30000;
 
 function toHeroChair(summary: Record<string, unknown>): number {
     const raw = summary.chair;
@@ -159,6 +160,27 @@ export function LobbyOverlay(): JSX.Element | null {
         }
         setSettingsOpen(false);
     }, [auditOpen]);
+
+    useEffect(() => {
+        if (currentScene !== 'lobby') {
+            return;
+        }
+        const quickStartBusy = quickStartPhase === 'connecting' || quickStartPhase === 'sitting';
+        if (quickStartBusy || !gameClient.isConnected) {
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            const state = useUiStore.getState();
+            const stillInLobby = state.currentScene === 'lobby';
+            const stillBusy = state.quickStartPhase === 'connecting' || state.quickStartPhase === 'sitting';
+            if (stillInLobby && !stillBusy && gameClient.isConnected) {
+                gameClient.disconnect();
+            }
+        }, LOBBY_WS_IDLE_DISCONNECT_MS);
+
+        return () => window.clearTimeout(timer);
+    }, [currentScene, quickStartPhase]);
 
     if (currentScene !== 'lobby') {
         return null;

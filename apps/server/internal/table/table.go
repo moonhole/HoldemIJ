@@ -107,6 +107,7 @@ const (
 	actionTimeLimitSec = int32(30)
 	showdownHandDelay  = 8 * time.Second
 	foldHandDelay      = 3 * time.Second
+	offlineSeatTTL     = 30 * time.Second
 )
 
 // New creates a new table
@@ -448,10 +449,29 @@ func (t *Table) tick() {
 	if err := t.handleTimeout(now); err != nil {
 		log.Printf("[Table %s] timeout handler failed: %v", t.ID, err)
 	}
+	t.releaseOfflineSeats(now)
 	if !t.nextHandAt.IsZero() && !now.Before(t.nextHandAt) {
 		if err := t.tryStartHand(now); err != nil {
 			log.Printf("[Table %s] delayed hand start failed: %v", t.ID, err)
 		}
+	}
+}
+
+func (t *Table) releaseOfflineSeats(now time.Time) {
+	for userID, player := range t.players {
+		if player == nil || player.Online || player.Chair == holdem.InvalidChair {
+			continue
+		}
+		if now.Sub(player.LastSeen) < offlineSeatTTL {
+			continue
+		}
+		if err := t.handleStandUp(userID); err != nil {
+			// Throttle retries if game engine refuses stand-up in the current hand state.
+			player.LastSeen = now
+			log.Printf("[Table %s] auto-standup failed for offline user %d: %v", t.ID, userID, err)
+			continue
+		}
+		log.Printf("[Table %s] Auto-stood offline user %d after %s", t.ID, userID, offlineSeatTTL)
 	}
 }
 

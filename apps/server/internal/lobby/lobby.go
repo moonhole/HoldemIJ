@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultIdleTableTTL    = 2 * time.Minute
+	defaultIdleTableTTL    = 60 * time.Second
 	defaultCleanupInterval = 30 * time.Second
 )
 

@@ -11,6 +11,8 @@ import { useUiStore } from '../../store/uiStore';
 import { NumberTicker } from '../common/NumberTicker';
 import './action-overlay.css';
 
+const RETURN_LOBBY_DISCONNECT_GRACE_MS = 350;
+
 function sumPots(pots: Array<{ amount: bigint }> | undefined): bigint {
     if (!pots || pots.length === 0) {
         return 0n;
@@ -276,6 +278,14 @@ export function ActionOverlay(): JSX.Element | null {
         playUiClick();
         if (myChair !== -1) {
             gameClient.standUp();
+            window.setTimeout(() => {
+                const state = useUiStore.getState();
+                if (state.currentScene === 'lobby' && gameClient.isConnected) {
+                    gameClient.disconnect();
+                }
+            }, RETURN_LOBBY_DISCONNECT_GRACE_MS);
+        } else if (gameClient.isConnected) {
+            gameClient.disconnect();
         }
         requestScene('lobby');
         closePlayerCard();
