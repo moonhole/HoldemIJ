@@ -1,0 +1,31 @@
+FROM golang:1.23-alpine AS wasm-builder
+
+WORKDIR /src
+COPY go.mod go.sum ./
+COPY cmd ./cmd
+COPY apps/server ./apps/server
+COPY holdem ./holdem
+COPY card ./card
+COPY replay ./replay
+RUN mkdir -p /out/wasm && \
+    GOOS=js GOARCH=wasm go build -o /out/wasm/replay.wasm ./cmd/replaywasm && \
+    WASM_EXEC="$(go env GOROOT)/lib/wasm/wasm_exec.js" && \
+    if [ ! -f "${WASM_EXEC}" ]; then WASM_EXEC="$(go env GOROOT)/misc/wasm/wasm_exec.js"; fi && \
+    cp "${WASM_EXEC}" /out/wasm/wasm_exec.js
+
+FROM node:20-alpine AS web-builder
+
+WORKDIR /src
+RUN corepack enable
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/h5/package.json apps/h5/package.json
+RUN pnpm install --frozen-lockfile
+COPY . .
+COPY --from=wasm-builder /out/wasm/replay.wasm /src/apps/h5/public/wasm/replay.wasm
+COPY --from=wasm-builder /out/wasm/wasm_exec.js /src/apps/h5/public/wasm/wasm_exec.js
+RUN pnpm --filter h5 build
+
+FROM caddy:2.8-alpine
+COPY Caddyfile.experience /etc/caddy/Caddyfile
+COPY --from=web-builder /src/apps/h5/dist /srv
+EXPOSE 80 443

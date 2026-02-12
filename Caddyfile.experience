@@ -1,0 +1,16 @@
+{$APP_DOMAIN::80} {
+    route {
+        encode zstd gzip
+
+        @api path /api /api/*
+        @ws path /ws /ws/*
+        @health path /health
+        reverse_proxy @api app:8080
+        reverse_proxy @ws app:8080
+        reverse_proxy @health app:8080
+
+        root * /srv
+        try_files {path} /index.html
+        file_server
+    }
+}

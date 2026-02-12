@@ -1,0 +1,85 @@
+name: holdem-lite-xs
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: holdem_lite
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    command: ["postgres", "-c", "max_connections=120"]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d holdem_lite"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks:
+      - holdem
+
+  migrate:
+    image: postgres:16-alpine
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    volumes:
+      - ./apps/server/db:/sql:ro
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        psql -h db -U postgres -d holdem_lite -v ON_ERROR_STOP=1 -f /sql/schema.sql
+        psql -h db -U postgres -d holdem_lite -v ON_ERROR_STOP=1 -f /sql/003_ledger_audit.sql
+        psql -h db -U postgres -d holdem_lite -v ON_ERROR_STOP=1 -f /sql/002_seed.sql
+    networks:
+      - holdem
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    restart: unless-stopped
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      AUTH_MODE: db
+      AUTH_DATABASE_DSN: postgresql://postgres:${POSTGRES_PASSWORD:-postgres}@db:5432/holdem_lite?sslmode=disable
+      AUTH_SESSION_TTL: ${AUTH_SESSION_TTL:-720h}
+      AUDIT_RECENT_LIMIT_X: ${AUDIT_RECENT_LIMIT_X:-200}
+      AUDIT_SAVED_LIMIT_Y: ${AUDIT_SAVED_LIMIT_Y:-50}
+    expose:
+      - "8080"
+    networks:
+      - holdem
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.web
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_started
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-:80}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - holdem
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:
+
+networks:
+  holdem:

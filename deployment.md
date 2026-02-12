@@ -68,6 +68,36 @@ Not preferred for this architecture right now:
 
 ## 3. Reference Topologies
 
+### 3.0 Topology XS (experience env, tens of players)
+
+Target profile:
+
+- 30 to 80 total users in a small campaign
+- 10 to 30 concurrent users
+- up to about 4 to 6 active tables
+
+Minimal deployment:
+
+- 1 game app node (`2 vCPU / 4 GB RAM`)
+- 1 PostgreSQL instance (`1 vCPU / 1-2 GB RAM`, 20 GB SSD)
+- no Redis, no load balancer
+- reverse proxy with HTTPS (Nginx or Caddy)
+- daily `pg_dump` backup to object storage (7-day retention)
+
+Why this is acceptable here:
+
+- Single-node table authority keeps latency and routing simple.
+- For "tens of players", one app node is usually enough with headroom.
+- Redis and LB can be deferred until real concurrency data appears.
+
+Limits and exit criteria:
+
+- Single point of failure is expected in this tier.
+- Upgrade when one of these is sustained for multiple days:
+  - peak concurrent users above 30 to 40
+  - app CPU above 70% at peak hour
+  - frequent reconnect storms or table handoff pressure
+
 ### 3.1 Topology A (beta baseline)
 
 - 2 game app nodes
@@ -105,6 +135,19 @@ Costs vary significantly by:
 ---
 
 ## 5. Rough Monthly Cost Ranges
+
+## 5.0 Ultra-small experience tier (Topology XS)
+
+### DigitalOcean
+
+- 1 droplet (`2 vCPU / 4 GB`)
+- 1 small managed PostgreSQL node (or co-located PostgreSQL on the same droplet for minimum cost)
+- no LB, no Redis
+
+Expected range:
+
+- co-located PostgreSQL: USD 12 to 35 per month
+- managed PostgreSQL: USD 35 to 80 per month
 
 ## 5.1 DigitalOcean (cost-optimized path)
 
@@ -188,10 +231,11 @@ Expected range: USD 450 to 1200 per month
 
 ## 7. Suggested Rollout Sequence
 
-1. Start with single-region stateful deployment.
+1. Start with Topology XS for experience traffic (tens of users).
 2. Keep table authority in-memory and durable replay/audit in Postgres.
 3. Add Redis only for routing metadata and presence hints.
-4. Add HA tiers after real load and failure data, not before.
+4. Move to Topology A after hitting XS exit criteria.
+5. Add HA tiers after real load and failure data, not before.
 
 ---
 
@@ -231,4 +275,3 @@ In both cases:
   - https://docs.digitalocean.com/products/databases/postgresql/details/pricing/
 - DigitalOcean Caching (Redis) pricing:
   - https://docs.digitalocean.com/products/databases/redis/details/pricing/
-
