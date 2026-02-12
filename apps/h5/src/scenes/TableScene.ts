@@ -368,8 +368,10 @@ export class TableScene extends Container {
 
         // myCards will sit "on top" of the console
         this.myCards = new Container();
+        this.myCards.sortableChildren = true;
+        this.myCards.zIndex = 300;
         this.myCards.x = DESIGN_WIDTH / 2;
-        this.myCards.y = 80; // Moved up from 180 to avoid UI overlay blocking
+        this.myCards.y = 80;
         this.actionPanel.addChild(this.myCards);
     }
 
@@ -1066,6 +1068,7 @@ export class TableScene extends Container {
 
         cards.forEach((card, i) => {
             const cardView = this.createCard(card, cardW, cardH, true);
+            cardView.zIndex = 300 + i;
 
             // Start from center of table (deck)
             // But myCards is a child of actionPanel, so we need to adjust

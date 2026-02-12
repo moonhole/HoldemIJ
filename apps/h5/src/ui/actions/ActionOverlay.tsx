@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { audioManager } from '../../audio/AudioManager';
 import { SoundMap } from '../../audio/SoundMap';
 import { gameClient } from '../../network/GameClient';
+import { useReiStore } from '../../rei/reiStore';
 import { useReplayStore } from '../../replay/replayStore';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
@@ -20,6 +21,8 @@ function sumPots(pots: Array<{ amount: bigint }> | undefined): bigint {
 export function ActionOverlay(): JSX.Element | null {
     const currentScene = useUiStore((s) => s.currentScene);
     const replayMode = useReplayStore((s) => s.mode);
+    const reiStatusTag = useReiStore((s) => s.statusTag);
+    const reiKeyLine = useReiStore((s) => s.keyLine);
     const prompt = useGameStore((s) => s.actionPrompt);
     const snapshot = useGameStore((s) => s.snapshot);
     const potUpdate = useGameStore((s) => s.potUpdate);
@@ -332,20 +335,16 @@ export function ActionOverlay(): JSX.Element | null {
                                         <div className="npc-avatar-noise" />
                                         <span className="material-symbols-outlined npc-placeholder">person</span>
                                     </div>
-                                    <div className="npc-name-tag">
-                                        {prompt?.chair !== undefined ? `PLAYER_${snapshot?.players.find((p: any) => p.chair === prompt.chair)?.userId ?? '?'}` : 'SYSTEM'}
-                                    </div>
+                                    <div className="npc-name-tag">REI</div>
                                 </div>
                                 <div className="npc-content">
                                     <div className="npc-text-header">
                                         <div className="npc-status-left">
                                             <span className="npc-status-dot amp-pulse" />
-                                            <span className="npc-status-text">THINKING_PROMPT_WAIT</span>
+                                            <span className="npc-status-text">{reiStatusTag}</span>
                                         </div>
                                     </div>
-                                    <div className="npc-text-body">
-                                        正在同步下注数据流... 系统评估分析建议：观察对手频率，当前胜率模型维持稳定预期。
-                                    </div>
+                                    <div className="npc-text-body">{reiKeyLine}</div>
                                     <div className="npc-cursor" />
                                 </div>
                             </div>

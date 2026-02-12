@@ -1,0 +1,127 @@
+.rei-replay-overlay {
+    z-index: 200;
+}
+
+.rei-replay-shell {
+    pointer-events: none;
+}
+
+.rei-replay-main {
+    min-height: 158px;
+    height: 158px;
+}
+
+.rei-replay-detail {
+    font-family: 'Space Grotesk', 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    line-height: 1.35;
+    color: rgba(255, 255, 255, 0.72);
+    max-width: 100%;
+}
+
+.rei-replay-shell .npc-name-tag {
+    margin-top: 8px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: rgba(255, 255, 255, 0.86);
+    text-transform: uppercase;
+}
+
+.rei-replay-shell .npc-chat-content {
+    height: 100%;
+}
+
+.rei-replay-shell .npc-chat-layout {
+    align-items: stretch;
+}
+
+.rei-replay-shell .npc-content {
+    min-height: 0;
+}
+
+.rei-replay-scroll-wrap {
+    position: relative;
+    flex: 1;
+    min-height: 0;
+    padding-right: 18px;
+}
+
+.rei-replay-scroll {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(0, 243, 255, 0.55) rgba(255, 255, 255, 0.08);
+}
+
+.rei-replay-scroll::-webkit-scrollbar {
+    width: 4px;
+}
+
+.rei-replay-scroll::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+}
+
+.rei-replay-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 243, 255, 0.55);
+    border-radius: 8px;
+}
+
+.rei-replay-scroll .npc-text-body {
+    margin-bottom: 8px;
+}
+
+.rei-scroll-triangle {
+    position: absolute;
+    right: 2px;
+    width: 0;
+    height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    filter: drop-shadow(0 0 6px rgba(0, 243, 255, 0.6));
+    opacity: 0.92;
+    pointer-events: none;
+}
+
+.rei-scroll-up {
+    top: 4px;
+    border-bottom: 8px solid #00f3ff;
+    animation: rei-scroll-up-slide 1.1s ease-in-out infinite;
+}
+
+.rei-scroll-down {
+    bottom: 4px;
+    border-top: 8px solid #00f3ff;
+    animation: rei-scroll-down-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes rei-scroll-up-slide {
+    0% {
+        transform: translateY(4px);
+    }
+
+    50% {
+        transform: translateY(-1px);
+    }
+
+    100% {
+        transform: translateY(4px);
+    }
+}
+
+@keyframes rei-scroll-down-slide {
+    0% {
+        transform: translateY(-4px);
+    }
+
+    50% {
+        transform: translateY(1px);
+    }
+
+    100% {
+        transform: translateY(-4px);
+    }
+}

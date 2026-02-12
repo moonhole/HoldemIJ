@@ -3,6 +3,7 @@ import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { requireCanvas, requireUiRoot } from './architecture/boundary';
 import { audioManager } from './audio/AudioManager';
+import { bindReiRuntimeToStores } from './rei/runtime';
 import { bootstrapAuthSession } from './store/authStore';
 import { bindGameClientToStore } from './store/gameStore';
 import { useUiStore, type SceneName } from './store/uiStore';
@@ -31,6 +32,7 @@ class GameApp {
         const uiLayer = requireUiRoot();
         this.viewportEl = canvas.parentElement instanceof HTMLElement ? canvas.parentElement : window;
         bindGameClientToStore();
+        bindReiRuntimeToStores();
 
         // Initialize Audio
         audioManager.init().catch(console.warn);

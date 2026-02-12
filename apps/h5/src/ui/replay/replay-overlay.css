@@ -1,59 +1,266 @@
 .replay-overlay {
     position: absolute;
-    top: 16px;
-    left: 16px;
-    z-index: 220;
+    left: var(--stage-x, 0px);
+    top: var(--stage-y, 0px);
+    width: var(--stage-width, 100%);
+    height: var(--stage-height, 100%);
+    pointer-events: none;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.replay-shell {
+    width: min(420px, calc(100% - 24px));
+    margin: 0 12px calc(336px * var(--stage-scale, 1));
+    border-radius: 20px;
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
     pointer-events: auto;
+    padding: 14px 14px 12px;
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    width: 260px;
-    padding: 12px;
-    border: 1px solid rgba(0, 243, 255, 0.45);
-    background: rgba(8, 18, 24, 0.86);
-    box-shadow: 0 0 14px rgba(0, 243, 255, 0.25);
-    color: #d9faff;
-    font-family: "Space Grotesk", sans-serif;
+    gap: 10px;
+    position: relative;
+    z-index: 150;
+}
+
+.replay-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
 }
 
 .replay-title {
     font-size: 12px;
-    letter-spacing: 1px;
-    opacity: 0.92;
+    font-weight: 800;
+    letter-spacing: 0.14em;
+    color: rgba(255, 255, 255, 0.9);
+    text-transform: uppercase;
+}
+
+.replay-chip {
+    min-height: 24px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 243, 255, 0.4);
+    background: rgba(0, 243, 255, 0.12);
+    color: rgba(222, 251, 255, 0.94);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
 
 .replay-meta {
     font-size: 11px;
-    opacity: 0.88;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.35;
 }
 
 .replay-row {
     display: flex;
-    gap: 8px;
+    gap: 10px;
 }
 
 .replay-btn {
     flex: 1;
-    border: 1px solid rgba(0, 243, 255, 0.4);
-    background: rgba(0, 243, 255, 0.12);
-    color: #e6fbff;
-    font-size: 12px;
-    line-height: 1;
-    padding: 8px 10px;
+    min-height: 36px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.06);
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
     cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+.replay-btn:hover:not(:disabled) {
+    transform: translateY(-1px);
+    background: rgba(255, 255, 255, 0.12);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.replay-btn-primary {
+    border-color: rgba(0, 243, 255, 0.45);
+    background: rgba(0, 243, 255, 0.14);
+    color: rgba(222, 251, 255, 0.95);
+}
+
+.replay-btn-secondary {
+    border-color: rgba(244, 37, 175, 0.36);
+    background: rgba(244, 37, 175, 0.12);
+    color: rgba(255, 221, 241, 0.92);
 }
 
 .replay-btn:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+    transform: none;
 }
 
 .replay-range {
     width: 100%;
+    height: 6px;
+    accent-color: #00f3ff;
 }
 
-.replay-error {
-    color: #ff7b7b;
+.replay-list-backdrop {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
+    background: rgba(6, 4, 8, 0.72);
+    pointer-events: auto;
+    z-index: 280;
+}
+
+.replay-list-modal {
+    width: min(520px, 100%);
+    max-height: min(680px, calc(100% - 40px));
+    display: flex;
+    flex-direction: column;
+    border: 1px solid rgba(0, 243, 255, 0.28);
+    background: rgba(12, 9, 14, 0.96);
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.replay-list-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 12px 14px;
+    background: rgba(0, 243, 255, 0.08);
+    border-bottom: 1px solid rgba(0, 243, 255, 0.25);
+}
+
+.replay-list-header h3 {
+    margin: 0;
+    color: rgba(220, 249, 255, 0.94);
+    font-size: 12px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+}
+
+.replay-list-close-btn {
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(244, 37, 175, 0.35);
+    background: rgba(244, 37, 175, 0.12);
+    color: #ffd6ef;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.replay-list-state {
+    padding: 24px 16px;
+    color: rgba(255, 255, 255, 0.72);
+    text-align: center;
+    font-size: 12px;
+}
+
+.replay-list-items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    overflow: auto;
+}
+
+.replay-list-item {
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 10px;
+    padding: 10px 12px;
+    background: rgba(255, 255, 255, 0.04);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.replay-list-item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.replay-list-hand-id {
+    color: rgba(239, 250, 255, 0.95);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+}
+
+.replay-list-hand-meta {
+    color: rgba(255, 255, 255, 0.62);
     font-size: 11px;
 }
 
+.replay-list-delta {
+    min-width: 72px;
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.replay-list-delta.is-pos {
+    color: #00f3ff;
+}
+
+.replay-list-delta.is-neg {
+    color: #ff9dbf;
+}
+
+.replay-list-open-btn {
+    min-height: 30px;
+    padding: 0 10px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 243, 255, 0.4);
+    background: rgba(0, 243, 255, 0.12);
+    color: #defbff;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
+.replay-list-open-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
+
+.replay-list-error {
+    padding: 10px 14px 14px;
+    color: #ff9d9d;
+    font-size: 12px;
+}
+
+@media (max-width: 640px),
+(max-height: 760px) {
+    .replay-shell {
+        width: calc(100% - 16px);
+        margin: 0 8px calc(310px * var(--stage-scale, 1));
+        padding: 12px;
+    }
+
+    .replay-btn {
+        min-height: 32px;
+        font-size: 10px;
+    }
+}

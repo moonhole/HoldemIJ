@@ -1,6 +1,7 @@
 import { ActionOverlay } from './actions/ActionOverlay';
 import { LoginOverlay } from './auth/LoginOverlay';
 import { LobbyOverlay } from './lobby/LobbyOverlay';
+import { ReiOverlay } from './rei/ReiOverlay';
 import { ReplayOverlay } from './replay/ReplayOverlay';
 
 export function UiLayerApp(): JSX.Element {
@@ -9,6 +10,7 @@ export function UiLayerApp(): JSX.Element {
             <LoginOverlay />
             <LobbyOverlay />
             <ReplayOverlay />
+            <ReiOverlay />
             <ActionOverlay />
         </div>
     );
