@@ -1,0 +1,263 @@
+.desktop-workspace {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-template-columns: var(--panel-left-width, 0px) 1fr var(--panel-right-width, 0px);
+    grid-template-rows: 1fr;
+    pointer-events: none;
+    z-index: 50;
+}
+
+.desktop-left-rail,
+.desktop-right-rail {
+    height: 100%;
+    background:
+        radial-gradient(circle at 20% 0%, rgba(0, 243, 255, 0.08), transparent 58%),
+        radial-gradient(circle at 90% 100%, rgba(244, 37, 175, 0.08), transparent 55%),
+        rgba(6, 4, 8, 0.88);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    border-left: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.desktop-left-rail {
+    border-left: none;
+    pointer-events: auto;
+    padding: 14px 10px 18px 14px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.desktop-right-rail {
+    border-right: none;
+}
+
+.desktop-right-rail {
+    pointer-events: auto;
+    padding: 14px 14px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.desktop-right-rail > * {
+    pointer-events: auto;
+}
+
+/* Replay panel layout */
+.desktop-right-rail .replay-overlay {
+    position: relative;
+    left: auto;
+    top: auto;
+    width: 100%;
+    height: auto;
+    display: block;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.desktop-right-rail .replay-shell {
+    width: 100%;
+    margin: 0;
+    border-radius: 18px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(8, 4, 8, 0.86);
+    backdrop-filter: blur(24px);
+    box-shadow: 0 26px 70px rgba(0, 0, 0, 0.65);
+}
+
+/* REI panel layout (reuse action overlay styles, but dock in rail) */
+.desktop-right-rail .rei-replay-overlay.action-overlay {
+    position: relative;
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+    width: 100%;
+    height: auto;
+    padding-bottom: 0;
+    display: block;
+    align-items: stretch;
+    justify-content: flex-start;
+}
+
+.desktop-right-rail .rei-replay-shell.action-overlay-shell {
+    width: 100%;
+    max-width: none;
+    border-radius: 18px;
+    pointer-events: auto;
+    padding: 18px;
+    gap: 14px;
+}
+
+.desktop-right-rail .rei-replay-main.shell-main-content {
+    min-height: clamp(260px, 38vh, 520px);
+    height: clamp(260px, 38vh, 520px);
+}
+
+.desktop-right-status-card {
+    margin-bottom: 2px;
+}
+
+.desktop-right-empty {
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.68);
+}
+
+.desktop-left-rail-content {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.desktop-rail-card {
+    border-radius: 14px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(8, 4, 8, 0.78);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.desktop-rail-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.desktop-rail-title {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 800;
+    color: rgba(230, 250, 255, 0.94);
+}
+
+.desktop-rail-chip {
+    min-height: 20px;
+    padding: 0 8px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    display: inline-flex;
+    align-items: center;
+}
+
+.desktop-rail-chip.is-live {
+    border-color: rgba(0, 243, 255, 0.45);
+    color: rgba(0, 243, 255, 0.92);
+    box-shadow: inset 0 0 16px rgba(0, 243, 255, 0.12);
+}
+
+.desktop-rail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.desktop-rail-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 7px 8px;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.desktop-rail-label {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.56);
+}
+
+.desktop-rail-value {
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.94);
+}
+
+.desktop-rail-note,
+.desktop-rail-empty {
+    font-size: 11px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+.desktop-rail-list {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.desktop-rail-list-item {
+    font-size: 11px;
+    line-height: 1.4;
+    color: rgba(255, 255, 255, 0.84);
+}
+
+.desktop-rail-opponents {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+}
+
+.desktop-opp-row {
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.desktop-opp-main,
+.desktop-opp-side {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.desktop-opp-name {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.94);
+}
+
+.desktop-opp-seat {
+    font-size: 10px;
+    letter-spacing: 0.04em;
+    color: rgba(255, 255, 255, 0.58);
+}
+
+.desktop-opp-stack {
+    font-size: 12px;
+    font-weight: 700;
+    color: rgba(220, 247, 255, 0.92);
+    text-align: right;
+}
+
+.desktop-opp-state {
+    font-size: 10px;
+    text-align: right;
+    color: rgba(255, 255, 255, 0.65);
+}
+
+.desktop-opp-state.is-alert {
+    color: rgba(255, 96, 127, 0.95);
+}

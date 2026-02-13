@@ -25,6 +25,18 @@
       box-sizing: border-box;
     }
 
+    :root {
+      --panel-left-width: 0px;
+      --panel-right-width: 0px;
+      --panel-border: rgba(255, 255, 255, 0.08);
+      --panel-bg: rgba(6, 4, 8, 0.88);
+    }
+
+    :root.profile-desktop {
+      --panel-left-width: clamp(338px, 23.4vw, 416px);
+      --panel-right-width: clamp(468px, 33.8vw, 676px);
+    }
+
     html,
     body {
       width: 100%;

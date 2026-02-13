@@ -110,6 +110,16 @@ Profile selection from runtime viewport metrics:
 - stage aspect ratio
 - input modality hints (pointer precision)
 
+### 3.4 Desktop workspace layout (1920x1080 baseline)
+
+Desktop should reserve left/right rails early to avoid later layout rewrites.
+
+Recommended v1 focus:
+
+- Replay + training (陪练) usability first
+- Keep the table renderer in the center viewport
+- Use the right rail for Replay controls + REI output (later: coding-agent / custom UI panels)
+
 ---
 
 ## 4. Implementation Design for UI Profiles
@@ -240,4 +250,3 @@ Execution priority:
 1. Windows desktop package and distribution path
 2. Dual-profile UI foundation (`compact` + `desktop`)
 3. macOS reserved build path when bandwidth exists
-
