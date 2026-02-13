@@ -699,6 +699,10 @@ export class TableScene extends Container {
         }
         const actor = this.getPlayers().find((p) => p.chair === chair);
         if (actor) {
+            const nickname = actor.nickname.trim();
+            if (nickname) {
+                return nickname;
+            }
             return `PLAYER_${actor.userId.toString()}`;
         }
         return `CHAIR_${chair + 1}`;
@@ -1415,6 +1419,8 @@ class SeatView extends Container {
     private avatarFrame: Graphics;
     private avatarContainer: Container;
     private avatarPlaceholder: Graphics;
+    private avatarVisual: Container | null = null;
+    private avatarSeed = '';
     private emptyIcon: Text;
     private nameText: Text;
     private stackText: Text;
@@ -1453,13 +1459,16 @@ class SeatView extends Container {
         this.addChild(this.avatarContainer);
 
         this.avatarPlaceholder = new Graphics();
-        this.avatarPlaceholder.circle(0, 0, 38); // Increased from 30
-        this.avatarPlaceholder.fill({ color: 0x222222 });
-        this.avatarPlaceholder.stroke({ color: 0x444444, width: 2.5 });
-        this.avatarPlaceholder.circle(0, -8, 14); // Scaled
-        this.avatarPlaceholder.fill({ color: 0x444444 });
-        this.avatarPlaceholder.ellipse(0, 20, 22, 16); // Scaled
-        this.avatarPlaceholder.fill({ color: 0x444444 });
+        this.avatarPlaceholder.circle(0, 0, 38);
+        this.avatarPlaceholder.fill({ color: 0x140d16 });
+        this.avatarPlaceholder.circle(0, 0, 30);
+        this.avatarPlaceholder.stroke({ color: COLORS.cyan, width: 1.5, alpha: 0.35 });
+        this.avatarPlaceholder.circle(0, 0, 22);
+        this.avatarPlaceholder.stroke({ color: COLORS.primary, width: 1.5, alpha: 0.35 });
+        this.avatarPlaceholder.moveTo(-10, -6).lineTo(10, -6);
+        this.avatarPlaceholder.moveTo(-6, 2).lineTo(6, 2);
+        this.avatarPlaceholder.moveTo(-12, 10).lineTo(12, 10);
+        this.avatarPlaceholder.stroke({ color: 0xffffff, width: 1, alpha: 0.12 });
         this.avatarContainer.addChild(this.avatarPlaceholder);
 
         this.emptyIcon = new Text({
@@ -1662,6 +1671,95 @@ class SeatView extends Container {
         this.chair = chair;
     }
 
+    private hashSeed(seed: string): number {
+        let hash = 0x811c9dc5;
+        for (let i = 0; i < seed.length; i++) {
+            hash ^= seed.charCodeAt(i);
+            hash = Math.imul(hash, 0x01000193);
+        }
+        return hash >>> 0;
+    }
+
+    private pickNeonColor(hash: number, offset: number): number {
+        const palette = [COLORS.cyan, COLORS.primary, 0x24f4a9, 0xff5bc3, 0x7be7ff, 0xffb347];
+        return palette[(hash + offset) % palette.length];
+    }
+
+    private setAvatar(userId: bigint): void {
+        const seed = userId.toString();
+        if (this.avatarSeed === seed && this.avatarVisual) {
+            return;
+        }
+
+        this.avatarSeed = seed;
+        if (this.avatarVisual) {
+            this.avatarVisual.destroy({ children: true });
+            this.avatarVisual = null;
+        }
+
+        const hash = this.hashSeed(seed);
+        const colorA = this.pickNeonColor(hash, 1);
+        const colorB = this.pickNeonColor(hash, 3);
+        const colorC = this.pickNeonColor(hash, 5);
+
+        const visual = new Container();
+
+        const base = new Graphics();
+        base.circle(0, 0, 37);
+        base.fill({ color: 0x09070f, alpha: 0.95 });
+        base.circle(0, 0, 33);
+        base.stroke({ color: colorA, width: 2, alpha: 0.7 });
+        base.circle(0, 0, 28);
+        base.stroke({ color: colorB, width: 1.5, alpha: 0.55 });
+        visual.addChild(base);
+
+        const bars = new Graphics();
+        for (let i = 0; i < 6; i++) {
+            const y = -20 + i * 7 + ((hash >>> i) & 1);
+            const width = 18 + ((hash >>> (i + 8)) & 0x0f);
+            const skew = ((hash >>> (i + 15)) & 0x07) - 3;
+            bars.rect(-width / 2 + skew, y, width, 2);
+            bars.fill({ color: i % 2 === 0 ? colorA : colorB, alpha: 0.35 });
+        }
+        visual.addChild(bars);
+
+        const face = new Graphics();
+        const eyeY = -6 + ((hash >>> 3) & 0x03);
+        const eyeW = 8 + (((hash >>> 5) & 0x03) * 2);
+        const eyeGap = 8 + (((hash >>> 7) & 0x03) * 2);
+        face.roundRect(-eyeGap - eyeW, eyeY, eyeW, 4, 1.5);
+        face.fill({ color: colorC, alpha: 0.9 });
+        face.roundRect(eyeGap, eyeY, eyeW, 4, 1.5);
+        face.fill({ color: colorC, alpha: 0.9 });
+        const mouthW = 18 + (((hash >>> 10) & 0x07) * 2);
+        face.roundRect(-mouthW / 2, eyeY + 11, mouthW, 3, 1.5);
+        face.fill({ color: colorA, alpha: 0.8 });
+        visual.addChild(face);
+
+        const cuts = new Graphics();
+        cuts.moveTo(-18, -24).lineTo(10, -24).lineTo(16, -18).lineTo(-14, -18).closePath();
+        cuts.fill({ color: colorB, alpha: 0.2 });
+        cuts.moveTo(-8, 20).lineTo(20, 20).lineTo(14, 26).lineTo(-14, 26).closePath();
+        cuts.fill({ color: colorA, alpha: 0.2 });
+        cuts.moveTo(-14, 0).lineTo(-2, 0);
+        cuts.moveTo(4, 0).lineTo(16, 0);
+        cuts.stroke({ color: 0xffffff, width: 1, alpha: 0.22 });
+        visual.addChild(cuts);
+
+        this.avatarContainer.addChild(visual);
+        this.avatarVisual = visual;
+        this.avatarPlaceholder.visible = false;
+    }
+
+    private clearAvatar(): void {
+        this.avatarSeed = '';
+        if (this.avatarVisual) {
+            this.avatarVisual.destroy({ children: true });
+            this.avatarVisual = null;
+        }
+        this.avatarPlaceholder.visible = true;
+    }
+
     setPlayer(player: PlayerState, isMe: boolean, options?: { instant?: boolean }): void {
         const instant = !!options?.instant;
         this.userId = player.userId;
@@ -1672,7 +1770,9 @@ class SeatView extends Container {
         this.avatarContainer.visible = true;
         this.eventMode = 'static';
         this.cursor = 'pointer';
-        this.nameText.text = isMe ? 'YOU' : `PLAYER_${player.userId.toString()}`;
+        this.setAvatar(player.userId);
+        const nickname = player.nickname.trim();
+        this.nameText.text = isMe ? 'YOU' : (nickname || `PLAYER_${player.userId.toString()}`);
         this.nameText.style.fill = isMe ? COLORS.primary : 0xcccccc;
 
         if (this._currentStack === -1n) {
@@ -1886,6 +1986,7 @@ class SeatView extends Container {
         this.cardBacks.visible = false;
         this.shownCards.removeChildren();
         this.avatarContainer.visible = false;
+        this.clearAvatar();
         this.emptyIcon.visible = true;
         this.avatarFrame.clear();
         this.drawHexagon(this.avatarFrame, 50, 0x0a0609, 0.5); // Increased from 40

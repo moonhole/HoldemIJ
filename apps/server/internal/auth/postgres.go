@@ -226,7 +226,7 @@ WHERE s.token = $1
   AND s.account_id = a.id
   AND s.revoked_at IS NULL
   AND s.expires_at > NOW()
-RETURNING s.account_id, a.username
+RETURNING s.account_id, COALESCE(NULLIF(a.display_name, ''), a.username)
 `, token, expiresAt).Scan(&accountID, &username)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {

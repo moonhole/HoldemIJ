@@ -94,6 +94,7 @@ const (
 type Event struct {
 	Type      EventType
 	UserID    uint64
+	Nickname  string
 	Chair     uint16
 	Amount    int64
 	Action    holdem.ActionType
@@ -186,7 +187,7 @@ func (t *Table) handleEvent(e Event) error {
 
 	switch e.Type {
 	case EventJoinTable:
-		return t.handleJoinTable(e.UserID)
+		return t.handleJoinTable(e.UserID, e.Nickname)
 	case EventSitDown:
 		return t.handleSitDown(e.UserID, e.Chair, e.Amount)
 	case EventStandUp:
@@ -202,7 +203,7 @@ func (t *Table) handleEvent(e Event) error {
 	case EventConnLost:
 		return t.handleConnLost(e.UserID, e.Timestamp)
 	case EventConnResume:
-		return t.handleConnResume(e.UserID, e.Timestamp)
+		return t.handleConnResume(e.UserID, e.Nickname, e.Timestamp)
 	case EventClose:
 		t.stopLocked()
 		return nil
@@ -211,17 +212,20 @@ func (t *Table) handleEvent(e Event) error {
 	}
 }
 
-func (t *Table) handleJoinTable(userID uint64) error {
+func (t *Table) handleJoinTable(userID uint64, nickname string) error {
 	now := time.Now()
+	resolvedNickname := normalizeNickname(nickname, userID)
 	if player, exists := t.players[userID]; exists {
 		player.Online = true
 		player.LastSeen = now
+		player.Nickname = resolvedNickname
 		t.sendSnapshot(userID)
 		t.sendPromptIfActingUser(userID)
 		return nil // Already joined
 	}
 	t.players[userID] = &PlayerConn{
 		UserID:   userID,
+		Nickname: resolvedNickname,
 		Chair:    holdem.InvalidChair,
 		Online:   true,
 		LastSeen: now,
@@ -541,11 +545,12 @@ func (t *Table) handleConnLost(userID uint64, ts time.Time) error {
 	return nil
 }
 
-func (t *Table) handleConnResume(userID uint64, ts time.Time) error {
+func (t *Table) handleConnResume(userID uint64, nickname string, ts time.Time) error {
 	player := t.players[userID]
 	if player == nil {
 		return nil
 	}
+	player.Nickname = normalizeNickname(nickname, userID)
 	if ts.IsZero() {
 		ts = time.Now()
 	}
@@ -636,6 +641,25 @@ func (t *Table) updateEmptySinceLocked(now time.Time) {
 		return
 	}
 	t.emptySince = time.Time{}
+}
+
+func (t *Table) playerNickname(userID uint64) string {
+	player := t.players[userID]
+	if player != nil {
+		nickname := strings.TrimSpace(player.Nickname)
+		if nickname != "" {
+			return nickname
+		}
+	}
+	return fmt.Sprintf("user_%d", userID)
+}
+
+func normalizeNickname(raw string, userID uint64) string {
+	nickname := strings.TrimSpace(raw)
+	if nickname == "" {
+		return fmt.Sprintf("user_%d", userID)
+	}
+	return nickname
 }
 
 func (t *Table) IsIdleFor(ttl time.Duration) bool {
@@ -776,6 +800,7 @@ func (t *Table) buildTableSnapshotForUser(userID uint64) *pb.TableSnapshot {
 	for _, ps := range snap.Players {
 		player := &pb.PlayerState{
 			UserId:     ps.ID,
+			Nickname:   t.playerNickname(ps.ID),
 			Chair:      uint32(ps.Chair),
 			Stack:      ps.Stack,
 			Bet:        ps.Bet,
@@ -888,6 +913,7 @@ func (t *Table) sendSnapshot(userID uint64) {
 
 func (t *Table) broadcastSeatUpdate(chair uint16, userID uint64, stack int64) {
 	log.Printf("[Table %s] Broadcasting seat update: chair=%d user=%d stack=%d", t.ID, chair, userID, stack)
+	nickname := t.playerNickname(userID)
 
 	env := &pb.ServerEnvelope{
 		TableId:    t.ID,
@@ -899,6 +925,7 @@ func (t *Table) broadcastSeatUpdate(chair uint16, userID uint64, stack int64) {
 				Update: &pb.SeatUpdate_PlayerJoined{
 					PlayerJoined: &pb.PlayerState{
 						UserId:   userID,
+						Nickname: nickname,
 						Chair:    uint32(chair),
 						Stack:    stack,
 						HasCards: false,
