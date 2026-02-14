@@ -5,6 +5,7 @@ class AudioManager {
     private _muted: boolean = false;
     private _volume: number = 0.5;
     private _initialized: boolean = false;
+    private readonly debugLogs: boolean = false;
 
     constructor() {
         // Load settings from local storage if available
@@ -23,7 +24,7 @@ class AudioManager {
         if (this._initialized) return;
 
         // Preload sounds
-        console.log('Audio: Initializing and preloading assets...');
+        this.debug('Audio: Initializing and preloading assets...');
         const promises = Object.keys(SoundAssets).map((key) => {
             return new Promise<void>((resolve) => {
                 const resolvedPath = this.resolveAssetPath(key);
@@ -62,7 +63,14 @@ class AudioManager {
         ]);
 
         this._initialized = true;
-        console.log('Audio: Initialization complete.');
+        this.debug('Audio: Initialization complete.');
+    }
+
+    private debug(...args: unknown[]): void {
+        if (!this.debugLogs) {
+            return;
+        }
+        console.log(...args);
     }
 
     private resolveAssetPath(key: string, visited: Set<string> = new Set()): string | null {
@@ -88,7 +96,7 @@ class AudioManager {
 
     public async unlock() {
         // Play a silent sound to unlock audio context in browsers
-        console.log('Audio: Manually unlocking audio context...');
+        this.debug('Audio: Manually unlocking audio context...');
         const silent = new Audio();
         // Use a tiny silent base64 mp3 if possible, but just playing any sound on user click usually works
         try {
@@ -110,7 +118,7 @@ class AudioManager {
             const playSound = async (s: HTMLAudioElement) => {
                 s.volume = this._volume * volumeScale;
                 s.muted = this._muted;
-                console.log(`Audio: Playing '${key}' (vol: ${s.volume}, muted: ${s.muted}, src: ${s.src})`);
+                this.debug(`Audio: Playing '${key}' (vol: ${s.volume}, muted: ${s.muted}, src: ${s.src})`);
                 try {
                     if (s.paused) {
                         s.currentTime = 0;

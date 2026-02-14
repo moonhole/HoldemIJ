@@ -69,6 +69,7 @@ export class GameClient {
     public lastPotUpdate: PotUpdate | null = null;
     public lastPhaseChange: PhaseChange | null = null;
     private myBet: bigint = 0n;
+    private readonly debugLogs = false;
 
     constructor(url: string = resolveWsUrl('/ws')) {
         this.baseUrl = url.startsWith('/') ? resolveWsUrl(url) : url;
@@ -86,6 +87,13 @@ export class GameClient {
         for (const listener of this.listeners) {
             run(listener);
         }
+    }
+
+    private debug(...args: unknown[]): void {
+        if (!this.debugLogs) {
+            return;
+        }
+        console.log(...args);
     }
 
     connect(): Promise<void> {
@@ -123,7 +131,7 @@ export class GameClient {
                     hasOpened = true;
                     finalize(() => {
                         window.clearTimeout(timeoutId);
-                        console.log('[GameClient] Connected');
+                        this.debug('[GameClient] Connected');
                         this.notify((h) => h.onConnect?.());
                         resolve();
                     });
@@ -131,7 +139,7 @@ export class GameClient {
 
                 this.ws.onclose = (event) => {
                     window.clearTimeout(timeoutId);
-                    console.log('[GameClient] Disconnected', event.code, event.reason);
+                    this.debug('[GameClient] Disconnected', event.code, event.reason);
                     this.notify((h) => h.onDisconnect?.());
                     if (!hasOpened) {
                         finalize(() => reject(new Error(`WebSocket closed before ready (${event.code})`)));
@@ -167,7 +175,7 @@ export class GameClient {
         if (this.reconnectTimer) return;
         this.reconnectTimer = window.setTimeout(() => {
             this.reconnectTimer = null;
-            console.log('[GameClient] Reconnecting...');
+            this.debug('[GameClient] Reconnecting...');
             this.connect().catch(console.error);
         }, 3000);
     }
@@ -186,7 +194,7 @@ export class GameClient {
                 return;
             }
             const env = fromBinary(ServerEnvelopeSchema, bytes);
-            console.log('[GameClient] Received', env.payload.case, env.serverSeq);
+            this.debug('[GameClient] Received', env.payload.case, env.serverSeq);
 
             this.updateServerClockOffset(Number(env.serverTsMs));
 
@@ -309,7 +317,7 @@ export class GameClient {
                             this.syncHeroFromSnapshot(this.lastSnapshot);
                             this.notify((h) => h.onSnapshot?.(this.lastSnapshot!));
                         }
-                        console.log('[GameClient] Logged in as user', this.userId.toString());
+                        this.debug('[GameClient] Logged in as user', this.userId.toString());
                         break;
                     }
                 case 'error':
@@ -396,7 +404,7 @@ export class GameClient {
                 ? data.buffer
                 : data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
         this.ws.send(binary);
-        console.log('[GameClient] Sent', payload.case, 'seq', this.seq);
+        this.debug('[GameClient] Sent', payload.case, 'seq', this.seq);
     }
 
     // Public API

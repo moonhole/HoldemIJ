@@ -1108,6 +1108,7 @@ export class TableScene extends Container {
             this.potValueContainer.x = -centerBias;
             return;
         }
+        gsap.killTweensOf(this._potTickerValue);
         gsap.to(this._potTickerValue, {
             val: target,
             duration: 1.2,
@@ -1390,10 +1391,11 @@ export class TableScene extends Container {
     }
 
     private clearContainerSafely(container: Container): void {
-        for (const child of container.children) {
+        const children = container.removeChildren();
+        for (const child of children) {
             this.killTweensRecursive(child);
+            child.destroy({ children: true });
         }
-        container.removeChildren();
     }
 
     private killTweensRecursive(target: unknown): void {
@@ -1787,6 +1789,7 @@ class SeatView extends Container {
                 this._stackTicker.val = Number(player.stack);
                 this.stackText.text = `$${Math.floor(this._stackTicker.val).toLocaleString()}`;
             } else {
+                gsap.killTweensOf(this._stackTicker);
                 gsap.to(this._stackTicker, {
                     val: Number(player.stack),
                     duration: 1.5,
@@ -1851,6 +1854,7 @@ class SeatView extends Container {
                 this._betTicker.val = Number(amount);
                 this.betText.text = `$${Math.floor(this._betTicker.val).toLocaleString()}`;
             } else {
+                gsap.killTweensOf(this._betTicker);
                 gsap.to(this._betTicker, {
                     val: Number(amount),
                     duration: 0.6,
@@ -1865,7 +1869,7 @@ class SeatView extends Container {
 
     showCards(cards: Card[], animate: boolean = false): void {
         this.cardBacks.visible = false;
-        this.shownCards.removeChildren();
+        this.destroyContainerChildren(this.shownCards);
         const cardW = 36;
         const cardH = 54;
         const gap = 6;
@@ -1970,7 +1974,7 @@ class SeatView extends Container {
 
     clearCards(): void {
         this.cardBacks.visible = false;
-        this.shownCards.removeChildren();
+        this.destroyContainerChildren(this.shownCards);
     }
 
     clear(): void {
@@ -1984,7 +1988,7 @@ class SeatView extends Container {
         this.stackText.text = '';
         this.statusText.visible = false;
         this.cardBacks.visible = false;
-        this.shownCards.removeChildren();
+        this.destroyContainerChildren(this.shownCards);
         this.avatarContainer.visible = false;
         this.clearAvatar();
         this.emptyIcon.visible = true;
@@ -1993,6 +1997,18 @@ class SeatView extends Container {
         this.avatarFrame.stroke({ color: 0x333333, width: 1.5, alpha: 0.4 });
         this.betTag.visible = false;
         this.dealerButton.visible = false;
+    }
+
+    private destroyContainerChildren(container: Container): void {
+        const children = container.removeChildren();
+        for (const child of children) {
+            gsap.killTweensOf(child);
+            const target = child as { scale?: unknown };
+            if (target.scale) {
+                gsap.killTweensOf(target.scale);
+            }
+            child.destroy({ children: true });
+        }
     }
 
     setDealer(isDealer: boolean): void {
@@ -2021,6 +2037,10 @@ class SeatView extends Container {
                 this.winnerGlow.destroy();
                 this.winnerGlow = null;
             }
+            return;
+        }
+
+        if (this.winnerGlow) {
             return;
         }
 
