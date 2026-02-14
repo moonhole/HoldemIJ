@@ -1,0 +1,66 @@
+.perf-overlay {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    z-index: 460;
+    min-width: 212px;
+    padding: 10px 12px;
+    border: 1px solid rgba(0, 243, 255, 0.38);
+    border-radius: 10px;
+    background: rgba(6, 8, 14, 0.86);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.42);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+    pointer-events: none;
+}
+
+.perf-overlay-head {
+    margin-bottom: 8px;
+    color: rgba(0, 243, 255, 0.95);
+    font-size: 11px;
+    letter-spacing: 0.16em;
+    font-weight: 700;
+}
+
+.perf-overlay-line {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-top: 4px;
+    color: rgba(255, 255, 255, 0.68);
+    font-size: 11px;
+}
+
+.perf-overlay-line strong {
+    color: rgba(238, 250, 255, 0.96);
+    font-weight: 700;
+}
+
+.perf-overlay-hint {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.16);
+    font-size: 11px;
+    font-weight: 700;
+}
+
+.perf-overlay-hint.is-collecting {
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.perf-overlay-hint.is-healthy {
+    color: #7dffbd;
+}
+
+.perf-overlay-hint.is-cpu {
+    color: #ffd580;
+}
+
+.perf-overlay-hint.is-gc {
+    color: #ffb67c;
+}
+
+.perf-overlay-hint.is-gpu {
+    color: #ffa3d4;
+}
+

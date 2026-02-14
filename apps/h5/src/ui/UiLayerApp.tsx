@@ -2,6 +2,7 @@ import { ActionOverlay } from './actions/ActionOverlay';
 import { LoginOverlay } from './auth/LoginOverlay';
 import { DesktopWorkspace } from './desktop/DesktopWorkspace';
 import { LobbyOverlay } from './lobby/LobbyOverlay';
+import { PerfOverlay } from './perf/PerfOverlay';
 import { ReiOverlay } from './rei/ReiOverlay';
 import { ReplayOverlay } from './replay/ReplayOverlay';
 import { useLayoutStore } from '../store/layoutStore';
@@ -17,6 +18,7 @@ export function UiLayerApp(): JSX.Element {
             {uiProfile === 'compact' ? <ReiOverlay /> : null}
             <DesktopWorkspace />
             <ActionOverlay />
+            <PerfOverlay />
         </div>
     );
 }

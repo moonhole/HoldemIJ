@@ -8,6 +8,8 @@ import { bootstrapAuthSession } from './store/authStore';
 import { bindGameClientToStore } from './store/gameStore';
 import type { UiProfile } from './store/layoutStore';
 import { useLayoutStore } from './store/layoutStore';
+import type { PerfBottleneckKind } from './store/perfStore';
+import { usePerfStore } from './store/perfStore';
 import { useUiStore, type SceneName } from './store/uiStore';
 import { UiLayerApp } from './ui/UiLayerApp';
 
@@ -19,6 +21,22 @@ const DESIGN_HEIGHT = DESIGN_WIDTH * (932 / 430);
 // Larger values reveal more lower-table content.
 const DESKTOP_VIEWPORT_START_Y = 320;
 const DESKTOP_CENTER_SQUARE_SCALE = 0.8;
+const PERF_SAMPLE_WINDOW = 180;
+const PERF_FLUSH_INTERVAL_MS = 250;
+const LONG_FRAME_THRESHOLD_MS = 34;
+
+type DynamicRenderer = {
+    name?: string;
+    render?: (...args: unknown[]) => unknown;
+    stats?: { drawCalls?: number };
+    statistics?: { drawCalls?: number };
+    renderPipes?: {
+        batch?: {
+            _activeBatches?: Record<string, { batches?: unknown[] }>;
+            _batchersByInstructionSet?: Record<string, Record<string, { batches?: unknown[] }>>;
+        };
+    };
+};
 
 class GameApp {
     private app: Application;
@@ -30,6 +48,8 @@ class GameApp {
     private pendingDestroy: Container[] = [];
     private forcedUiProfile: UiProfile | null = null;
     private resizeObserver: ResizeObserver | null = null;
+    private perfLoopHandle: number | null = null;
+    private restoreRendererRender: (() => void) | null = null;
 
     constructor() {
         this.app = new Application();
@@ -95,6 +115,8 @@ class GameApp {
             resolution: Math.min(window.devicePixelRatio, 2),
             autoDensity: true,
         });
+
+        this.setupPerfOverlayMonitor();
 
         // Setup resize handling
         this.handleResize();
@@ -210,6 +232,184 @@ class GameApp {
         rootStyle.setProperty('--stage-width', `${stageW}px`);
         rootStyle.setProperty('--stage-height', `${stageH}px`);
         rootStyle.setProperty('--stage-scale', `${scale}`);
+    }
+
+    private shouldEnablePerfOverlay(): boolean {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get('perf');
+        if (raw === '1' || raw === 'true') {
+            return true;
+        }
+        if (raw === '0' || raw === 'false') {
+            return false;
+        }
+        return import.meta.env.DEV;
+    }
+
+    private setupPerfOverlayMonitor(): void {
+        const enabled = this.shouldEnablePerfOverlay();
+        const perfStore = usePerfStore.getState();
+        perfStore.setEnabled(enabled);
+        if (!enabled) {
+            return;
+        }
+
+        const renderer = this.app.renderer as unknown as DynamicRenderer;
+        const rendererName = renderer.name ?? 'unknown';
+        perfStore.setRendererType(rendererName);
+
+        const frameSamples: number[] = [];
+        const renderSamples: number[] = [];
+        let lastFrameTs = performance.now();
+        let lastFlushTs = lastFrameTs;
+        let longFrames = 0;
+
+        if (typeof renderer.render === 'function') {
+            const originalRender = renderer.render.bind(renderer);
+            renderer.render = (...args: unknown[]): unknown => {
+                const start = performance.now();
+                try {
+                    return originalRender(...args);
+                } finally {
+                    const renderMs = performance.now() - start;
+                    renderSamples.push(renderMs);
+                    if (renderSamples.length > PERF_SAMPLE_WINDOW) {
+                        renderSamples.shift();
+                    }
+                }
+            };
+            this.restoreRendererRender = () => {
+                renderer.render = originalRender;
+            };
+        }
+
+        const loop = (ts: number): void => {
+            const frameMs = ts - lastFrameTs;
+            lastFrameTs = ts;
+
+            frameSamples.push(frameMs);
+            if (frameSamples.length > PERF_SAMPLE_WINDOW) {
+                frameSamples.shift();
+            }
+
+            if (frameMs > LONG_FRAME_THRESHOLD_MS) {
+                longFrames += 1;
+            }
+
+            if (ts - lastFlushTs >= PERF_FLUSH_INTERVAL_MS) {
+                const frameAvg = this.average(frameSamples);
+                const frameP95 = this.percentile(frameSamples, 0.95);
+                const frameMax = frameSamples.length > 0 ? Math.max(...frameSamples) : 0;
+                const fps = frameAvg > 0 ? 1000 / frameAvg : 0;
+                const renderAvg = this.average(renderSamples);
+                const drawCalls = this.readDrawCalls(renderer);
+                const diagnosis = this.classifyBottleneck(frameAvg, frameP95, renderAvg, drawCalls);
+
+                usePerfStore.getState().updateMetrics({
+                    fps,
+                    frameMsAvg: frameAvg,
+                    frameMsP95: frameP95,
+                    frameMsMax: frameMax,
+                    renderMsAvg: renderAvg,
+                    drawCalls,
+                    longFrames,
+                    bottleneckKind: diagnosis.kind,
+                    bottleneckLabel: diagnosis.label,
+                });
+
+                longFrames = 0;
+                lastFlushTs = ts;
+            }
+
+            this.perfLoopHandle = window.requestAnimationFrame(loop);
+        };
+
+        this.perfLoopHandle = window.requestAnimationFrame(loop);
+    }
+
+    private readDrawCalls(renderer: DynamicRenderer): number {
+        const stats = renderer.statistics?.drawCalls;
+        if (typeof stats === 'number' && Number.isFinite(stats)) {
+            return stats;
+        }
+        const legacyStats = renderer.stats?.drawCalls;
+        if (typeof legacyStats === 'number' && Number.isFinite(legacyStats)) {
+            return legacyStats;
+        }
+
+        const batchPipe = renderer.renderPipes?.batch;
+        if (!batchPipe) {
+            return -1;
+        }
+
+        let batches = 0;
+
+        const activeBatches = batchPipe._activeBatches;
+        if (activeBatches) {
+            for (const batcher of Object.values(activeBatches)) {
+                const count = Array.isArray(batcher?.batches) ? batcher.batches.length : 0;
+                batches += count;
+            }
+        }
+
+        if (batches > 0) {
+            return batches;
+        }
+
+        const byInstructionSet = batchPipe._batchersByInstructionSet;
+        if (!byInstructionSet) {
+            return -1;
+        }
+
+        for (const batchers of Object.values(byInstructionSet)) {
+            for (const batcher of Object.values(batchers)) {
+                const count = Array.isArray(batcher?.batches) ? batcher.batches.length : 0;
+                batches += count;
+            }
+        }
+
+        return batches > 0 ? batches : -1;
+    }
+
+    private average(values: number[]): number {
+        if (values.length === 0) {
+            return 0;
+        }
+        const total = values.reduce((acc, value) => acc + value, 0);
+        return total / values.length;
+    }
+
+    private percentile(values: number[], p: number): number {
+        if (values.length === 0) {
+            return 0;
+        }
+        const sorted = [...values].sort((a, b) => a - b);
+        const idx = Math.min(sorted.length - 1, Math.max(0, Math.floor(sorted.length * p)));
+        return sorted[idx];
+    }
+
+    private classifyBottleneck(
+        frameMsAvg: number,
+        frameMsP95: number,
+        renderMsAvg: number,
+        drawCalls: number
+    ): { kind: PerfBottleneckKind; label: string } {
+        if (frameMsAvg <= 18 && frameMsP95 <= 26) {
+            return { kind: 'healthy', label: 'Healthy frame pacing.' };
+        }
+
+        const hasGcLikeSpikes = frameMsP95 - frameMsAvg >= 12 && renderMsAvg < frameMsAvg * 0.45;
+        if (hasGcLikeSpikes) {
+            return { kind: 'gc', label: 'Likely main-thread GC/jank spikes.' };
+        }
+
+        const renderHeavy = renderMsAvg >= frameMsAvg * 0.7;
+        const drawCallHeavy = drawCalls >= 900 && renderMsAvg > 7;
+        if (renderHeavy || drawCallHeavy) {
+            return { kind: 'gpu', label: 'Likely render/GPU bottleneck.' };
+        }
+
+        return { kind: 'cpu', label: 'Likely CPU main-thread bottleneck.' };
     }
 
     async loadScene(sceneName: string): Promise<void> {
