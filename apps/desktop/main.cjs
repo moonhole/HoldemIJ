@@ -114,7 +114,9 @@ function createWindow() {
     const devUrl = process.env.ELECTRON_RENDERER_URL;
     if (devUrl) {
         void win.loadURL(devUrl);
-        win.webContents.openDevTools({ mode: 'detach' });
+        if (process.env.ELECTRON_OPEN_DEVTOOLS === '1') {
+            win.webContents.openDevTools({ mode: 'detach' });
+        }
         return;
     }
 

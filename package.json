@@ -7,6 +7,7 @@
     "dev": "pnpm --filter h5 dev",
     "predesktop:dev": "pnpm build:replay-wasm",
     "desktop:dev": "pnpm --filter desktop dev",
+    "desktop:dev:debug": "pnpm --filter desktop dev:app:debug",
     "dev:server": "cd apps/server && go run .",
     "build": "pnpm --filter h5 build",
     "predesktop:build:win": "pnpm build:replay-wasm",

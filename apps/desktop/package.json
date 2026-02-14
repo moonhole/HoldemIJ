@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "concurrently -k \"pnpm -C ../h5 dev --host 127.0.0.1 --port 5181 --strictPort\" \"pnpm dev:app\"",
     "dev:app": "wait-on tcp:5181 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5181 node scripts/start-electron.cjs",
+    "dev:app:debug": "wait-on tcp:5181 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5181 ELECTRON_OPEN_DEVTOOLS=1 node scripts/start-electron.cjs",
     "build:renderer": "cross-env VITE_API_BASE_URL=http://127.0.0.1:8080 VITE_WS_URL=ws://127.0.0.1:8080/ws pnpm -C ../h5 build:desktop",
     "prepare:renderer": "node scripts/sync-renderer.mjs",
     "build:win": "pnpm build:renderer && pnpm prepare:renderer && electron-builder --win nsis --x64",
