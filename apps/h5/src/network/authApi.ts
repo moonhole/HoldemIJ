@@ -1,3 +1,5 @@
+import { resolveApiUrl } from './runtimeConfig';
+
 export class AuthApiError extends Error {
     readonly status: number;
 
@@ -54,7 +56,7 @@ function authHeader(token: string): Record<string, string> {
 
 export const authApi = {
     async register(username: string, password: string): Promise<AuthResult> {
-        const res = await fetch('/api/auth/register', {
+        const res = await fetch(resolveApiUrl('/api/auth/register'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password }),
@@ -70,7 +72,7 @@ export const authApi = {
     },
 
     async login(username: string, password: string): Promise<AuthResult> {
-        const res = await fetch('/api/auth/login', {
+        const res = await fetch(resolveApiUrl('/api/auth/login'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username, password }),
@@ -86,7 +88,7 @@ export const authApi = {
     },
 
     async me(sessionToken: string): Promise<MeResult> {
-        const res = await fetch('/api/auth/me', {
+        const res = await fetch(resolveApiUrl('/api/auth/me'), {
             method: 'GET',
             headers: authHeader(sessionToken),
         });
@@ -101,7 +103,7 @@ export const authApi = {
     },
 
     async logout(sessionToken: string): Promise<void> {
-        const res = await fetch('/api/auth/logout', {
+        const res = await fetch(resolveApiUrl('/api/auth/logout'), {
             method: 'POST',
             headers: authHeader(sessionToken),
         });

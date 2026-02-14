@@ -21,6 +21,7 @@ import {
     type WinByFold,
     type SeatUpdate,
 } from '@gen/messages_pb';
+import { resolveWsUrl } from './runtimeConfig';
 
 export type MessageHandler = {
     onSnapshot?: (snapshot: TableSnapshot) => void;
@@ -69,11 +70,8 @@ export class GameClient {
     public lastPhaseChange: PhaseChange | null = null;
     private myBet: bigint = 0n;
 
-    constructor(url: string = '/ws') {
-        // Use relative URL for dev proxy
-        this.baseUrl = url.startsWith('/')
-            ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}${url}`
-            : url;
+    constructor(url: string = resolveWsUrl('/ws')) {
+        this.baseUrl = url.startsWith('/') ? resolveWsUrl(url) : url;
         this.sessionToken = this.readSessionToken();
     }
 

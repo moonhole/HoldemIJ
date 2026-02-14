@@ -143,6 +143,9 @@ From `apps/server/db/002_seed.sql`:
 # H5 dev
 pnpm dev
 
+# Electron desktop dev (Windows-first)
+pnpm desktop:dev
+
 # Server dev
 pnpm dev:server
 
@@ -152,9 +155,16 @@ pnpm build
 # Build replay WASM bundle for local replay controls
 pnpm build:replay-wasm
 
+# Build Windows installer (Electron + H5 desktop bundle)
+pnpm desktop:build:win
+
 # Regenerate protobuf code
 pnpm proto
 ```
+
+Desktop notes:
+- `desktop:dev` expects backend APIs on `http://127.0.0.1:8080` (`/api` and `/ws`).
+- `desktop:build:win` output is generated under `apps/desktop/release/`.
 
 ## AUTH_MODE and env vars
 - `AUTH_MODE`: `db` (default) or `memory`

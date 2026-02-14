@@ -6,6 +6,7 @@
     "scripts": {
         "dev": "vite",
         "build": "tsc && vite build",
+        "build:desktop": "tsc && vite build --base ./ --outDir dist-desktop",
         "preview": "vite preview"
     },
     "dependencies": {

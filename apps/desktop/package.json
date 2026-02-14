@@ -1,0 +1,50 @@
+{
+  "name": "desktop",
+  "version": "0.1.0",
+  "private": true,
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "concurrently -k \"pnpm -C ../h5 dev --host 127.0.0.1 --port 5181 --strictPort\" \"pnpm dev:app\"",
+    "dev:app": "wait-on tcp:5181 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5181 node scripts/start-electron.cjs",
+    "build:renderer": "cross-env VITE_API_BASE_URL=http://127.0.0.1:8080 VITE_WS_URL=ws://127.0.0.1:8080/ws pnpm -C ../h5 build:desktop",
+    "prepare:renderer": "node scripts/sync-renderer.mjs",
+    "build:win": "pnpm build:renderer && pnpm prepare:renderer && electron-builder --win nsis --x64",
+    "build:mac": "pnpm build:renderer && pnpm prepare:renderer && electron-builder --mac dmg"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1",
+    "cross-env": "^7.0.3",
+    "electron": "31.7.7",
+    "electron-builder": "^25.1.8",
+    "wait-on": "^8.0.1"
+  },
+  "build": {
+    "appId": "com.holdemlite.desktop",
+    "productName": "Holdem Lite",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.cjs",
+      "preload.cjs",
+      "renderer-dist/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "mac": {
+      "category": "public.app-category.games",
+      "target": [
+        "dmg"
+      ]
+    }
+  }
+}

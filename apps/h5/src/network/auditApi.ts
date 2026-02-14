@@ -1,5 +1,6 @@
 import { AuthApiError } from './authApi';
 import { gameClient } from './GameClient';
+import { resolveApiUrl } from './runtimeConfig';
 
 export type AuditSource = 'live' | 'replay';
 
@@ -99,7 +100,7 @@ function normalizeHandEvent(ev: RawAuditHandEvent): AuditHandEvent {
 
 export const auditApi = {
     async listRecent(source: AuditSource, limit = 20): Promise<AuditRecentHandItem[]> {
-        const res = await fetch(`/api/audit/${source}/recent?limit=${encodeURIComponent(String(limit))}`, {
+        const res = await fetch(resolveApiUrl(`/api/audit/${source}/recent?limit=${encodeURIComponent(String(limit))}`), {
             method: 'GET',
             headers: authHeader(),
         });
@@ -111,7 +112,7 @@ export const auditApi = {
     },
 
     async getHand(source: AuditSource, handId: string): Promise<AuditHandEvent[]> {
-        const res = await fetch(`/api/audit/${source}/hands/${encodeURIComponent(handId)}`, {
+        const res = await fetch(resolveApiUrl(`/api/audit/${source}/hands/${encodeURIComponent(handId)}`), {
             method: 'GET',
             headers: authHeader(),
         });

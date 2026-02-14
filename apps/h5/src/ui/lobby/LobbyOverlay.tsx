@@ -11,6 +11,16 @@ import { AudioToggle } from '../common/AudioToggle';
 import { NumberTicker } from '../common/NumberTicker';
 import './lobby-overlay.css';
 
+type DesktopBridge = {
+    isDesktop?: boolean;
+    openGpuInfo?: () => Promise<boolean>;
+};
+
+function getDesktopBridge(): DesktopBridge | null {
+    const host = globalThis as typeof globalThis & { desktopBridge?: DesktopBridge };
+    return host.desktopBridge ?? null;
+}
+
 type LobbyTableItem = {
     name: string;
     blinds: string;
@@ -186,6 +196,9 @@ export function LobbyOverlay(): JSX.Element | null {
         return null;
     }
 
+    const desktopBridge = getDesktopBridge();
+    const canOpenGpuInfo = desktopBridge?.isDesktop === true && typeof desktopBridge.openGpuInfo === 'function';
+
     const openAuditReplay = async (item: AuditRecentHandItem): Promise<void> => {
         setOpeningHandId(item.handId);
         setAuditError('');
@@ -352,6 +365,21 @@ export function LobbyOverlay(): JSX.Element | null {
                                 <span className="settings-item-label">Audio</span>
                                 <AudioToggle />
                             </div>
+                            {canOpenGpuInfo ? (
+                                <div className="settings-item-row">
+                                    <span className="settings-item-label">Help</span>
+                                    <button
+                                        type="button"
+                                        className="settings-action-btn"
+                                        onClick={() => {
+                                            playUiClick();
+                                            void desktopBridge.openGpuInfo?.();
+                                        }}
+                                    >
+                                        GPU INFO
+                                    </button>
+                                </div>
+                            ) : null}
                         </section>
                     </div>
                 ) : null}

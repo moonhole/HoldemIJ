@@ -455,6 +455,19 @@
     text-transform: uppercase;
 }
 
+.settings-action-btn {
+    min-height: 32px;
+    padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(0, 243, 255, 0.35);
+    background: rgba(0, 243, 255, 0.1);
+    color: #defbff;
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    cursor: pointer;
+}
+
 .audit-modal {
     width: min(520px, 100%);
     max-height: min(680px, calc(100% - 40px));

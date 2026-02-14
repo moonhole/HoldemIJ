@@ -5,12 +5,23 @@
   "scripts": {
     "predev": "pnpm build:replay-wasm",
     "dev": "pnpm --filter h5 dev",
+    "predesktop:dev": "pnpm build:replay-wasm",
+    "desktop:dev": "pnpm --filter desktop dev",
     "dev:server": "cd apps/server && go run .",
     "build": "pnpm --filter h5 build",
+    "predesktop:build:win": "pnpm build:replay-wasm",
+    "desktop:build:win": "pnpm --filter desktop build:win",
+    "desktop:build:mac": "pnpm --filter desktop build:mac",
     "build:replay-wasm": "node scripts/build-replay-wasm.mjs",
     "proto": "cd proto && buf generate"
   },
   "devDependencies": {
     "typescript": "^5.7.0"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron",
+      "esbuild"
+    ]
   }
 }
