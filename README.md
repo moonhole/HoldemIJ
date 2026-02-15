@@ -37,6 +37,7 @@ card/
 
 ## Docs
 - H5 implementation notes: `apps/h5/docs/H5_SOLUTION.md`
+- Desktop frame stability roadmap: `desktop_perf_roadmap.md`
 
 ## Prerequisites
 - Go `1.23+`
