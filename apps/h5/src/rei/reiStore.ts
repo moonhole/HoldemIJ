@@ -1,139 +1,76 @@
 import { create } from 'zustand';
-import { initialLiveSnapshot, reduceLiveMachine, type ReiLiveSnapshot } from './machine/liveMachine';
-import { initialReplaySnapshot, reduceReplayMachine, type ReiReplaySnapshot } from './machine/replayMachine';
-import type { ReiMachineState, ReiMode, ReiRuntimeInput, ReiStatusTag } from './types';
+import { initialReiRuntimeState, reduceReiRuntimeState, type ReiRuntimeState } from './runtimeEngine';
+import type { ReiRuntimeInput } from './types';
 
-type ReiStoreState = {
-    mode: ReiMode;
-    machineState: ReiMachineState;
-    statusTag: ReiStatusTag;
-    keyLine: string;
-    details: string;
-    updatedAtMs: number;
-    liveSnapshot: ReiLiveSnapshot;
-    replaySnapshot: ReiReplaySnapshot;
+type ReiStoreState = ReiRuntimeState & {
     tick: (input: ReiRuntimeInput) => void;
+    applyRuntimeState: (next: ReiRuntimeState) => void;
     reset: () => void;
 };
 
-function modeFromInput(input: ReiRuntimeInput): ReiMode {
-    if (!input.isTableScene) {
-        return 'disabled';
-    }
-    if (input.replayLoaded) {
-        return 'replay';
-    }
-    return 'live';
-}
-
-function mapLiveToView(snapshot: ReiLiveSnapshot) {
+function runtimeSlice(state: ReiStoreState): ReiRuntimeState {
     return {
-        machineState: snapshot.machineState,
-        statusTag: snapshot.statusTag,
-        keyLine: snapshot.keyLine,
-        details: snapshot.details,
+        mode: state.mode,
+        machineState: state.machineState,
+        statusTag: state.statusTag,
+        keyLine: state.keyLine,
+        details: state.details,
+        updatedAtMs: state.updatedAtMs,
+        liveSnapshot: state.liveSnapshot,
+        replaySnapshot: state.replaySnapshot,
     };
 }
 
-function mapReplayToView(snapshot: ReiReplaySnapshot) {
-    return {
-        machineState: snapshot.machineState,
-        statusTag: snapshot.statusTag,
-        keyLine: snapshot.keyLine,
-        details: snapshot.details,
-    };
+function hasRuntimeChanged(prev: ReiRuntimeState, next: ReiRuntimeState): boolean {
+    return (
+        prev.mode !== next.mode ||
+        prev.machineState !== next.machineState ||
+        prev.statusTag !== next.statusTag ||
+        prev.keyLine !== next.keyLine ||
+        prev.details !== next.details ||
+        prev.updatedAtMs !== next.updatedAtMs ||
+        prev.liveSnapshot.machineState !== next.liveSnapshot.machineState ||
+        prev.liveSnapshot.statusTag !== next.liveSnapshot.statusTag ||
+        prev.liveSnapshot.keyLine !== next.liveSnapshot.keyLine ||
+        prev.liveSnapshot.details !== next.liveSnapshot.details ||
+        prev.liveSnapshot.lastStreamSeq !== next.liveSnapshot.lastStreamSeq ||
+        prev.replaySnapshot.machineState !== next.replaySnapshot.machineState ||
+        prev.replaySnapshot.statusTag !== next.replaySnapshot.statusTag ||
+        prev.replaySnapshot.keyLine !== next.replaySnapshot.keyLine ||
+        prev.replaySnapshot.details !== next.replaySnapshot.details ||
+        prev.replaySnapshot.lastCursor !== next.replaySnapshot.lastCursor ||
+        prev.replaySnapshot.lastStreamSeq !== next.replaySnapshot.lastStreamSeq
+    );
 }
 
-export const useReiStore = create<ReiStoreState>((set, get) => ({
-    mode: 'disabled',
-    machineState: 'disabled',
-    statusTag: 'OFFLINE',
-    keyLine: 'REI standing by.',
-    details: 'Enter table or replay to activate narration.',
-    updatedAtMs: Date.now(),
-    liveSnapshot: initialLiveSnapshot(),
-    replaySnapshot: initialReplaySnapshot(),
+export const useReiStore = create<ReiStoreState>((set) => ({
+    ...initialReiRuntimeState(),
 
     tick: (input) => {
-        const prev = get();
-        const nextMode = modeFromInput(input);
-
-        const nextLiveSnapshot = reduceLiveMachine(prev.liveSnapshot, {
-            nowMs: input.nowMs,
-            isTableScene: input.isTableScene,
-            replayLoaded: input.replayLoaded,
-            connected: input.connected,
-            streamSeq: input.streamSeq,
-            lastEvent: input.lastEvent,
-            myChair: input.myChair,
-            actionPromptChair: input.actionPromptChair,
+        set((state) => {
+            const prevRuntime = runtimeSlice(state);
+            const nextRuntime = reduceReiRuntimeState(prevRuntime, input);
+            if (nextRuntime === prevRuntime) {
+                return state;
+            }
+            return {
+                ...state,
+                ...nextRuntime,
+            };
         });
-
-        const nextReplaySnapshot = reduceReplayMachine(prev.replaySnapshot, {
-            nowMs: input.nowMs,
-            isTableScene: input.isTableScene,
-            replayLoaded: input.replayLoaded,
-            streamSeq: input.streamSeq,
-            cursor: input.replayCursor,
-            stepCount: input.replayStepCount,
-            seeking: input.replaySeeking,
-            lastEvent: input.lastEvent,
-        });
-
-        const active = nextMode === 'replay' ? mapReplayToView(nextReplaySnapshot) : mapLiveToView(nextLiveSnapshot);
-
-        const liveChanged =
-            prev.liveSnapshot.machineState !== nextLiveSnapshot.machineState ||
-            prev.liveSnapshot.statusTag !== nextLiveSnapshot.statusTag ||
-            prev.liveSnapshot.keyLine !== nextLiveSnapshot.keyLine ||
-            prev.liveSnapshot.details !== nextLiveSnapshot.details ||
-            prev.liveSnapshot.lastStreamSeq !== nextLiveSnapshot.lastStreamSeq;
-        const replayChanged =
-            prev.replaySnapshot.machineState !== nextReplaySnapshot.machineState ||
-            prev.replaySnapshot.statusTag !== nextReplaySnapshot.statusTag ||
-            prev.replaySnapshot.keyLine !== nextReplaySnapshot.keyLine ||
-            prev.replaySnapshot.details !== nextReplaySnapshot.details ||
-            prev.replaySnapshot.lastCursor !== nextReplaySnapshot.lastCursor ||
-            prev.replaySnapshot.lastStreamSeq !== nextReplaySnapshot.lastStreamSeq;
-
-        const changed =
-            prev.mode !== nextMode ||
-            prev.machineState !== active.machineState ||
-            prev.statusTag !== active.statusTag ||
-            prev.keyLine !== active.keyLine ||
-            prev.details !== active.details ||
-            liveChanged ||
-            replayChanged;
-
-        if (!changed) {
-            return;
-        }
-
-        set(() => ({
-            mode: nextMode,
-            machineState: active.machineState,
-            statusTag: active.statusTag,
-            keyLine: active.keyLine,
-            details: active.details,
-            updatedAtMs: input.nowMs,
-            liveSnapshot: nextLiveSnapshot,
-            replaySnapshot: nextReplaySnapshot,
-        }));
     },
 
-    reset: () =>
-        set(() => {
-            const liveSnapshot = initialLiveSnapshot();
-            const replaySnapshot = initialReplaySnapshot();
+    applyRuntimeState: (next) =>
+        set((state) => {
+            const prevRuntime = runtimeSlice(state);
+            if (!hasRuntimeChanged(prevRuntime, next)) {
+                return state;
+            }
             return {
-                mode: 'disabled',
-                machineState: 'disabled',
-                statusTag: 'OFFLINE',
-                keyLine: liveSnapshot.keyLine,
-                details: liveSnapshot.details,
-                updatedAtMs: Date.now(),
-                liveSnapshot,
-                replaySnapshot,
+                ...state,
+                ...next,
             };
         }),
+
+    reset: () => set((state) => ({ ...state, ...initialReiRuntimeState() })),
 }));

@@ -1,6 +1,5 @@
 import { ActionType } from '@gen/messages_pb';
-import type { GameStreamEvent } from '../../store/gameStore';
-import type { ReiReplayState, ReiStatusTag } from '../types';
+import type { ReiReplayState, ReiRuntimeEvent, ReiStatusTag } from '../types';
 
 export type ReiReplaySnapshot = {
     machineState: ReiReplayState;
@@ -19,7 +18,7 @@ export type ReiReplayInput = {
     cursor: number;
     stepCount: number;
     seeking: boolean;
-    lastEvent: GameStreamEvent | null;
+    lastEvent: ReiRuntimeEvent | null;
 };
 
 export function initialReplaySnapshot(): ReiReplaySnapshot {
@@ -97,15 +96,15 @@ function summarizeReplayStep(input: ReiReplayInput): ReiReplaySnapshot {
         case 'actionPrompt':
             return {
                 ...base,
-                keyLine: `Step ${stepLabel}: seat ${input.lastEvent.value.chair} to act.`,
+                keyLine: `Step ${stepLabel}: seat ${input.lastEvent.chair} to act.`,
                 details: 'This is a key decision anchor in replay.',
             };
         case 'actionResult': {
-            const action = actionTypeLabel(input.lastEvent.value.action);
+            const action = actionTypeLabel(input.lastEvent.action);
             return {
                 ...base,
-                keyLine: `Step ${stepLabel}: seat ${input.lastEvent.value.chair} ${action}.`,
-                details: `Committed amount is ${input.lastEvent.value.amount.toLocaleString()}.`,
+                keyLine: `Step ${stepLabel}: seat ${input.lastEvent.chair} ${action}.`,
+                details: `Committed amount is ${input.lastEvent.amount.toLocaleString()}.`,
             };
         }
         case 'board':

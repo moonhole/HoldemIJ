@@ -1,6 +1,5 @@
 import { ActionType } from '@gen/messages_pb';
-import type { GameStreamEvent } from '../../store/gameStore';
-import type { ReiLiveState, ReiStatusTag } from '../types';
+import type { ReiLiveState, ReiRuntimeEvent, ReiStatusTag } from '../types';
 
 export type ReiLiveSnapshot = {
     machineState: ReiLiveState;
@@ -16,7 +15,7 @@ export type ReiLiveInput = {
     replayLoaded: boolean;
     connected: boolean;
     streamSeq: number;
-    lastEvent: GameStreamEvent | null;
+    lastEvent: ReiRuntimeEvent | null;
     myChair: number;
     actionPromptChair: number | null;
 };
@@ -68,7 +67,7 @@ export function reduceLiveMachine(prev: ReiLiveSnapshot, input: ReiLiveInput): R
     return summarizeLiveEvent(input.lastEvent, input);
 }
 
-function summarizeLiveEvent(event: GameStreamEvent, input: ReiLiveInput): ReiLiveSnapshot {
+function summarizeLiveEvent(event: ReiRuntimeEvent, input: ReiLiveInput): ReiLiveSnapshot {
     const base = { lastStreamSeq: input.streamSeq };
 
     switch (event.type) {
@@ -103,14 +102,14 @@ function summarizeLiveEvent(event: GameStreamEvent, input: ReiLiveInput): ReiLiv
                 ...base,
                 machineState: 'observe',
                 statusTag: 'OBSERVE',
-                keyLine: `Seat ${event.value.chair} is in decision mode.`,
+                keyLine: `Seat ${event.chair} is in decision mode.`,
                 details: 'Track sizing rhythm for future exploit spots.',
             };
         }
         case 'actionResult': {
-            const actor = event.value.chair;
-            const amount = event.value.amount;
-            const action = actionTypeLabel(event.value.action);
+            const actor = event.chair;
+            const amount = event.amount;
+            const action = actionTypeLabel(event.action);
             if (actor === input.myChair) {
                 return {
                     ...base,

@@ -1,4 +1,4 @@
-import type { GameStreamEvent } from '../store/gameStore';
+import { ActionType } from '@gen/messages_pb';
 
 export type ReiMode = 'disabled' | 'live' | 'replay';
 
@@ -45,10 +45,27 @@ export type ReiRuntimeInput = {
     replayLoaded: boolean;
     connected: boolean;
     streamSeq: number;
-    lastEvent: GameStreamEvent | null;
+    lastEvent: ReiRuntimeEvent | null;
     myChair: number;
     actionPromptChair: number | null;
     replayCursor: number;
     replayStepCount: number;
     replaySeeking: boolean;
 };
+
+export type ReiRuntimeEvent =
+    | { type: 'connect' }
+    | { type: 'disconnect' }
+    | { type: 'snapshot' }
+    | { type: 'actionPrompt'; chair: number }
+    | { type: 'handStart' }
+    | { type: 'holeCards' }
+    | { type: 'board' }
+    | { type: 'potUpdate' }
+    | { type: 'phaseChange' }
+    | { type: 'actionResult'; chair: number; action: ActionType; amount: bigint }
+    | { type: 'showdown' }
+    | { type: 'handEnd' }
+    | { type: 'winByFold' }
+    | { type: 'seatUpdate' }
+    | { type: 'error'; message: string };
