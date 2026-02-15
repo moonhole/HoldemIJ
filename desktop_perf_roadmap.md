@@ -1,6 +1,6 @@
-# Desktop Frame Stability Roadmap
+# Desktop Frame Stability and Resource Efficiency Roadmap
 
-This document defines the iteration plan for desktop frame-rate stability on the current Electron + React + Pixi stack.
+This document defines the iteration plan for desktop frame-rate stability and CPU/GPU efficiency on the current Electron + React + Pixi stack.
 
 ## 1. Background
 
@@ -30,6 +30,64 @@ Release-level acceptance targets (desktop 1080p baseline):
 Secondary goals:
 - Avoid noticeable UI behavior regressions.
 - Keep architecture evolvable toward render-thread separation if needed.
+- Keep CPU/GPU usage low enough for commercial desktop quality expectations (no obvious fan-noise issues in idle scenes).
+
+## 2.1 Commercial Runtime Resource Budget
+
+These budgets are release gates for production builds (`desktop:build:*`), not dev mode (`desktop:dev`).
+
+### CPU budget
+
+- Idle (lobby/table idle, no interaction for 30s):
+  - Renderer process CPU median <= 8%
+  - Renderer process CPU P95 <= 14%
+- Active hand (normal action sequence):
+  - Renderer process CPU median <= 35%
+  - Renderer process CPU P95 <= 55%
+
+### GPU budget
+
+- Idle (same scenario):
+  - GPU utilization median <= 18%
+- Active hand:
+  - GPU utilization median <= 60%
+  - GPU utilization P95 <= 80%
+
+### Thermal/product quality proxy
+
+- On baseline QA laptop/desktop, idle scenario must not trigger sustained high fan state after warm-up.
+- If this subjective check fails, the build does not pass release gate even when FPS targets pass.
+
+## 2.2 Measurement Protocol
+
+To keep numbers comparable, all phases use the same protocol:
+
+- Build target: production desktop bundle.
+- Window mode: visible foreground, 1080p baseline.
+- Sample window: 3 minutes per scenario.
+- Scenarios:
+  - Lobby idle
+  - Table idle
+  - Table active hand
+  - Showdown-heavy sequence
+- Metrics captured:
+  - FPS metrics (existing perf overlay pipeline)
+  - CPU/GPU process utilization (OS tools + Electron process view)
+- Reporting:
+  - median, P95, max
+  - before/after delta by phase
+
+## 2.3 Phase Status Ledger
+
+Use this table as the single source of truth for phase progress and evidence.
+
+| Phase | Status | Evidence | Gate |
+|---|---|---|---|
+| Phase 0 (Baseline) | Backfilling | Perf overlay capability exists (`95b7ea2`), baseline report pending | Not passed |
+| Phase 1 (Workerize non-render) | Delivered | REI worker + 30Hz throttling (`bb7a97e`) | Conditionally passed (pending full protocol run) |
+| Phase 2 (Single clock) | Not started | N/A | Not passed |
+| Phase 3 (Adaptive DPR) | Not started | N/A | Not passed |
+| Phase 4 (Conditional) | Not started | N/A | Not entered |
 
 ## 3. Constraints and Non-goals
 
@@ -58,10 +116,55 @@ Tasks:
   - Showdown-heavy sequence
 - Capture metrics from existing perf overlay pipeline:
   - FPS, frame avg/P95/max, render avg, drawCalls, longFrames
+- Capture CPU/GPU occupancy with the protocol in section 2.2.
 - Add simple runbook for measuring before/after each phase.
+
+Phase 0 backfill tasks (required now):
+- Convert current ad-hoc observations into a repeatable baseline record.
+- Record hardware + build info for every sample row.
+- Freeze one baseline commit reference for comparison against future phases.
 
 Acceptance:
 - A reproducible baseline sheet exists for at least 3 representative scenes.
+- Baseline includes both frame metrics and CPU/GPU occupancy metrics.
+
+Backfill checklist:
+- [x] Observability capability in codebase (perf overlay) confirmed.
+- [x] Phase status ledger established in this roadmap.
+- [ ] Baseline runbook executed for all required scenarios.
+- [ ] Baseline metrics table completed and reviewed.
+- [ ] Baseline commit/tag selected as comparison anchor.
+
+### Phase 0 Runbook (Single-doc Version)
+
+For each benchmark run, append one row to the baseline table below.
+
+1. Build/setup:
+   - Use production-capable path (not hot-reload dev metrics as release gate).
+   - Record git commit hash.
+2. Warm-up:
+   - Open target scene and wait 60s before sampling.
+3. Sample:
+   - Collect 3 minutes per scenario.
+   - Collect FPS/frame metrics from in-app overlay.
+   - Collect renderer CPU and GPU utilization from OS/process tooling.
+4. Record:
+   - Fill median/P95/max values.
+   - Note anomalies (stutters, fan spikes, throttling signs).
+5. Review:
+   - Mark pass/fail against section 2 and 2.1 budgets.
+
+### Phase 0 Baseline Table
+
+Fill this in-place (do not create extra phase docs unless raw data is too large).
+
+| Date | Commit | Build Mode | Hardware Tier | Scenario | FPS Avg | Frame P95 (ms) | Long Frames | CPU Median | CPU P95 | GPU Median | GPU P95 | Fan/thermal notes |
+|---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
+| 2026-02-15 | bb7a97e | desktop dev (non-gate) | TBD | Table active hand | ~40+ floor observed | TBD | TBD | TBD | TBD | TBD | TBD | User reported floor improved after Phase 1 |
+| TBD | TBD | production gate run | Tier A | Lobby idle | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| TBD | TBD | production gate run | Tier A | Table idle | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| TBD | TBD | production gate run | Tier A | Table active hand | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| TBD | TBD | production gate run | Tier A | Showdown-heavy | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 
 Rollback:
 - None (measurement only).
@@ -84,6 +187,8 @@ Files likely touched:
 Acceptance:
 - No behavior change in REI user-facing outputs.
 - Measurable reduction in long-frame spikes during action bursts.
+- Measurable renderer CPU reduction in idle table and active hand scenarios.
+- No CPU regression in lobby idle scenario.
 
 Rollback:
 - Feature flag to switch REI path back to in-thread execution.
@@ -106,6 +211,8 @@ Files likely touched:
 Acceptance:
 - Countdown behavior remains correct.
 - Timer-driven jitter and unnecessary re-render churn reduced.
+- Timer wakeups and idle CPU usage reduced versus Phase 1 baseline.
+- No increase in GPU usage due to timer refactor.
 
 Rollback:
 - Keep old dual-path behind temporary compatibility switch until validated.
@@ -130,6 +237,8 @@ Files likely touched:
 Acceptance:
 - Significant P95 improvement under stress scenes.
 - No severe visual artifacts during quality transitions.
+- GPU utilization reduction under active/stress scenarios.
+- Resource budget pass rate improves on lower-end QA hardware tier.
 
 Rollback:
 - Runtime flag to lock fixed DPR.
@@ -175,6 +284,7 @@ Recommended cadence:
 
 Proceed to Phase 4 only if all are true:
 - Targets in section 2 are still unmet after Phase 3.
+- Resource budget in section 2.1 is still unmet after Phase 3.
 - Profiling confirms remaining dominant cost is render-thread contention.
 - Team accepts higher complexity and longer stabilization window.
 
@@ -189,4 +299,3 @@ For each phase, record:
 - Metrics (after)
 - Regression checks
 - Decision: keep / tune / rollback
-
