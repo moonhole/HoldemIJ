@@ -38,6 +38,24 @@ type DynamicRenderer = {
     };
 };
 
+type PerfExportSample = {
+    scenario: string;
+    rendererType: string;
+    fps: number;
+    frameMsAvg: number;
+    frameMsP95: number;
+    frameMsMax: number;
+    renderMsAvg: number;
+    drawCalls: number;
+    longFrames: number;
+    bottleneckKind: PerfBottleneckKind;
+    bottleneckLabel: string;
+};
+
+type DesktopBridge = {
+    reportPerfSample?: (sample: PerfExportSample) => void;
+};
+
 class GameApp {
     private app: Application;
     private currentScene: Container | null = null;
@@ -50,6 +68,8 @@ class GameApp {
     private resizeObserver: ResizeObserver | null = null;
     private perfLoopHandle: number | null = null;
     private restoreRendererRender: (() => void) | null = null;
+    private perfExportEnabled = false;
+    private perfScenario = 'unspecified';
 
     constructor() {
         this.app = new Application();
@@ -246,10 +266,40 @@ class GameApp {
         return import.meta.env.DEV;
     }
 
+    private shouldExportPerfSamples(): boolean {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get('perfExport');
+        return raw === '1' || raw === 'true';
+    }
+
+    private readPerfScenario(): string {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get('scenario');
+        if (!raw || raw.trim() === '') {
+            return 'unspecified';
+        }
+        return raw.trim();
+    }
+
+    private getDesktopBridge(): DesktopBridge | null {
+        const host = globalThis as typeof globalThis & { desktopBridge?: DesktopBridge };
+        return host.desktopBridge ?? null;
+    }
+
+    private exportPerfSample(sample: PerfExportSample): void {
+        if (!this.perfExportEnabled) {
+            return;
+        }
+        this.getDesktopBridge()?.reportPerfSample?.(sample);
+    }
+
     private setupPerfOverlayMonitor(): void {
-        const enabled = this.shouldEnablePerfOverlay();
+        const overlayEnabled = this.shouldEnablePerfOverlay();
+        this.perfExportEnabled = this.shouldExportPerfSamples();
+        this.perfScenario = this.readPerfScenario();
+        const enabled = overlayEnabled || this.perfExportEnabled;
         const perfStore = usePerfStore.getState();
-        perfStore.setEnabled(enabled);
+        perfStore.setEnabled(overlayEnabled);
         if (!enabled) {
             return;
         }
@@ -306,6 +356,19 @@ class GameApp {
                 const diagnosis = this.classifyBottleneck(frameAvg, frameP95, renderAvg, drawCalls);
 
                 usePerfStore.getState().updateMetrics({
+                    fps,
+                    frameMsAvg: frameAvg,
+                    frameMsP95: frameP95,
+                    frameMsMax: frameMax,
+                    renderMsAvg: renderAvg,
+                    drawCalls,
+                    longFrames,
+                    bottleneckKind: diagnosis.kind,
+                    bottleneckLabel: diagnosis.label,
+                });
+                this.exportPerfSample({
+                    scenario: this.perfScenario,
+                    rendererType: rendererName,
                     fps,
                     frameMsAvg: frameAvg,
                     frameMsP95: frameP95,

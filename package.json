@@ -13,6 +13,7 @@
     "predesktop:build:win": "pnpm build:replay-wasm",
     "desktop:build:win": "pnpm --filter desktop build:win",
     "desktop:build:mac": "pnpm --filter desktop build:mac",
+    "desktop:perf:phase0": "bash scripts/phase0-baseline.sh",
     "build:replay-wasm": "node scripts/build-replay-wasm.mjs",
     "proto": "cd proto && buf generate"
   },

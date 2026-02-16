@@ -1,8 +1,83 @@
 const { app, BrowserWindow, Menu, ipcMain, shell } = require('electron');
+const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 
 let mainWindow = null;
 let gpuInfoWindow = null;
+let perfLogStream = null;
+
+function resolvePerfLogPath() {
+    const raw = process.env.ELECTRON_PERF_LOG_FILE;
+    if (!raw || raw.trim() === '') {
+        return null;
+    }
+    if (path.isAbsolute(raw)) {
+        return raw;
+    }
+    return path.resolve(process.cwd(), raw);
+}
+
+function ensurePerfLogStream() {
+    const perfLogPath = resolvePerfLogPath();
+    if (!perfLogPath) {
+        return null;
+    }
+    if (perfLogStream) {
+        return perfLogStream;
+    }
+    fs.mkdirSync(path.dirname(perfLogPath), { recursive: true });
+    perfLogStream = fs.createWriteStream(perfLogPath, { flags: 'a' });
+    return perfLogStream;
+}
+
+function appendPerfSample(sample) {
+    const stream = ensurePerfLogStream();
+    if (!stream) {
+        return;
+    }
+    stream.write(`${JSON.stringify(sample)}${os.EOL}`);
+}
+
+function closePerfLogStream() {
+    if (!perfLogStream) {
+        return;
+    }
+    perfLogStream.end();
+    perfLogStream = null;
+}
+
+function normalizeRendererSearch() {
+    const raw = process.env.ELECTRON_RENDERER_QUERY;
+    if (!raw || raw.trim() === '') {
+        return '';
+    }
+    return raw.startsWith('?') ? raw : `?${raw}`;
+}
+
+function mergeUrlSearch(urlString, extraSearch) {
+    if (!extraSearch) {
+        return urlString;
+    }
+    const url = new URL(urlString);
+    const extraParams = new URLSearchParams(extraSearch.startsWith('?') ? extraSearch.slice(1) : extraSearch);
+    for (const [key, value] of extraParams.entries()) {
+        url.searchParams.set(key, value);
+    }
+    return url.toString();
+}
+
+function searchToQueryObject(search) {
+    if (!search) {
+        return undefined;
+    }
+    const params = new URLSearchParams(search.startsWith('?') ? search.slice(1) : search);
+    const query = {};
+    for (const [key, value] of params.entries()) {
+        query[key] = value;
+    }
+    return query;
+}
 
 function applyGpuInfoTheme(win) {
     if (!win || win.isDestroyed()) {
@@ -83,6 +158,7 @@ function createAppMenu() {
 }
 
 function createWindow() {
+    const rendererSearch = normalizeRendererSearch();
     const win = new BrowserWindow({
         width: 1280,
         height: 800,
@@ -113,14 +189,16 @@ function createWindow() {
 
     const devUrl = process.env.ELECTRON_RENDERER_URL;
     if (devUrl) {
-        void win.loadURL(devUrl);
+        void win.loadURL(mergeUrlSearch(devUrl, rendererSearch));
         if (process.env.ELECTRON_OPEN_DEVTOOLS === '1') {
             win.webContents.openDevTools({ mode: 'detach' });
         }
         return;
     }
 
-    void win.loadFile(path.join(__dirname, 'renderer-dist', 'index.html'));
+    void win.loadFile(path.join(__dirname, 'renderer-dist', 'index.html'), {
+        query: searchToQueryObject(rendererSearch),
+    });
 }
 
 app.whenReady().then(() => {
@@ -130,6 +208,19 @@ app.whenReady().then(() => {
     ipcMain.handle('desktop:open-gpu-info', () => {
         openGpuInfoWindow();
         return true;
+    });
+    ipcMain.on('desktop:report-perf-sample', (event, payload) => {
+        appendPerfSample({
+            tsMs: Date.now(),
+            rendererPid: event.processId,
+            ...payload,
+        });
+    });
+    ipcMain.handle('desktop:get-process-info', () => {
+        return {
+            mainPid: process.pid,
+            rendererPid: mainWindow?.webContents.getOSProcessId() ?? -1,
+        };
     });
 
     app.on('activate', () => {
@@ -143,4 +234,8 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') {
         app.quit();
     }
+});
+
+app.on('before-quit', () => {
+    closePerfLogStream();
 });

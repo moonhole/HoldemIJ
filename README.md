@@ -159,6 +159,9 @@ pnpm build:replay-wasm
 # Build Windows installer (Electron + H5 desktop bundle)
 pnpm desktop:build:win
 
+# Phase 0 baseline sampling (desktop perf/cpu/gpu)
+pnpm desktop:perf:phase0
+
 # Regenerate protobuf code
 pnpm proto
 ```

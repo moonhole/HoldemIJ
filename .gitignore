@@ -43,6 +43,7 @@ coverage.out
 # Temp
 tmp/
 temp/
+.local/perf/
 
 # Local WASM artifacts (generated via `pnpm build:replay-wasm`)
 apps/h5/public/wasm/replay.wasm

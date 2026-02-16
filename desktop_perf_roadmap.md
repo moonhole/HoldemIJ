@@ -131,6 +131,9 @@ Acceptance:
 Backfill checklist:
 - [x] Observability capability in codebase (perf overlay) confirmed.
 - [x] Phase status ledger established in this roadmap.
+- [x] Baseline tooling script added:
+  - `scripts/phase0-baseline.sh`
+  - `scripts/phase0-summarize.mjs`
 - [ ] Baseline runbook executed for all required scenarios.
 - [ ] Baseline metrics table completed and reviewed.
 - [ ] Baseline commit/tag selected as comparison anchor.
@@ -138,6 +141,16 @@ Backfill checklist:
 ### Phase 0 Runbook (Single-doc Version)
 
 For each benchmark run, append one row to the baseline table below.
+
+Command entrypoint:
+
+```bash
+# default: MODE=prod DURATION_SEC=180 SCENARIO=table_active
+pnpm desktop:perf:phase0
+
+# example: lobby idle, 3 minutes, production mode
+MODE=prod DURATION_SEC=180 SCENARIO=lobby_idle pnpm desktop:perf:phase0
+```
 
 1. Build/setup:
    - Use production-capable path (not hot-reload dev metrics as release gate).
