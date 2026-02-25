@@ -175,9 +175,9 @@ Fill this in-place (do not create extra phase docs unless raw data is too large)
 |---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
 | 2026-02-15 | bb7a97e | desktop dev (non-gate) | TBD | Table active hand | ~40+ floor observed | TBD | TBD | TBD | TBD | TBD | TBD | User reported floor improved after Phase 1 |
 | 2026-02-16 | 7a5abf8+dirty | production gate run | Dev tier (WSL2, Ryzen AI 7 H 350, RTX 5060 Laptop) | Lobby idle | 52.01 | 24.46 | 0.03 | 22% | 32% | 2% | 4% | No sustained fan spike observed; run includes startup transients (no explicit warm-up hold) |
-| TBD | TBD | production gate run | Tier A | Table idle | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| TBD | TBD | production gate run | Tier A | Table active hand | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
-| TBD | TBD | production gate run | Tier A | Showdown-heavy | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 2026-02-25 | 1f8c48d+dirty | production gate run | Dev tier (WSL2, Ryzen AI 7 H 350, RTX 5060 Laptop) | Table idle | 46.64 | 34.48 | 0.01 | 23.38% | 27% | 7% | 13% | Autopilot run; startup transients included (2 non-table samples); manual fan check not performed |
+| 2026-02-25 | 1f8c48d+dirty | production gate run | Dev tier (WSL2, Ryzen AI 7 H 350, RTX 5060 Laptop) | Table active hand | 20.37 | 68.6 | 4.49 | 16% | 43% | 7% | 8% | Autopilot + bot run; startup transients included (2 non-table samples); manual fan check not performed |
+| 2026-02-25 | 1f8c48d+dirty | production gate run | Dev tier (WSL2, Ryzen AI 7 H 350, RTX 5060 Laptop) | Showdown-heavy | 20.5 | 67.77 | 4.43 | 16% | 43% | 7% | 13% | Autopilot + bot run; startup transients included (2 non-table samples); manual fan check not performed |
 
 Rollback:
 - None (measurement only).
