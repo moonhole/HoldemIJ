@@ -1,11 +1,13 @@
+import { ActionType } from '@gen/messages_pb';
 import { Application, Container } from 'pixi.js';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { requireCanvas, requireUiRoot } from './architecture/boundary';
 import { audioManager } from './audio/AudioManager';
+import { gameClient } from './network/GameClient';
 import { bindReiRuntimeToStores } from './rei/runtime';
-import { bootstrapAuthSession } from './store/authStore';
-import { bindGameClientToStore } from './store/gameStore';
+import { bootstrapAuthSession, useAuthStore } from './store/authStore';
+import { bindGameClientToStore, useGameStore } from './store/gameStore';
 import type { UiProfile } from './store/layoutStore';
 import { useLayoutStore } from './store/layoutStore';
 import type { PerfBottleneckKind } from './store/perfStore';
@@ -24,6 +26,7 @@ const DESKTOP_CENTER_SQUARE_SCALE = 0.8;
 const PERF_SAMPLE_WINDOW = 180;
 const PERF_FLUSH_INTERVAL_MS = 250;
 const LONG_FRAME_THRESHOLD_MS = 34;
+const PERF_AUTOPILOT_TICK_MS = 220;
 
 type DynamicRenderer = {
     name?: string;
@@ -40,6 +43,7 @@ type DynamicRenderer = {
 
 type PerfExportSample = {
     scenario: string;
+    scene: SceneName;
     rendererType: string;
     fps: number;
     frameMsAvg: number;
@@ -51,6 +55,8 @@ type PerfExportSample = {
     bottleneckKind: PerfBottleneckKind;
     bottleneckLabel: string;
 };
+
+type PerfAutopilotMode = 'lobbyIdle' | 'tableIdle' | 'tableActive';
 
 type DesktopBridge = {
     reportPerfSample?: (sample: PerfExportSample) => void;
@@ -70,6 +76,13 @@ class GameApp {
     private restoreRendererRender: (() => void) | null = null;
     private perfExportEnabled = false;
     private perfScenario = 'unspecified';
+    private perfAutopilotEnabled = false;
+    private perfAutopilotHandle: number | null = null;
+    private perfAutopilotRunning = false;
+    private perfAutopilotUser = 'dev_admin';
+    private perfAutopilotPass = 'password';
+    private perfAutopilotMode: PerfAutopilotMode = 'tableActive';
+    private perfAutopilotLastPromptSig = '';
 
     constructor() {
         this.app = new Application();
@@ -150,6 +163,7 @@ class GameApp {
 
         const authenticated = await bootstrapAuthSession();
         await this.loadScene(authenticated ? 'lobby' : 'login');
+        this.setupPerfAutopilot();
 
         console.log('[GameApp] Initialized');
     }
@@ -272,6 +286,21 @@ class GameApp {
         return raw === '1' || raw === 'true';
     }
 
+    private readBooleanParam(name: string): boolean {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get(name);
+        return raw === '1' || raw === 'true';
+    }
+
+    private readStringParam(name: string, fallback: string): string {
+        const params = new URLSearchParams(window.location.search);
+        const raw = params.get(name);
+        if (!raw || raw.trim() === '') {
+            return fallback;
+        }
+        return raw.trim();
+    }
+
     private readPerfScenario(): string {
         const params = new URLSearchParams(window.location.search);
         const raw = params.get('scenario');
@@ -284,6 +313,115 @@ class GameApp {
     private getDesktopBridge(): DesktopBridge | null {
         const host = globalThis as typeof globalThis & { desktopBridge?: DesktopBridge };
         return host.desktopBridge ?? null;
+    }
+
+    private setupPerfAutopilot(): void {
+        this.perfAutopilotEnabled = this.readBooleanParam('perfAuto');
+        if (!this.perfAutopilotEnabled) {
+            return;
+        }
+
+        this.perfAutopilotUser = this.readStringParam('perfUser', 'dev_admin');
+        this.perfAutopilotPass = this.readStringParam('perfPass', 'password');
+        this.perfAutopilotMode = this.readPerfAutopilotMode();
+
+        const tick = (): void => {
+            void this.runPerfAutopilotTick();
+        };
+        tick();
+        this.perfAutopilotHandle = window.setInterval(tick, PERF_AUTOPILOT_TICK_MS);
+    }
+
+    private async runPerfAutopilotTick(): Promise<void> {
+        if (!this.perfAutopilotEnabled || this.perfAutopilotRunning) {
+            return;
+        }
+        this.perfAutopilotRunning = true;
+        try {
+            const auth = useAuthStore.getState();
+            if (auth.phase === 'unauthenticated') {
+                const loggedIn = await auth.login(this.perfAutopilotUser, this.perfAutopilotPass);
+                if (!loggedIn) {
+                    await auth.register(this.perfAutopilotUser, this.perfAutopilotPass);
+                }
+                return;
+            }
+            if (auth.phase !== 'authenticated') {
+                return;
+            }
+
+            const ui = useUiStore.getState();
+            if (ui.currentScene === 'login') {
+                ui.requestScene('lobby');
+                return;
+            }
+            if (this.perfAutopilotMode === 'lobbyIdle') {
+                if (ui.currentScene === 'table') {
+                    ui.requestScene('lobby');
+                }
+                return;
+            }
+            if (ui.currentScene === 'lobby') {
+                if (ui.quickStartPhase === 'idle' || ui.quickStartPhase === 'error') {
+                    await ui.startQuickStart();
+                }
+                return;
+            }
+            if (ui.currentScene !== 'table') {
+                return;
+            }
+            if (this.perfAutopilotMode === 'tableIdle') {
+                return;
+            }
+
+            const game = useGameStore.getState();
+            const prompt = game.actionPrompt;
+            if (!prompt || prompt.chair !== game.myChair) {
+                return;
+            }
+
+            const signature = `${game.streamSeq}:${prompt.actionDeadlineMs.toString()}:${prompt.callAmount.toString()}:${
+                prompt.minRaiseTo
+            }:${prompt.legalActions.join(',')}`;
+            if (signature === this.perfAutopilotLastPromptSig) {
+                return;
+            }
+            this.perfAutopilotLastPromptSig = signature;
+
+            const legalActions = new Set(prompt.legalActions);
+            const myBet = game.myBet || 0n;
+            const myStack = game.snapshot?.players.find((player) => player.chair === game.myChair)?.stack ?? 0n;
+
+            if (legalActions.has(ActionType.ACTION_CHECK)) {
+                gameClient.check();
+            } else if (legalActions.has(ActionType.ACTION_CALL)) {
+                gameClient.call(prompt.callAmount + myBet);
+            } else if (legalActions.has(ActionType.ACTION_FOLD)) {
+                gameClient.fold();
+            } else if (legalActions.has(ActionType.ACTION_RAISE)) {
+                const raiseTo = prompt.minRaiseTo > 0n ? prompt.minRaiseTo : prompt.callAmount + myBet;
+                gameClient.raise(raiseTo);
+            } else if (legalActions.has(ActionType.ACTION_BET)) {
+                const betTo = prompt.minRaiseTo > 0n ? prompt.minRaiseTo : prompt.callAmount + myBet;
+                gameClient.bet(betTo);
+            } else if (legalActions.has(ActionType.ACTION_ALLIN)) {
+                gameClient.allIn(myStack + myBet);
+            }
+
+            useGameStore.getState().dismissActionPrompt();
+        } catch (error) {
+            console.warn('[PerfAuto] tick failed', error);
+        } finally {
+            this.perfAutopilotRunning = false;
+        }
+    }
+
+    private readPerfAutopilotMode(): PerfAutopilotMode {
+        const raw = this.readStringParam('perfAutoMode', 'tableActive');
+        if (raw === 'lobbyIdle' || raw === 'tableIdle' || raw === 'tableActive') {
+            return raw;
+        }
+        return 'tableActive';
     }
 
     private exportPerfSample(sample: PerfExportSample): void {
@@ -368,6 +506,7 @@ class GameApp {
                 });
                 this.exportPerfSample({
                     scenario: this.perfScenario,
+                    scene: this.currentSceneName,
                     rendererType: rendererName,
                     fps,
                     frameMsAvg: frameAvg,

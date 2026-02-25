@@ -7,6 +7,11 @@ let mainWindow = null;
 let gpuInfoWindow = null;
 let perfLogStream = null;
 
+const userDataOverride = process.env.ELECTRON_USER_DATA_DIR;
+if (userDataOverride && userDataOverride.trim() !== '') {
+    app.setPath('userData', path.resolve(process.cwd(), userDataOverride));
+}
+
 function resolvePerfLogPath() {
     const raw = process.env.ELECTRON_PERF_LOG_FILE;
     if (!raw || raw.trim() === '') {
@@ -210,9 +215,11 @@ app.whenReady().then(() => {
         return true;
     });
     ipcMain.on('desktop:report-perf-sample', (event, payload) => {
+        const senderPid =
+            typeof event.sender?.getOSProcessId === 'function' ? event.sender.getOSProcessId() : undefined;
         appendPerfSample({
             tsMs: Date.now(),
-            rendererPid: event.processId,
+            rendererPid: Number.isFinite(senderPid) && senderPid > 0 ? senderPid : event.processId,
             ...payload,
         });
     });

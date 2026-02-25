@@ -59,18 +59,21 @@ function parsePidstatCpu(pidstatFile) {
     const lines = readLines(pidstatFile);
     const cpu = [];
     for (const line of lines) {
-        if (!line.includes('Average:')) {
+        if (line.startsWith('Linux ') || line.startsWith('# Time')) {
             continue;
         }
         if (line.includes('%CPU') || line.includes('Command')) {
             continue;
         }
         const fields = line.split(/\s+/);
-        // Average: UID PID %usr %system %guest %wait %CPU CPU Command
-        if (fields.length < 10) {
+        // pidstat line format:
+        // Time UID PID %usr %system %guest %wait %CPU CPU ... Command
+        // Some locales may include an extra AM/PM field after Time.
+        const cpuFieldIndex = fields[1] === 'AM' || fields[1] === 'PM' ? 8 : 7;
+        if (fields.length <= cpuFieldIndex) {
             continue;
         }
-        const cpuPercent = Number(fields[7]);
+        const cpuPercent = Number(fields[cpuFieldIndex]);
         if (Number.isFinite(cpuPercent)) {
             cpu.push(cpuPercent);
         }

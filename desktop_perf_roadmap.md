@@ -174,7 +174,7 @@ Fill this in-place (do not create extra phase docs unless raw data is too large)
 | Date | Commit | Build Mode | Hardware Tier | Scenario | FPS Avg | Frame P95 (ms) | Long Frames | CPU Median | CPU P95 | GPU Median | GPU P95 | Fan/thermal notes |
 |---|---|---|---|---|---:|---:|---:|---:|---:|---:|---:|---|
 | 2026-02-15 | bb7a97e | desktop dev (non-gate) | TBD | Table active hand | ~40+ floor observed | TBD | TBD | TBD | TBD | TBD | TBD | User reported floor improved after Phase 1 |
-| TBD | TBD | production gate run | Tier A | Lobby idle | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
+| 2026-02-16 | 7a5abf8+dirty | production gate run | Dev tier (WSL2, Ryzen AI 7 H 350, RTX 5060 Laptop) | Lobby idle | 52.01 | 24.46 | 0.03 | 22% | 32% | 2% | 4% | No sustained fan spike observed; run includes startup transients (no explicit warm-up hold) |
 | TBD | TBD | production gate run | Tier A | Table idle | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 | TBD | TBD | production gate run | Tier A | Table active hand | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
 | TBD | TBD | production gate run | Tier A | Showdown-heavy | TBD | TBD | TBD | TBD | TBD | TBD | TBD | TBD |
