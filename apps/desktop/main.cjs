@@ -107,7 +107,7 @@ function applyGpuInfoTheme(win) {
         }
     `;
 
-    void win.webContents.insertCSS(gpuCss).catch(() => {});
+    void win.webContents.insertCSS(gpuCss).catch(() => { });
 }
 
 function openGpuInfoWindow() {
@@ -179,6 +179,9 @@ function createWindow() {
             webSecurity: true,
         },
     });
+
+    // Lock aspect ratio to 16:10 so the desktop layout stays consistent on resize.
+    win.setAspectRatio(1280 / 800);
 
     win.webContents.setWindowOpenHandler(({ url }) => {
         void shell.openExternal(url);

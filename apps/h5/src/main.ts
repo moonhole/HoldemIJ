@@ -1,5 +1,5 @@
 import { ActionType } from '@gen/messages_pb';
-import { Application, Container } from 'pixi.js';
+import { Application, Container, Graphics } from 'pixi.js';
 import { createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { requireCanvas, requireUiRoot } from './architecture/boundary';
@@ -72,6 +72,7 @@ class GameApp {
     private pendingDestroy: Container[] = [];
     private forcedUiProfile: UiProfile | null = null;
     private resizeObserver: ResizeObserver | null = null;
+    private desktopMask: Graphics | null = null;
     private perfLoopHandle: number | null = null;
     private restoreRendererRender: (() => void) | null = null;
     private perfExportEnabled = false;
@@ -223,22 +224,41 @@ class GameApp {
             viewportLeft += rails.left;
             layoutW = availableW;
 
-            const squareSide = Math.max(280, Math.min(layoutW, h) * DESKTOP_CENTER_SQUARE_SCALE);
-            const scale = squareSide / DESIGN_WIDTH;
-            const squareX = viewportLeft + (layoutW - squareSide) / 2;
-            const squareY = viewportTop + (h - squareSide) / 2;
+            // Fill the entire center column with the Pixi stage.
+            const scale = layoutW / DESIGN_WIDTH;
+            const stageX = viewportLeft;
+            const stageY = viewportTop - DESKTOP_VIEWPORT_START_Y * scale;
 
             this.app.stage.scale.set(scale);
-            this.app.stage.x = squareX;
-            this.app.stage.y = squareY - DESKTOP_VIEWPORT_START_Y * scale;
+            this.app.stage.x = stageX;
+            this.app.stage.y = stageY;
+
+            // Clip the stage to the center column so tall scenes don't overflow
+            // into the left/right panels or above/below the window.
+            if (!this.desktopMask) {
+                this.desktopMask = new Graphics();
+                this.app.stage.addChild(this.desktopMask);
+            }
+            const maskOffsetY = DESKTOP_VIEWPORT_START_Y;
+            this.desktopMask.clear();
+            this.desktopMask.rect(0, maskOffsetY, layoutW / scale, h / scale);
+            this.desktopMask.fill({ color: 0xffffff });
+            this.app.stage.mask = this.desktopMask;
 
             const rootStyle = document.documentElement.style;
-            rootStyle.setProperty('--stage-x', `${squareX}px`);
-            rootStyle.setProperty('--stage-y', `${squareY}px`);
-            rootStyle.setProperty('--stage-width', `${squareSide}px`);
-            rootStyle.setProperty('--stage-height', `${squareSide}px`);
+            rootStyle.setProperty('--stage-x', `${stageX}px`);
+            rootStyle.setProperty('--stage-y', `${viewportTop}px`);
+            rootStyle.setProperty('--stage-width', `${layoutW}px`);
+            rootStyle.setProperty('--stage-height', `${h}px`);
             rootStyle.setProperty('--stage-scale', `${scale}`);
             return;
+        }
+
+        // Remove desktop mask when switching back to compact profile.
+        if (this.desktopMask) {
+            this.app.stage.mask = null;
+            this.desktopMask.destroy();
+            this.desktopMask = null;
         }
 
         // Use contain scaling to avoid any left/right cropping.
@@ -380,9 +400,8 @@ class GameApp {
                 return;
             }
 
-            const signature = `${game.streamSeq}:${prompt.actionDeadlineMs.toString()}:${prompt.callAmount.toString()}:${
-                prompt.minRaiseTo
-            }:${prompt.legalActions.join(',')}`;
+            const signature = `${game.streamSeq}:${prompt.actionDeadlineMs.toString()}:${prompt.callAmount.toString()}:${prompt.minRaiseTo
+                }:${prompt.legalActions.join(',')}`;
             if (signature === this.perfAutopilotLastPromptSig) {
                 return;
             }
@@ -675,3 +694,4 @@ const game = new GameApp();
 game.init().catch(console.error);
 
 export { DESIGN_HEIGHT, DESIGN_WIDTH, GameApp };
+
