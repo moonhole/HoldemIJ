@@ -19,10 +19,10 @@ import { UiLayerApp } from './ui/UiLayerApp';
 // Keep logical width at 750 for existing scene coordinates, and match baseline aspect ratio.
 const DESIGN_WIDTH = 750;
 const DESIGN_HEIGHT = DESIGN_WIDTH * (932 / 430);
-// Design-space top offset of the square crop window on desktop.
-// Larger values reveal more lower-table content.
-const DESKTOP_VIEWPORT_START_Y = 320;
-const DESKTOP_CENTER_SQUARE_SCALE = 0.8;
+// Target Y offset in the design space that should align with the top of the center column.
+// For TableScene, y=100 ensures the top bar and top row seats are visible.
+const DESKTOP_VIEWPORT_OFFSET_Y = 100;
+
 const PERF_SAMPLE_WINDOW = 180;
 const PERF_FLUSH_INTERVAL_MS = 250;
 const LONG_FRAME_THRESHOLD_MS = 34;
@@ -225,23 +225,26 @@ class GameApp {
             layoutW = availableW;
 
             // Fill the entire center column with the Pixi stage.
+            // We use a fixed offset from the top of the design so that critical
+            // top-row elements (pot, top seats) are visible, regardless of window height.
             const scale = layoutW / DESIGN_WIDTH;
             const stageX = viewportLeft;
-            const stageY = viewportTop - DESKTOP_VIEWPORT_START_Y * scale;
+            const stageY = viewportTop - DESKTOP_VIEWPORT_OFFSET_Y * scale;
 
             this.app.stage.scale.set(scale);
             this.app.stage.x = stageX;
             this.app.stage.y = stageY;
 
-            // Clip the stage to the center column so tall scenes don't overflow
-            // into the left/right panels or above/below the window.
+            // Clip the stage to the center column bounds so content
+            // doesn't overflow above/below the window.
             if (!this.desktopMask) {
                 this.desktopMask = new Graphics();
                 this.app.stage.addChild(this.desktopMask);
             }
-            const maskOffsetY = DESKTOP_VIEWPORT_START_Y;
+            const clipTop = DESKTOP_VIEWPORT_OFFSET_Y;
+            const clipH = h / scale;
             this.desktopMask.clear();
-            this.desktopMask.rect(0, maskOffsetY, layoutW / scale, h / scale);
+            this.desktopMask.rect(0, clipTop, DESIGN_WIDTH, clipH);
             this.desktopMask.fill({ color: 0xffffff });
             this.app.stage.mask = this.desktopMask;
 

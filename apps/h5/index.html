@@ -65,6 +65,15 @@
       display: block;
     }
 
+    :root.profile-desktop #game-canvas {
+      clip-path: inset(
+        var(--stage-y, 0px)
+        calc(100% - var(--stage-x, 0px) - var(--stage-width, 100%))
+        calc(100% - var(--stage-y, 0px) - var(--stage-height, 100%))
+        var(--stage-x, 0px)
+      );
+    }
+
     #ui-layer {
       position: absolute;
       top: 0;
