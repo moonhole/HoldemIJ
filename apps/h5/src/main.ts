@@ -20,8 +20,7 @@ import { UiLayerApp } from './ui/UiLayerApp';
 const DESIGN_WIDTH = 750;
 const DESIGN_HEIGHT = DESIGN_WIDTH * (932 / 430);
 // Target Y offset in the design space that should align with the top of the center column.
-// For TableScene, y=100 ensures the top bar and top row seats are visible.
-const DESKTOP_VIEWPORT_OFFSET_Y = 100;
+// Note: Handled dynamically for centering in desktop mode now.
 
 const PERF_SAMPLE_WINDOW = 180;
 const PERF_FLUSH_INTERVAL_MS = 250;
@@ -219,17 +218,35 @@ class GameApp {
 
         if (profile === 'desktop') {
             const rails = this.getDesktopRails(w);
-            const reservedW = rails.left + rails.right;
-            const availableW = Math.max(320, w - reservedW);
+            let reservedW = rails.left + rails.right;
+            let availableW = Math.max(320, w - reservedW);
+
+            // Lock center column purely to the design layout aspect ratio.
+            const TARGET_RATIO = DESIGN_WIDTH / DESIGN_HEIGHT;
+            const maxCenterW = h * TARGET_RATIO;
+
+            if (availableW > maxCenterW) {
+                const extra = availableW - maxCenterW;
+                availableW = maxCenterW;
+
+                // Distribute extra slack width proportionally to the initial intended side rails
+                const totalBaseRails = rails.left + rails.right;
+                if (totalBaseRails > 0) {
+                    rails.left += extra * (rails.left / totalBaseRails);
+                    rails.right += extra * (rails.right / totalBaseRails);
+                } else {
+                    rails.left += extra / 2;
+                    rails.right += extra / 2;
+                }
+            }
+
             viewportLeft += rails.left;
             layoutW = availableW;
 
-            // Fill the entire center column with the Pixi stage.
-            // We use a fixed offset from the top of the design so that critical
-            // top-row elements (pot, top seats) are visible, regardless of window height.
+            // Center the stage visually in the remaining height.
             const scale = layoutW / DESIGN_WIDTH;
             const stageX = viewportLeft;
-            const stageY = viewportTop - DESKTOP_VIEWPORT_OFFSET_Y * scale;
+            const stageY = viewportTop + (h - DESIGN_HEIGHT * scale) / 2;
 
             this.app.stage.scale.set(scale);
             this.app.stage.x = stageX;
@@ -241,7 +258,7 @@ class GameApp {
                 this.desktopMask = new Graphics();
                 this.app.stage.addChild(this.desktopMask);
             }
-            const clipTop = DESKTOP_VIEWPORT_OFFSET_Y;
+            const clipTop = -stageY / scale;
             const clipH = h / scale;
             this.desktopMask.clear();
             this.desktopMask.rect(0, clipTop, DESIGN_WIDTH, clipH);
@@ -254,6 +271,9 @@ class GameApp {
             rootStyle.setProperty('--stage-width', `${layoutW}px`);
             rootStyle.setProperty('--stage-height', `${h}px`);
             rootStyle.setProperty('--stage-scale', `${scale}`);
+            // Push rail sizes to CSS variables so React layout Grid matches perfectly
+            rootStyle.setProperty('--panel-left-width', `${rails.left}px`);
+            rootStyle.setProperty('--panel-right-width', `${rails.right}px`);
             return;
         }
 

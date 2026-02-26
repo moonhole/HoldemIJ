@@ -19,6 +19,29 @@
     font-size: 11px;
     letter-spacing: 0.16em;
     font-weight: 700;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.perf-overlay-close {
+    background: transparent;
+    border: none;
+    color: rgba(0, 243, 255, 0.7);
+    cursor: pointer;
+    padding: 4px;
+    margin: -4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    pointer-events: auto;
+    transition: all 0.2s ease;
+}
+
+.perf-overlay-close:hover {
+    color: #fff;
+    background: rgba(0, 243, 255, 0.2);
 }
 
 .perf-overlay-line {

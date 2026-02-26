@@ -10,6 +10,7 @@ function formatNumber(value: number, digits: number = 1): string {
 
 export function PerfOverlay(): JSX.Element | null {
     const enabled = usePerfStore((s) => s.enabled);
+    const setEnabled = usePerfStore((s) => s.setEnabled);
     const rendererType = usePerfStore((s) => s.rendererType);
     const fps = usePerfStore((s) => s.fps);
     const frameMsAvg = usePerfStore((s) => s.frameMsAvg);
@@ -27,7 +28,18 @@ export function PerfOverlay(): JSX.Element | null {
 
     return (
         <aside className="perf-overlay" aria-label="performance diagnostics overlay">
-            <div className="perf-overlay-head">PERF LIVE</div>
+            <div className="perf-overlay-head">
+                <span>PERF LIVE</span>
+                <button
+                    className="perf-overlay-close"
+                    onClick={() => setEnabled(false)}
+                    aria-label="Close"
+                >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                        <path d="M18 6L6 18M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
             <div className="perf-overlay-line">
                 <span>Renderer</span>
                 <strong>{rendererType.toUpperCase()}</strong>
