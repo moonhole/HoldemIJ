@@ -113,6 +113,7 @@
 }
 
 .logo-center {
+    position: relative;
     width: 76px;
     height: 76px;
     border: 4px dashed rgba(0, 243, 255, 0.2);
@@ -120,6 +121,38 @@
     display: flex;
     align-items: center;
     justify-content: center;
+    animation: logo-dash-spin 20s linear infinite;
+}
+
+.logo-center::after {
+    content: "";
+    position: absolute;
+    inset: -4px;
+    border-radius: 50%;
+    border: 4px solid transparent;
+    border-top-color: #00f3ff;
+    filter: drop-shadow(0 0 8px rgba(0, 243, 255, 0.7));
+    animation: logo-arc-spin 3s linear infinite;
+}
+
+@keyframes logo-dash-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@keyframes logo-arc-spin {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .logo-icon {

@@ -1,14 +1,52 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { audioManager } from '../../audio/AudioManager';
 import { SoundMap } from '../../audio/SoundMap';
 
+const WELCOME_TEXT = 'Hello! I am Rei, your AI poker assistant. Feel free to ask me anything about hand strategies or pot odds.';
+const TYPE_SPEED_MS = 28;
+
+function TypewriterText({ text }: { text: string }): JSX.Element {
+    const [displayed, setDisplayed] = useState('');
+    const indexRef = useRef(0);
+
+    useEffect(() => {
+        if (indexRef.current >= text.length) return;
+
+        const timer = window.setInterval(() => {
+            indexRef.current += 1;
+            setDisplayed(text.slice(0, indexRef.current));
+            if (indexRef.current >= text.length) {
+                window.clearInterval(timer);
+            }
+        }, TYPE_SPEED_MS);
+
+        return () => window.clearInterval(timer);
+    }, [text]);
+
+    return (
+        <>
+            {displayed}
+            {displayed.length < text.length && <span className="typewriter-cursor">▎</span>}
+        </>
+    );
+}
+
 export function DesktopChatPanel(): JSX.Element {
     const [inputValue, setInputValue] = useState('');
-    const [messages, setMessages] = useState([
-        { id: 1, sender: 'agent', text: 'Hello! I am your AI poker assistant. Feel free to ask me anything about hand strategies or pot odds.' },
-        { id: 2, sender: 'user', text: 'What is a good 3-bet range from the cutoff?' },
-        { id: 3, sender: 'agent', text: 'Typically, a solid CO 3-bet bluffing range includes suited connectors and suited aces, along with your premium value hands.' }
-    ]);
+    const [messages, setMessages] = useState<{ id: number; sender: string; text: string }[]>([]);
+    const [welcomeDone, setWelcomeDone] = useState(false);
+
+    // Fire the welcome message on mount
+    useEffect(() => {
+        const timeout = window.setTimeout(() => {
+            setMessages([{ id: 1, sender: 'agent', text: WELCOME_TEXT }]);
+            // Mark done after the typing animation finishes
+            window.setTimeout(() => {
+                setWelcomeDone(true);
+            }, WELCOME_TEXT.length * TYPE_SPEED_MS + 200);
+        }, 600);
+        return () => window.clearTimeout(timeout);
+    }, []);
 
     const handleSend = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
@@ -47,7 +85,10 @@ export function DesktopChatPanel(): JSX.Element {
                 {messages.map(msg => (
                     <div key={msg.id} className={`desktop-chat-msg is-${msg.sender}`}>
                         <div className="msg-bubble">
-                            {msg.text}
+                            {msg.id === 1 && msg.sender === 'agent' && !welcomeDone
+                                ? <TypewriterText text={msg.text} />
+                                : msg.text
+                            }
                         </div>
                     </div>
                 ))}
