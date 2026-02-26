@@ -11,4 +11,5 @@ contextBridge.exposeInMainWorld('desktopBridge', {
     openGpuInfo: () => ipcRenderer.invoke('desktop:open-gpu-info'),
     reportPerfSample: (sample) => ipcRenderer.send('desktop:report-perf-sample', sample),
     getProcessInfo: () => ipcRenderer.invoke('desktop:get-process-info'),
+    quitApp: () => ipcRenderer.invoke('desktop:quit-app'),
 });

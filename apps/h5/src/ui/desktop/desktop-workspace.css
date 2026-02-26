@@ -152,6 +152,95 @@
     font-size: 16px;
 }
 
+.desktop-rail-system-row {
+    display: flex;
+    gap: 8px;
+}
+
+.desktop-rail-sys-btn {
+    flex: 1;
+    height: 38px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    color: rgba(255, 255, 255, 0.75);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    transition: all 0.18s ease;
+}
+
+.desktop-rail-sys-btn:hover {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+.desktop-rail-sys-btn .material-symbols-outlined {
+    font-size: 16px;
+}
+
+.desktop-rail-sys-btn.is-active {
+    border-color: rgba(0, 243, 255, 0.4);
+    background: rgba(0, 243, 255, 0.1);
+    color: #00f3ff;
+}
+
+/* Settings Panel */
+.desktop-settings-panel {
+    animation: msg-fade-in 0.2s ease-out;
+}
+
+.desktop-settings-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 0;
+    gap: 12px;
+}
+
+.desktop-settings-label {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.72);
+}
+
+.desktop-settings-close {
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s;
+}
+
+.desktop-settings-close:hover {
+    color: #ffffff;
+}
+
+.desktop-settings-close .material-symbols-outlined {
+    font-size: 16px;
+}
+
+.desktop-settings-panel .audio-toggle-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+}
+
 .desktop-rail-card {
     border-radius: 14px;
     border: 1px solid rgba(255, 255, 255, 0.12);

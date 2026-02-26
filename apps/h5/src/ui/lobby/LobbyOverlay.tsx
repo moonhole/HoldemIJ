@@ -6,6 +6,7 @@ import { gameClient } from '../../network/GameClient';
 import { decodeReplayServerTape, type ReplayServerTape } from '../../replay/replayCodec';
 import { useReplayStore } from '../../replay/replayStore';
 import { useAuthStore } from '../../store/authStore';
+import { useLayoutStore } from '../../store/layoutStore';
 import { useUiStore } from '../../store/uiStore';
 import { AudioToggle } from '../common/AudioToggle';
 import { NumberTicker } from '../common/NumberTicker';
@@ -21,59 +22,9 @@ function getDesktopBridge(): DesktopBridge | null {
     return host.desktopBridge ?? null;
 }
 
-type LobbyTableItem = {
-    name: string;
-    blinds: string;
-    pot: string;
-    occupancy: string;
-    fillPercent: number;
-    tone: 'primary' | 'cyan' | 'neutral';
-    dimmed?: boolean;
-};
 
-const MOCK_TABLES: LobbyTableItem[] = [
-    {
-        name: 'VOID_RUNNER_01',
-        blinds: '$500 / $1,000',
-        pot: '$45.2K',
-        occupancy: '4 / 6 PLAYERS',
-        fillPercent: 66,
-        tone: 'primary',
-    },
-    {
-        name: 'CHROME_HEAVEN',
-        blinds: '$100 / $200',
-        pot: '$8.9K',
-        occupancy: '5 / 6 PLAYERS',
-        fillPercent: 83,
-        tone: 'cyan',
-    },
-    {
-        name: 'NEON_GUTTER',
-        blinds: '$25 / $50',
-        pot: '$1.2K',
-        occupancy: '2 / 6 PLAYERS',
-        fillPercent: 33,
-        tone: 'neutral',
-        dimmed: true,
-    },
-    {
-        name: 'GLITCH_PALACE',
-        blinds: '$2K / $4K',
-        pot: '$210K',
-        occupancy: '6 / 6 FULL',
-        fillPercent: 100,
-        tone: 'primary',
-    },
-    {
-        name: 'DATA_STREAM_B',
-        blinds: '$50 / $100',
-        pot: '$4.5K',
-        occupancy: '3 / 6 PLAYERS',
-        fillPercent: 50,
-        tone: 'cyan',
-    },
-];
+
+
 const LOBBY_WS_IDLE_DISCONNECT_MS = 30000;
 
 function toHeroChair(summary: Record<string, unknown>): number {
@@ -124,6 +75,7 @@ export function LobbyOverlay(): JSX.Element | null {
     const requestScene = useUiStore((s) => s.requestScene);
     const username = useAuthStore((s) => s.username);
     const logout = useAuthStore((s) => s.logout);
+    const uiProfile = useLayoutStore((s) => s.uiProfile);
     const loadReplayTape = useReplayStore((s) => s.loadTape);
     const [auditOpen, setAuditOpen] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
@@ -239,51 +191,116 @@ export function LobbyOverlay(): JSX.Element | null {
                                 <span className="lobby-net-text">STABLE_98.4%</span>
                             </div>
                         </div>
-                        <div className="lobby-credits">
-                            <span className="lobby-label lobby-label-right">{username || 'Guest'}</span>
-                            <span className="lobby-credits-value">
-                                <span className="dollar">$</span> <NumberTicker value={1245900} />
-                            </span>
+                        <div className="lobby-header-right">
+                            <div className="lobby-credits">
+                                <span className="lobby-label lobby-label-right">{username || 'Guest'}</span>
+                                <span className="lobby-credits-value">
+                                    <span className="dollar">$</span> <NumberTicker value={1245900} />
+                                </span>
+                            </div>
+                            {uiProfile === 'compact' && (
+                                <div className="lobby-header-actions">
+                                    <button
+                                        type="button"
+                                        className="lobby-icon-btn"
+                                        onClick={() => {
+                                            playUiClick();
+                                            setSettingsOpen((prev) => !prev);
+                                        }}
+                                        aria-label="Settings"
+                                    >
+                                        <span className="material-symbols-outlined">settings</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="lobby-icon-btn"
+                                        onClick={async () => {
+                                            playUiClick();
+                                            await logout();
+                                            resetQuickStart();
+                                            requestScene('login');
+                                        }}
+                                        aria-label="Logout"
+                                    >
+                                        <span className="material-symbols-outlined">logout</span>
+                                    </button>
+                                </div>
+                            )}
                         </div>
-                    </div>
-                    <div className="lobby-filter-row">
-                        <button type="button" className="lobby-filter-btn is-active" onClick={playUiClick}>
-                            All Nodes
-                        </button>
-                        <button type="button" className="lobby-filter-btn" onClick={playUiClick}>
-                            High Stakes
-                        </button>
-                        <button type="button" className="lobby-filter-btn" onClick={playUiClick}>
-                            Speed
-                        </button>
                     </div>
                 </div>
 
                 <div className="lobby-list">
-                    {MOCK_TABLES.map((item) => (
-                        <article
-                            key={item.name}
-                            className={`lobby-node tone-${item.tone}${item.dimmed ? ' is-dimmed' : ''}`}
+                    {/* Audit Feature Card */}
+                    <section className="lobby-audit-card">
+                        <div className="lobby-audit-card-header">
+                            <div className="lobby-audit-card-icon">
+                                <span className="material-symbols-outlined">history</span>
+                            </div>
+                            <div>
+                                <h3 className="lobby-audit-card-title">HAND AUDIT</h3>
+                                <p className="lobby-audit-card-desc">Review your recent hands, analyze decisions, and replay key moments.</p>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            className="lobby-audit-open-btn"
+                            onClick={() => {
+                                playUiClick();
+                                setAuditOpen(true);
+                            }}
                         >
-                            <div className="lobby-node-main">
-                                <div>
-                                    <h3 className="lobby-node-title">{item.name}</h3>
-                                    <p className="lobby-node-blind">Blind: {item.blinds}</p>
-                                </div>
-                                <div className="lobby-node-pot">
-                                    <span className="lobby-node-pot-value">{item.pot}</span>
-                                    <span className="lobby-node-pot-label">Pot</span>
-                                </div>
+                            <span className="material-symbols-outlined">play_arrow</span>
+                            <span>OPEN AUDIT CONSOLE</span>
+                        </button>
+                        {auditItems.length > 0 && !auditOpen && (
+                            <div className="lobby-audit-preview">
+                                <span className="lobby-audit-preview-label">{auditItems.length} recent hand{auditItems.length !== 1 ? 's' : ''} available</span>
                             </div>
-                            <div className="lobby-node-occupancy-row">
-                                <span className="lobby-node-occupancy-label">Occupancy</span>
-                                <span className="lobby-node-occupancy-value">{item.occupancy}</span>
+                        )}
+                    </section>
+
+                    {/* Agent Coach Card */}
+                    <section className="lobby-feature-card">
+                        <div className="lobby-feature-card-header">
+                            <div className="lobby-feature-card-icon tone-magenta">
+                                <span className="material-symbols-outlined">psychology</span>
                             </div>
-                            <div className="lobby-node-progress-bg">
-                                <div className="lobby-node-progress" style={{ width: `${item.fillPercent}%` }} />
+                            <div>
+                                <h3 className="lobby-feature-card-title">AGENT COACH</h3>
+                                <p className="lobby-feature-card-desc">AI-powered real-time coaching. Get instant feedback on your decisions and improve your game.</p>
                             </div>
-                        </article>
-                    ))}
+                        </div>
+                        <div className="lobby-feature-card-badge">Coming Soon</div>
+                    </section>
+
+                    {/* Agent UI Programming Card */}
+                    <section className="lobby-feature-card">
+                        <div className="lobby-feature-card-header">
+                            <div className="lobby-feature-card-icon tone-purple">
+                                <span className="material-symbols-outlined">code</span>
+                            </div>
+                            <div>
+                                <h3 className="lobby-feature-card-title">AGENT UI PROGRAMMING</h3>
+                                <p className="lobby-feature-card-desc">Build custom interfaces and automation scripts with natural language. Let the agent code your poker HUD.</p>
+                            </div>
+                        </div>
+                        <div className="lobby-feature-card-badge">Coming Soon</div>
+                    </section>
+
+                    {/* Invite Friends Card */}
+                    <section className="lobby-feature-card">
+                        <div className="lobby-feature-card-header">
+                            <div className="lobby-feature-card-icon tone-green">
+                                <span className="material-symbols-outlined">group_add</span>
+                            </div>
+                            <div>
+                                <h3 className="lobby-feature-card-title">INVITE FRIENDS</h3>
+                                <p className="lobby-feature-card-desc">Create a private table and invite friends for a multiplayer session. Play together in real-time.</p>
+                            </div>
+                        </div>
+                        <div className="lobby-feature-card-badge">Coming Soon</div>
+                    </section>
                 </div>
 
                 <div className="lobby-footer">
@@ -299,43 +316,6 @@ export function LobbyOverlay(): JSX.Element | null {
                         <span className="material-symbols-outlined">bolt</span>
                         <span>{quickStartLabel}</span>
                     </button>
-                    <div className="lobby-footer-row">
-                        <button
-                            type="button"
-                            className="lobby-secondary-btn"
-                            onClick={() => {
-                                playUiClick();
-                                setAuditOpen(true);
-                            }}
-                        >
-                            <span className="material-symbols-outlined">history</span>
-                            <span>Audit</span>
-                        </button>
-                        <button
-                            type="button"
-                            className="lobby-secondary-btn"
-                            onClick={async () => {
-                                playUiClick();
-                                await logout();
-                                resetQuickStart();
-                                requestScene('login');
-                            }}
-                        >
-                            <span className="material-symbols-outlined">logout</span>
-                            <span>Logout</span>
-                        </button>
-                        <button
-                            type="button"
-                            className="lobby-icon-btn"
-                            onClick={() => {
-                                playUiClick();
-                                setSettingsOpen((prev) => !prev);
-                            }}
-                        >
-                            <span className="material-symbols-outlined">settings</span>
-                        </button>
-                    </div>
-                    <div className="lobby-safe-bar" />
                     {quickStartError ? <div className="lobby-quick-start-error">{quickStartError}</div> : null}
                 </div>
 

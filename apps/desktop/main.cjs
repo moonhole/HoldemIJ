@@ -217,6 +217,10 @@ app.whenReady().then(() => {
         openGpuInfoWindow();
         return true;
     });
+    ipcMain.handle('desktop:quit-app', () => {
+        app.quit();
+        return true;
+    });
     ipcMain.on('desktop:report-perf-sample', (event, payload) => {
         const senderPid =
             typeof event.sender?.getOSProcessId === 'function' ? event.sender.getOSProcessId() : undefined;

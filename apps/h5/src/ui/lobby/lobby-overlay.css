@@ -37,9 +37,21 @@
 
 .lobby-header-row {
     display: flex;
-    align-items: flex-end;
+    align-items: flex-start;
     justify-content: space-between;
-    margin-bottom: 12px;
+    gap: 12px;
+}
+
+.lobby-header-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.lobby-header-actions {
+    display: flex;
+    gap: 6px;
 }
 
 .lobby-label {
@@ -92,31 +104,7 @@
     color: #f425af;
 }
 
-.lobby-filter-row {
-    display: flex;
-    gap: 8px;
-}
-
-.lobby-filter-btn {
-    flex: 1;
-    min-height: 26px;
-    border-radius: 8px;
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    background: transparent;
-    color: rgba(255, 255, 255, 0.45);
-    text-transform: uppercase;
-    letter-spacing: 0.18em;
-    font-size: 9px;
-    font-weight: 700;
-    cursor: pointer;
-}
-
-.lobby-filter-btn.is-active {
-    border-color: rgba(244, 37, 175, 0.4);
-    background: rgba(244, 37, 175, 0.1);
-    color: #f425af;
-}
-
+/* Lobby list container */
 .lobby-list {
     flex: 1;
     overflow: auto;
@@ -126,161 +114,182 @@
     gap: 10px;
 }
 
-.lobby-list::-webkit-scrollbar {
-    width: 3px;
-}
-
-.lobby-list::-webkit-scrollbar-thumb {
-    background: rgba(244, 37, 175, 0.2);
-    border-radius: 999px;
-}
-
-.lobby-list::-webkit-scrollbar-track {
-    background: transparent;
-}
-
-.lobby-node {
-    position: relative;
-    border-radius: 12px;
-    overflow: hidden;
-    padding: 13px 14px;
-    border-left: 4px solid rgba(255, 255, 255, 0.2);
-    background: rgba(255, 255, 255, 0.05);
-}
-
-.lobby-node::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    transform: skewX(-2deg);
-    transform-origin: center;
-    pointer-events: none;
-}
-
-.lobby-node.tone-primary {
-    border-left-color: #f425af;
-}
-
-.lobby-node.tone-primary::before {
-    background: rgba(244, 37, 175, 0.08);
-}
-
-.lobby-node.tone-cyan {
-    border-left-color: #00f3ff;
-}
-
-.lobby-node.tone-cyan::before {
-    background: rgba(0, 243, 255, 0.08);
-}
-
-.lobby-node.tone-neutral::before {
-    background: rgba(255, 255, 255, 0.06);
-}
-
-.lobby-node.is-dimmed {
-    opacity: 0.58;
-}
-
-.lobby-node-main {
-    position: relative;
-    z-index: 1;
-    display: flex;
-    justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 10px;
-}
-
-.lobby-node-title {
-    font-size: 24px;
-    line-height: 1;
-    font-weight: 700;
-    font-style: italic;
-    letter-spacing: -0.03em;
-    color: #ffffff;
-    margin: 0 0 4px;
-}
-
-.lobby-node-blind {
-    margin: 0;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    font-size: 10px;
-    color: rgba(255, 255, 255, 0.4);
-}
-
-.lobby-node-pot {
+/* Audit Feature Card */
+.lobby-audit-card {
+    border-radius: 16px;
+    border: 1px solid rgba(0, 243, 255, 0.25);
+    background:
+        linear-gradient(135deg, rgba(0, 243, 255, 0.06), rgba(244, 37, 175, 0.04)),
+        rgba(12, 8, 14, 0.9);
+    padding: 20px;
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
+    gap: 16px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
 }
 
-.lobby-node-pot-value {
-    color: #00f3ff;
-    font-size: 12px;
-    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-}
-
-.lobby-node-pot-label {
-    text-transform: uppercase;
-    font-size: 9px;
-    color: rgba(255, 255, 255, 0.4);
-}
-
-.lobby-node-occupancy-row {
-    position: relative;
-    z-index: 1;
+.lobby-audit-card-header {
     display: flex;
-    justify-content: space-between;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.lobby-audit-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 243, 255, 0.35);
+    background: rgba(0, 243, 255, 0.1);
+    display: flex;
     align-items: center;
-    margin-bottom: 4px;
+    justify-content: center;
+    color: #00f3ff;
+    flex-shrink: 0;
 }
 
-.lobby-node-occupancy-label {
-    font-size: 9px;
-    color: rgba(255, 255, 255, 0.6);
+.lobby-audit-card-icon .material-symbols-outlined {
+    font-size: 22px;
+}
+
+.lobby-audit-card-title {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    color: rgba(220, 249, 255, 0.96);
     text-transform: uppercase;
 }
 
-.lobby-node-occupancy-value {
-    font-size: 9px;
+.lobby-audit-card-desc {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+.lobby-audit-open-btn {
+    width: 100%;
+    min-height: 46px;
+    border-radius: 12px;
+    border: 1px solid rgba(0, 243, 255, 0.4);
+    background: rgba(0, 243, 255, 0.12);
+    color: rgba(220, 249, 255, 0.96);
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    font-weight: 700;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 6px 20px rgba(0, 243, 255, 0.12);
+    transition: all 0.2s ease;
+}
+
+.lobby-audit-open-btn:hover {
+    background: rgba(0, 243, 255, 0.2);
+    border-color: rgba(0, 243, 255, 0.65);
+    box-shadow: 0 8px 28px rgba(0, 243, 255, 0.2);
+    color: #ffffff;
+}
+
+.lobby-audit-open-btn:active {
+    transform: scale(0.98);
+}
+
+.lobby-audit-preview {
+    padding: 8px 0 0;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lobby-audit-preview-label {
+    font-size: 11px;
+    color: rgba(0, 243, 255, 0.65);
+    letter-spacing: 0.06em;
+}
+
+/* Generic Feature Cards */
+.lobby-feature-card {
+    border-radius: 16px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(12, 8, 14, 0.85);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    transition: border-color 0.2s;
+}
+
+.lobby-feature-card:hover {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+.lobby-feature-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.lobby-feature-card-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.lobby-feature-card-icon .material-symbols-outlined {
+    font-size: 20px;
+}
+
+.lobby-feature-card-icon.tone-magenta {
+    border: 1px solid rgba(244, 37, 175, 0.35);
+    background: rgba(244, 37, 175, 0.1);
     color: #f425af;
 }
 
-.lobby-node.tone-cyan .lobby-node-occupancy-value {
-    color: #00f3ff;
+.lobby-feature-card-icon.tone-purple {
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    background: rgba(168, 85, 247, 0.1);
+    color: #a855f7;
 }
 
-.lobby-node.tone-neutral .lobby-node-occupancy-value {
+.lobby-feature-card-icon.tone-green {
+    border: 1px solid rgba(34, 197, 94, 0.35);
+    background: rgba(34, 197, 94, 0.1);
+    color: #22c55e;
+}
+
+.lobby-feature-card-title {
+    margin: 0 0 4px;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    color: rgba(235, 249, 255, 0.92);
+    text-transform: uppercase;
+}
+
+.lobby-feature-card-desc {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
     color: rgba(255, 255, 255, 0.45);
 }
 
-.lobby-node-progress-bg {
-    position: relative;
-    z-index: 1;
-    height: 4px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.08);
-    overflow: hidden;
-}
-
-.lobby-node-progress {
-    height: 100%;
-    border-radius: 999px;
-    background: #f425af;
-    box-shadow: 0 0 8px #f425af;
-}
-
-.lobby-node.tone-cyan .lobby-node-progress {
-    background: #00f3ff;
-    box-shadow: 0 0 8px #00f3ff;
-}
-
-.lobby-node.tone-neutral .lobby-node-progress {
-    background: rgba(255, 255, 255, 0.28);
-    box-shadow: none;
+.lobby-feature-card-badge {
+    align-self: flex-start;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(255, 255, 255, 0.04);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.45);
 }
 
 .lobby-footer {
@@ -610,11 +619,13 @@
 }
 
 @keyframes lobby-pulse {
+
     0%,
     100% {
         transform: scale(1);
         opacity: 0.85;
     }
+
     50% {
         transform: scale(1.12);
         opacity: 1;
@@ -625,12 +636,14 @@
     from {
         transform: translateY(-130%);
     }
+
     to {
         transform: translateY(1300px);
     }
 }
 
-@media (max-width: 560px), (max-height: 760px) {
+@media (max-width: 560px),
+(max-height: 760px) {
     .lobby-header {
         padding: 14px 12px 12px;
     }
