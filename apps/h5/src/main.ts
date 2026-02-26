@@ -217,31 +217,21 @@ class GameApp {
         let layoutW = w;
 
         if (profile === 'desktop') {
-            const rails = this.getDesktopRails(w);
-            let reservedW = rails.left + rails.right;
-            let availableW = Math.max(320, w - reservedW);
-
-            // Lock center column purely to the design layout aspect ratio.
+            // 1. Lock center column to the design aspect ratio.
             const TARGET_RATIO = DESIGN_WIDTH / DESIGN_HEIGHT;
-            const maxCenterW = h * TARGET_RATIO;
+            const centerW = Math.min(w * 0.55, h * TARGET_RATIO);
 
-            if (availableW > maxCenterW) {
-                const extra = availableW - maxCenterW;
-                availableW = maxCenterW;
+            // 2. Golden ratio split: (left + center) : right = φ : 1
+            const PHI = 1.618033988749895;
+            const rightW = w / (1 + PHI);           // ≈ 38.2 % of total
+            const leftPlusCenterW = w - rightW;     // ≈ 61.8 % of total
+            const leftW = Math.max(leftPlusCenterW - centerW, 220);
 
-                // Distribute extra slack width proportionally to the initial intended side rails
-                const totalBaseRails = rails.left + rails.right;
-                if (totalBaseRails > 0) {
-                    rails.left += extra * (rails.left / totalBaseRails);
-                    rails.right += extra * (rails.right / totalBaseRails);
-                } else {
-                    rails.left += extra / 2;
-                    rails.right += extra / 2;
-                }
-            }
+            // Rebuild rails object for downstream use
+            const rails = { left: leftW, right: w - leftW - centerW };
 
             viewportLeft += rails.left;
-            layoutW = availableW;
+            layoutW = centerW;
 
             // Center the stage visually in the remaining height.
             const scale = layoutW / DESIGN_WIDTH;

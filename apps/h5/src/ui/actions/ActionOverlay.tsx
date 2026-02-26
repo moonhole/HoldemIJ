@@ -8,6 +8,7 @@ import { useReplayStore } from '../../replay/replayStore';
 import { useGameStore } from '../../store/gameStore';
 import { useLiveUiStore } from '../../store/liveUiStore';
 import { useUiStore } from '../../store/uiStore';
+import { useLayoutStore } from '../../store/layoutStore';
 import { NumberTicker } from '../common/NumberTicker';
 import './action-overlay.css';
 
@@ -23,6 +24,7 @@ function sumPots(pots: Array<{ amount: bigint }> | undefined): bigint {
 export function ActionOverlay(): JSX.Element | null {
     const currentScene = useUiStore((s) => s.currentScene);
     const requestScene = useUiStore((s) => s.requestScene);
+    const uiProfile = useLayoutStore((s) => s.uiProfile);
     const replayMode = useReplayStore((s) => s.mode);
     const reiStatusTag = useReiStore((s) => s.statusTag);
     const reiKeyLine = useReiStore((s) => s.keyLine);
@@ -300,12 +302,14 @@ export function ActionOverlay(): JSX.Element | null {
         <div className="action-overlay">
             {errorMessage && <div className="action-toast">{errorMessage}</div>}
 
-            <div className="top-right-return">
-                <button type="button" className="lobby-return-btn" onClick={returnLobby}>
-                    <span className="material-symbols-outlined">arrow_back</span>
-                    <span>RETURN LOBBY</span>
-                </button>
-            </div>
+            {uiProfile === 'compact' && (
+                <div className="top-right-return">
+                    <button type="button" className="lobby-return-btn" onClick={returnLobby}>
+                        <span className="material-symbols-outlined">arrow_back</span>
+                        <span>RETURN LOBBY</span>
+                    </button>
+                </div>
+            )}
 
             <div className="action-overlay-shell">
                 {/* STABLE HEADER: These columns are NEVER destroyed or re-styled */}

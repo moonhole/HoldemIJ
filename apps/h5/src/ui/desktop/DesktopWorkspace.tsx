@@ -1,5 +1,11 @@
+import { DesktopChatPanel } from './DesktopChatPanel';
 import { DesktopLeftRail } from './DesktopLeftRail';
+import { audioManager } from '../../audio/AudioManager';
+import { SoundMap } from '../../audio/SoundMap';
+import { gameClient } from '../../network/GameClient';
+import { useGameStore } from '../../store/gameStore';
 import { useLayoutStore } from '../../store/layoutStore';
+import { useLiveUiStore } from '../../store/liveUiStore';
 import { useReplayStore } from '../../replay/replayStore';
 import { useUiStore } from '../../store/uiStore';
 import { ReiOverlay } from '../rei/ReiOverlay';
@@ -9,8 +15,29 @@ import './desktop-workspace.css';
 export function DesktopWorkspace(): JSX.Element | null {
     const uiProfile = useLayoutStore((s) => s.uiProfile);
     const currentScene = useUiStore((s) => s.currentScene);
+    const requestScene = useUiStore((s) => s.requestScene);
     const replayMode = useReplayStore((s) => s.mode);
+    const myChair = useGameStore((s) => s.myChair);
+    const closePlayerCard = useLiveUiStore((s) => s.closePlayerCard);
+
     const isReplayReady = currentScene === 'table' && replayMode === 'loaded';
+
+    const returnLobby = (): void => {
+        audioManager.play(SoundMap.UI_CLICK, 0.7);
+        if (myChair !== -1) {
+            gameClient.standUp();
+            window.setTimeout(() => {
+                const state = useUiStore.getState();
+                if (state.currentScene === 'lobby' && gameClient.isConnected) {
+                    gameClient.disconnect();
+                }
+            }, 350);
+        } else if (gameClient.isConnected) {
+            gameClient.disconnect();
+        }
+        requestScene('lobby');
+        closePlayerCard();
+    };
 
     if (uiProfile !== 'desktop') {
         return null;
@@ -23,35 +50,21 @@ export function DesktopWorkspace(): JSX.Element | null {
             </div>
             <div className="desktop-center" />
             <div className="desktop-right-rail">
-                <section className="desktop-rail-card desktop-right-status-card">
-                    <header className="desktop-rail-head">
-                        <span className="desktop-rail-title">Explanation Console</span>
-                        <span className={`desktop-rail-chip ${isReplayReady ? 'is-live' : ''}`}>
-                            {isReplayReady ? 'Ready' : 'Standby'}
-                        </span>
-                    </header>
-                    <div className="desktop-rail-grid">
-                        <div className="desktop-rail-metric">
-                            <span className="desktop-rail-label">Scene</span>
-                            <span className="desktop-rail-value">{currentScene}</span>
-                        </div>
-                        <div className="desktop-rail-metric">
-                            <span className="desktop-rail-label">Replay Mode</span>
-                            <span className="desktop-rail-value">{replayMode}</span>
-                        </div>
-                    </div>
-                </section>
+                {currentScene === 'table' && (
+                    <button type="button" className="desktop-rail-return-btn" onClick={returnLobby}>
+                        <span className="material-symbols-outlined">arrow_back</span>
+                        <span>RETURN LOBBY</span>
+                    </button>
+                )}
 
                 {isReplayReady ? (
                     <>
                         <ReplayOverlay />
                         <ReiOverlay />
                     </>
-                ) : (
-                    <section className="desktop-rail-card desktop-right-empty">
-                        Open a replay hand from lobby to populate controls and explanation panels.
-                    </section>
-                )}
+                ) : null}
+
+                <DesktopChatPanel />
             </div>
         </div>
     );

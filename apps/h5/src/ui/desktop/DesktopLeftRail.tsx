@@ -63,8 +63,29 @@ export function DesktopLeftRail(): JSX.Element {
         ? `${Math.max(0, replayCursor + 1)} / ${replayVisualSteps.length}`
         : '--';
 
+    const isReplayReady = currentScene === 'table' && replayMode === 'loaded';
+
     return (
         <aside className="desktop-left-rail-content">
+            <section className="desktop-rail-card">
+                <header className="desktop-rail-head">
+                    <span className="desktop-rail-title">Explanation Console</span>
+                    <span className={`desktop-rail-chip ${isReplayReady ? 'is-live' : ''}`}>
+                        {isReplayReady ? 'Ready' : 'Standby'}
+                    </span>
+                </header>
+                <div className="desktop-rail-grid">
+                    <div className="desktop-rail-metric">
+                        <span className="desktop-rail-label">Scene</span>
+                        <span className="desktop-rail-value">{currentScene}</span>
+                    </div>
+                    <div className="desktop-rail-metric">
+                        <span className="desktop-rail-label">Replay Mode</span>
+                        <span className="desktop-rail-value">{replayMode}</span>
+                    </div>
+                </div>
+            </section>
+
             <section className="desktop-rail-card">
                 <header className="desktop-rail-head">
                     <span className="desktop-rail-title">Hand Navigator</span>
