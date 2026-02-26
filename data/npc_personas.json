@@ -1,0 +1,342 @@
+[
+    {
+        "id": "proxy",
+        "name": "PROXY",
+        "tagline": "Calls everything. Regrets nothing.",
+        "avatarKey": "npc_proxy",
+        "tier": 1,
+        "firstSeen": 1,
+        "brain": {
+            "aggression": 0.20,
+            "tightness": 0.20,
+            "bluffing": 0.10,
+            "positional": 0.30,
+            "randomness": 0.35
+        },
+        "reiIntro": "A true calling station. Rarely folds to any bet, but almost never raises. Punish him with larger value bets.",
+        "reiStyle": "passive-loose"
+    },
+    {
+        "id": "mirror",
+        "name": "MIRROR",
+        "tagline": "Waiting for the perfect moment.",
+        "avatarKey": "npc_mirror",
+        "tier": 1,
+        "firstSeen": 2,
+        "brain": {
+            "aggression": 0.25,
+            "tightness": 0.80,
+            "bluffing": 0.05,
+            "positional": 0.60,
+            "randomness": 0.15
+        },
+        "reiIntro": "Extremely tight — only plays premium hands. When he bets, he means it. Steal his blinds relentlessly.",
+        "reiStyle": "tight-passive"
+    },
+    {
+        "id": "vector",
+        "name": "VECTOR",
+        "tagline": "Pressure is my language.",
+        "avatarKey": "npc_vector",
+        "tier": 1,
+        "firstSeen": 3,
+        "brain": {
+            "aggression": 0.80,
+            "tightness": 0.25,
+            "bluffing": 0.60,
+            "positional": 0.50,
+            "randomness": 0.25
+        },
+        "reiIntro": "Relentless aggressor. Bets and raises with a wide range. Call him down with medium-strength hands.",
+        "reiStyle": "loose-aggressive"
+    },
+    {
+        "id": "cipher",
+        "name": "CIPHER",
+        "tagline": "Calculated. Cold. Effective.",
+        "avatarKey": "npc_cipher",
+        "tier": 1,
+        "firstSeen": 4,
+        "brain": {
+            "aggression": 0.75,
+            "tightness": 0.70,
+            "bluffing": 0.35,
+            "positional": 0.75,
+            "randomness": 0.10
+        },
+        "reiIntro": "Tight-aggressive and disciplined. Picks spots carefully and maximizes value. Avoid marginal confrontations.",
+        "reiStyle": "tight-aggressive"
+    },
+    {
+        "id": "nexus",
+        "name": "NEXUS",
+        "tagline": "I am the equilibrium.",
+        "avatarKey": "npc_nexus",
+        "tier": 1,
+        "firstSeen": 5,
+        "brain": {
+            "aggression": 0.55,
+            "tightness": 0.55,
+            "bluffing": 0.40,
+            "positional": 0.70,
+            "randomness": 0.08
+        },
+        "reiIntro": "Near-optimal play. Balanced ranges, mixed strategies. The closest thing to GTO you'll face. Adapt or be exploited.",
+        "reiStyle": "balanced"
+    },
+    {
+        "id": "dasher",
+        "name": "DASHER",
+        "tagline": "Fast hands, empty pockets.",
+        "avatarKey": "npc_dasher",
+        "tier": 2,
+        "firstSeen": 1,
+        "brain": {
+            "aggression": 0.75,
+            "tightness": 0.30,
+            "bluffing": 0.55,
+            "positional": 0.50,
+            "randomness": 0.25
+        },
+        "reiIntro": "Loves to 3-bet from cutoff and steal blinds aggressively, but tends to give up on the river when called.",
+        "reiStyle": "loose-aggressive"
+    },
+    {
+        "id": "glow",
+        "name": "GLOW",
+        "tagline": "Patience is a weapon.",
+        "avatarKey": "npc_glow",
+        "tier": 2,
+        "firstSeen": 1,
+        "brain": {
+            "aggression": 0.30,
+            "tightness": 0.65,
+            "bluffing": 0.10,
+            "positional": 0.45,
+            "randomness": 0.20
+        },
+        "reiIntro": "Patient and methodical. Waits for strong hands and plays them straightforwardly.",
+        "reiStyle": "tight-passive"
+    },
+    {
+        "id": "moth",
+        "name": "MOTH",
+        "tagline": "Drawn to the pot like a flame.",
+        "avatarKey": "npc_moth",
+        "tier": 2,
+        "firstSeen": 1,
+        "brain": {
+            "aggression": 0.20,
+            "tightness": 0.15,
+            "bluffing": 0.15,
+            "positional": 0.20,
+            "randomness": 0.40
+        },
+        "reiIntro": "Plays way too many hands and calls too often. Classic fish — value bet thin and don't try to bluff.",
+        "reiStyle": "loose-passive"
+    },
+    {
+        "id": "static",
+        "name": "STATIC",
+        "tagline": "Predictable as white noise.",
+        "avatarKey": "npc_static",
+        "tier": 2,
+        "firstSeen": 1,
+        "brain": {
+            "aggression": 0.45,
+            "tightness": 0.45,
+            "bluffing": 0.20,
+            "positional": 0.35,
+            "randomness": 0.15
+        },
+        "reiIntro": "Average in every way. No strong tendencies to exploit, but no strong plays either.",
+        "reiStyle": "balanced-weak"
+    },
+    {
+        "id": "flux",
+        "name": "FLUX",
+        "tagline": "Never the same player twice.",
+        "avatarKey": "npc_flux",
+        "tier": 2,
+        "firstSeen": 2,
+        "brain": {
+            "aggression": 0.50,
+            "tightness": 0.40,
+            "bluffing": 0.45,
+            "positional": 0.40,
+            "randomness": 0.60
+        },
+        "reiIntro": "Highly unpredictable. Changes gears constantly. Don't rely on past patterns with this one.",
+        "reiStyle": "erratic"
+    },
+    {
+        "id": "shard",
+        "name": "SHARD",
+        "tagline": "Waits for the nuts. Always.",
+        "avatarKey": "npc_shard",
+        "tier": 2,
+        "firstSeen": 2,
+        "brain": {
+            "aggression": 0.35,
+            "tightness": 0.85,
+            "bluffing": 0.05,
+            "positional": 0.55,
+            "randomness": 0.10
+        },
+        "reiIntro": "Ultra-tight nit. When he enters a pot, assume he has the goods. Steal everything else.",
+        "reiStyle": "tight-passive"
+    },
+    {
+        "id": "drift",
+        "name": "DRIFT",
+        "tagline": "Only plays in position.",
+        "avatarKey": "npc_drift",
+        "tier": 2,
+        "firstSeen": 3,
+        "brain": {
+            "aggression": 0.60,
+            "tightness": 0.50,
+            "bluffing": 0.30,
+            "positional": 0.90,
+            "randomness": 0.20
+        },
+        "reiIntro": "Extremely positional player. Tight from early position, aggressive in late position. Use position against him.",
+        "reiStyle": "positional"
+    },
+    {
+        "id": "spark",
+        "name": "SPARK",
+        "tagline": "Lights money on fire.",
+        "avatarKey": "npc_spark",
+        "tier": 2,
+        "firstSeen": 3,
+        "brain": {
+            "aggression": 0.85,
+            "tightness": 0.20,
+            "bluffing": 0.65,
+            "positional": 0.30,
+            "randomness": 0.35
+        },
+        "reiIntro": "Maniac. Bets and raises with almost anything. Wait for a hand and let him hang himself.",
+        "reiStyle": "hyper-aggressive"
+    },
+    {
+        "id": "null",
+        "name": "NULL",
+        "tagline": "No emotion. No tells.",
+        "avatarKey": "npc_null",
+        "tier": 2,
+        "firstSeen": 4,
+        "brain": {
+            "aggression": 0.50,
+            "tightness": 0.55,
+            "bluffing": 0.30,
+            "positional": 0.65,
+            "randomness": 0.05
+        },
+        "reiIntro": "Robotic and consistent. Plays a solid, if unimaginative, strategy. Hard to read because there's nothing to read.",
+        "reiStyle": "gto-lite"
+    },
+    {
+        "id": "echo",
+        "name": "ECHO",
+        "tagline": "Mirrors your last action.",
+        "avatarKey": "npc_echo",
+        "tier": 2,
+        "firstSeen": 4,
+        "brain": {
+            "aggression": 0.45,
+            "tightness": 0.40,
+            "bluffing": 0.25,
+            "positional": 0.50,
+            "randomness": 0.30
+        },
+        "reiIntro": "Tends to mimic the table's aggression level. If you bet big, he bets big. Stay unpredictable.",
+        "reiStyle": "adaptive"
+    },
+    {
+        "id": "wraith",
+        "name": "WRAITH",
+        "tagline": "You never see the trap coming.",
+        "avatarKey": "npc_wraith",
+        "tier": 2,
+        "firstSeen": 5,
+        "brain": {
+            "aggression": 0.40,
+            "tightness": 0.60,
+            "bluffing": 0.50,
+            "positional": 0.65,
+            "randomness": 0.15
+        },
+        "reiIntro": "Deceptive and tricky. Check-raises frequently and slow-plays big hands. Be cautious when he checks.",
+        "reiStyle": "deceptive"
+    },
+    {
+        "id": "signal",
+        "name": "SIGNAL",
+        "tagline": "Plays exactly by the book.",
+        "avatarKey": "npc_signal",
+        "tier": 2,
+        "firstSeen": 5,
+        "brain": {
+            "aggression": 0.55,
+            "tightness": 0.55,
+            "bluffing": 0.35,
+            "positional": 0.60,
+            "randomness": 0.10
+        },
+        "reiIntro": "Textbook player. Solid fundamentals but predictable for observant opponents.",
+        "reiStyle": "balanced-strong"
+    },
+    {
+        "id": "arc",
+        "name": "ARC",
+        "tagline": "Changes gears mid-session.",
+        "avatarKey": "npc_arc",
+        "tier": 2,
+        "firstSeen": 5,
+        "brain": {
+            "aggression": 0.60,
+            "tightness": 0.45,
+            "bluffing": 0.40,
+            "positional": 0.55,
+            "randomness": 0.45
+        },
+        "reiIntro": "Shifts between tight and loose play without warning. Track his recent hands, not his overall tendencies.",
+        "reiStyle": "adaptive"
+    },
+    {
+        "id": "haze",
+        "name": "HAZE",
+        "tagline": "Chaos incarnate.",
+        "avatarKey": "npc_haze",
+        "tier": 2,
+        "firstSeen": 5,
+        "brain": {
+            "aggression": 0.50,
+            "tightness": 0.30,
+            "bluffing": 0.50,
+            "positional": 0.25,
+            "randomness": 0.70
+        },
+        "reiIntro": "Pure chaos. No discernible pattern. Play your hand, not the opponent.",
+        "reiStyle": "random"
+    },
+    {
+        "id": "bolt",
+        "name": "BOLT",
+        "tagline": "All-in or nothing.",
+        "avatarKey": "npc_bolt",
+        "tier": 2,
+        "firstSeen": 5,
+        "brain": {
+            "aggression": 0.90,
+            "tightness": 0.35,
+            "bluffing": 0.45,
+            "positional": 0.30,
+            "randomness": 0.30
+        },
+        "reiIntro": "Hyper-aggressive short-stack specialist. Shoves frequently. Only call with premium holdings.",
+        "reiStyle": "hyper-aggressive"
+    }
+]
