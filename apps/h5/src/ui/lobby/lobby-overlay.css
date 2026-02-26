@@ -114,6 +114,148 @@
     gap: 10px;
 }
 
+/* Story Mode Card */
+.lobby-story-card {
+    border-radius: 16px;
+    border: 1px solid rgba(255, 190, 60, 0.35);
+    background:
+        linear-gradient(135deg, rgba(255, 190, 60, 0.08), rgba(244, 37, 175, 0.04)),
+        rgba(12, 8, 14, 0.92);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+}
+
+.lobby-story-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+
+.lobby-story-card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    border: 1px solid rgba(255, 190, 60, 0.4);
+    background: rgba(255, 190, 60, 0.12);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: #ffbe3c;
+    box-shadow: 0 4px 16px rgba(255, 190, 60, 0.15);
+}
+
+.lobby-story-card-icon .material-symbols-outlined {
+    font-size: 22px;
+}
+
+.lobby-story-card-title {
+    margin: 0 0 4px;
+    font-size: 15px;
+    font-weight: 900;
+    letter-spacing: 0.12em;
+    color: #ffbe3c;
+    text-transform: uppercase;
+}
+
+.lobby-story-card-desc {
+    margin: 0;
+    font-size: 12px;
+    line-height: 1.5;
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.lobby-story-chapters {
+    display: flex;
+    gap: 6px;
+}
+
+.lobby-story-chapter {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 4px;
+    border-radius: 8px;
+    border: 1px solid rgba(255, 190, 60, 0.25);
+    background: rgba(255, 190, 60, 0.06);
+    transition: border-color 0.2s;
+}
+
+.lobby-story-chapter:hover {
+    border-color: rgba(255, 190, 60, 0.5);
+}
+
+.lobby-story-chapter.is-locked {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.02);
+    opacity: 0.45;
+}
+
+.lobby-story-ch-num {
+    font-size: 14px;
+    font-weight: 900;
+    color: #ffbe3c;
+    letter-spacing: 0.06em;
+}
+
+.lobby-story-chapter.is-locked .lobby-story-ch-num {
+    color: rgba(255, 255, 255, 0.5);
+}
+
+.lobby-story-ch-name {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: rgba(255, 255, 255, 0.55);
+    text-align: center;
+    text-transform: uppercase;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.lobby-story-play-btn {
+    width: 100%;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid rgba(255, 190, 60, 0.5);
+    background:
+        linear-gradient(110deg, rgba(255, 190, 60, 0.15), rgba(244, 37, 175, 0.08));
+    color: #ffbe3c;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.2s;
+}
+
+.lobby-story-play-btn:hover {
+    border-color: rgba(255, 190, 60, 0.8);
+    background:
+        linear-gradient(110deg, rgba(255, 190, 60, 0.25), rgba(244, 37, 175, 0.12));
+    box-shadow: 0 8px 24px rgba(255, 190, 60, 0.2);
+    color: #ffffff;
+}
+
+.lobby-story-play-btn:active {
+    transform: scale(0.98);
+}
+
+.lobby-story-play-btn .material-symbols-outlined {
+    font-size: 16px;
+}
+
 /* Audit Feature Card */
 .lobby-audit-card {
     border-radius: 16px;

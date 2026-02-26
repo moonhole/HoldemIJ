@@ -231,6 +231,52 @@ export function LobbyOverlay(): JSX.Element | null {
                 </div>
 
                 <div className="lobby-list">
+                    {/* Story Mode Card */}
+                    <section className="lobby-story-card">
+                        <div className="lobby-story-card-header">
+                            <div className="lobby-story-card-icon">
+                                <span className="material-symbols-outlined">auto_stories</span>
+                            </div>
+                            <div>
+                                <h3 className="lobby-story-card-title">STORY MODE</h3>
+                                <p className="lobby-story-card-desc">
+                                    Challenge 5 unique opponents at the 6-max table. Defeat each chapter boss,
+                                    unlock new abilities, and master the game.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="lobby-story-chapters">
+                            <div className="lobby-story-chapter">
+                                <span className="lobby-story-ch-num">I</span>
+                                <span className="lobby-story-ch-name">NEON GUTTER</span>
+                            </div>
+                            <div className="lobby-story-chapter is-locked">
+                                <span className="lobby-story-ch-num">II</span>
+                                <span className="lobby-story-ch-name">CHROME HEAVEN</span>
+                            </div>
+                            <div className="lobby-story-chapter is-locked">
+                                <span className="lobby-story-ch-num">III</span>
+                                <span className="lobby-story-ch-name">VOID RUNNER</span>
+                            </div>
+                            <div className="lobby-story-chapter is-locked">
+                                <span className="lobby-story-ch-num">IV</span>
+                                <span className="lobby-story-ch-name">GLITCH PALACE</span>
+                            </div>
+                            <div className="lobby-story-chapter is-locked">
+                                <span className="lobby-story-ch-num">V</span>
+                                <span className="lobby-story-ch-name">DATA STREAM</span>
+                            </div>
+                        </div>
+                        <button
+                            type="button"
+                            className="lobby-story-play-btn"
+                            onClick={() => playUiClick()}
+                        >
+                            <span className="material-symbols-outlined">play_arrow</span>
+                            <span>BEGIN CHAPTER I</span>
+                        </button>
+                    </section>
+
                     {/* Audit Feature Card */}
                     <section className="lobby-audit-card">
                         <div className="lobby-audit-card-header">
