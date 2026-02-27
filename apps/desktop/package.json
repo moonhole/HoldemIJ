@@ -49,7 +49,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "signAndEditExecutable": false
     },
     "mac": {
       "category": "public.app-category.games",
