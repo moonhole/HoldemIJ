@@ -1434,6 +1434,7 @@ class SeatView extends Container {
     private betBackground: Graphics;
     private betText: Text;
     private dealerButton: Container;
+    private npcBadge: Container;
     private _orbitTween: gsap.core.Tween | null = null;
     private _index: number;
     public userId: bigint = 0n;
@@ -1590,6 +1591,23 @@ class SeatView extends Container {
         this.dealerButton.y = -32;
         this.dealerButton.visible = false;
         this.addChild(this.dealerButton);
+
+        // NPC Badge
+        this.npcBadge = new Container();
+        const npcBadgeBg = new Graphics();
+        npcBadgeBg.roundRect(-16, -7, 32, 14, 4);
+        npcBadgeBg.fill({ color: 0x00f3ff, alpha: 0.15 });
+        npcBadgeBg.stroke({ color: 0x00f3ff, width: 1, alpha: 0.6 });
+        this.npcBadge.addChild(npcBadgeBg);
+        const npcLabel = new Text({
+            text: 'NPC',
+            style: { fontFamily: 'Space Grotesk, Inter, sans-serif', fontSize: 8, fontWeight: '900', fill: 0x00f3ff, letterSpacing: 1.5 }
+        });
+        npcLabel.anchor.set(0.5);
+        this.npcBadge.addChild(npcLabel);
+        this.npcBadge.y = 95;
+        this.npcBadge.visible = false;
+        this.addChild(this.npcBadge);
 
         // Position bet tag towards the center of table
         const offset = 105; // Increased from 85 for larger avatars
@@ -1774,8 +1792,10 @@ class SeatView extends Container {
         this.cursor = 'pointer';
         this.setAvatar(player.userId);
         const nickname = player.nickname.trim();
+        const isNPC = player.userId > 9_000_000n;
         this.nameText.text = isMe ? 'YOU' : (nickname || `PLAYER_${player.userId.toString()}`);
-        this.nameText.style.fill = isMe ? COLORS.primary : 0xcccccc;
+        this.nameText.style.fill = isMe ? COLORS.primary : (isNPC ? 0x00f3ff : 0xcccccc);
+        this.npcBadge.visible = isNPC && !isMe;
 
         if (this._currentStack === -1n) {
             // Initial set
@@ -1993,6 +2013,7 @@ class SeatView extends Container {
         this.clearAvatar();
         this.emptyIcon.visible = true;
         this.avatarFrame.clear();
+        this.npcBadge.visible = false;
         this.drawHexagon(this.avatarFrame, 50, 0x0a0609, 0.5); // Increased from 40
         this.avatarFrame.stroke({ color: 0x333333, width: 1.5, alpha: 0.4 });
         this.betTag.visible = false;
