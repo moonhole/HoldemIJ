@@ -1531,6 +1531,10 @@ func (t *Table) persistLiveHandHistory(handID string, playedAt time.Time, result
 		if userID == 0 {
 			continue
 		}
+		// Skip NPC players — their IDs don't exist in the users table.
+		if t.isNPC(userID) {
+			continue
+		}
 		startStack := ps.Stack
 		if v, ok := t.handStartStacks[ps.Chair]; ok {
 			startStack = v
