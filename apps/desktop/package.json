@@ -4,13 +4,14 @@
   "private": true,
   "main": "main.cjs",
   "scripts": {
-    "dev": "concurrently -k \"pnpm -C ../h5 dev --host 127.0.0.1 --port 5181 --strictPort\" \"pnpm dev:app\"",
+    "dev": "pnpm prepare:server && concurrently -k \"pnpm -C ../h5 dev --host 127.0.0.1 --port 5181 --strictPort\" \"pnpm dev:app\"",
     "dev:app": "wait-on tcp:5181 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5181 node scripts/start-electron.cjs",
     "dev:app:debug": "wait-on tcp:5181 && cross-env ELECTRON_RENDERER_URL=http://127.0.0.1:5181 ELECTRON_OPEN_DEVTOOLS=1 node scripts/start-electron.cjs",
-    "build:renderer": "cross-env VITE_API_BASE_URL=http://127.0.0.1:8080 VITE_WS_URL=ws://127.0.0.1:8080/ws pnpm -C ../h5 build:desktop",
+    "build:renderer": "pnpm -C ../h5 build:desktop",
     "prepare:renderer": "node scripts/sync-renderer.mjs",
-    "build:win": "pnpm build:renderer && pnpm prepare:renderer && electron-builder --win nsis --x64",
-    "build:mac": "pnpm build:renderer && pnpm prepare:renderer && electron-builder --mac dmg"
+    "prepare:server": "node scripts/prepare-local-server.mjs",
+    "build:win": "pnpm build:renderer && pnpm prepare:renderer && pnpm prepare:server && electron-builder --win nsis --x64",
+    "build:mac": "pnpm build:renderer && pnpm prepare:renderer && pnpm prepare:server && electron-builder --mac dmg"
   },
   "devDependencies": {
     "concurrently": "^9.2.1",
@@ -30,6 +31,15 @@
       "main.cjs",
       "preload.cjs",
       "renderer-dist/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "local-server-dist",
+        "to": "local-server",
+        "filter": [
+          "**/*"
+        ]
+      }
     ],
     "win": {
       "target": [

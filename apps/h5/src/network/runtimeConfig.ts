@@ -13,8 +13,27 @@ function trimTrailingSlash(url: string): string {
     return url.endsWith('/') ? url.slice(0, -1) : url;
 }
 
-const apiBase = trimTrailingSlash(readEnv('VITE_API_BASE_URL'));
-const wsBase = readEnv('VITE_WS_URL');
+type DesktopBridgeNetwork = {
+    apiBaseUrl?: string;
+    wsUrl?: string;
+};
+
+function readDesktopBridgeNetwork(): DesktopBridgeNetwork | null {
+    const host = globalThis as typeof globalThis & {
+        desktopBridge?: {
+            network?: DesktopBridgeNetwork;
+        };
+    };
+    const network = host.desktopBridge?.network;
+    if (!network) {
+        return null;
+    }
+    return network;
+}
+
+const desktopNetwork = readDesktopBridgeNetwork();
+const apiBase = trimTrailingSlash(desktopNetwork?.apiBaseUrl?.trim() || readEnv('VITE_API_BASE_URL'));
+const wsBase = (desktopNetwork?.wsUrl?.trim() || readEnv('VITE_WS_URL')).trim();
 
 export function resolveApiUrl(pathname: string): string {
     if (!pathname.startsWith('/')) {

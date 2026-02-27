@@ -59,6 +59,11 @@ type PerfAutopilotMode = 'lobbyIdle' | 'tableIdle' | 'tableActive';
 
 type DesktopBridge = {
     reportPerfSample?: (sample: PerfExportSample) => void;
+    network?: {
+        scenario?: string;
+        apiBaseUrl?: string;
+        wsUrl?: string;
+    };
 };
 
 class GameApp {

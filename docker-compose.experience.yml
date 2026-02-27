@@ -53,7 +53,7 @@ services:
       AUDIT_RECENT_LIMIT_X: ${AUDIT_RECENT_LIMIT_X:-200}
       AUDIT_SAVED_LIMIT_Y: ${AUDIT_SAVED_LIMIT_Y:-50}
     expose:
-      - "8080"
+      - "18080"
     networks:
       - holdem
 

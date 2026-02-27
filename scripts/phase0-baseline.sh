@@ -66,13 +66,13 @@ cleanup() {
 trap cleanup EXIT
 
 backend_is_healthy() {
-  curl -fsS --max-time 1 "http://localhost:8080/health" >/dev/null 2>&1 ||
-    curl -fsS --max-time 1 "http://127.0.0.1:8080/health" >/dev/null 2>&1
+  curl -fsS --max-time 1 "http://localhost:18080/health" >/dev/null 2>&1 ||
+    curl -fsS --max-time 1 "http://127.0.0.1:18080/health" >/dev/null 2>&1
 }
 
 ensure_backend() {
   if backend_is_healthy; then
-    echo "[phase0] backend 127.0.0.1:8080 is healthy."
+    echo "[phase0] backend 127.0.0.1:18080 is healthy."
     return
   fi
 

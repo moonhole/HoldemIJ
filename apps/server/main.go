@@ -3,6 +3,8 @@ package main
 import (
 	"log"
 	"net/http"
+	"os"
+	"strings"
 
 	"holdem-lite/apps/server/internal/auth"
 	"holdem-lite/apps/server/internal/gateway"
@@ -70,12 +72,28 @@ func main() {
 	authHTTP.RegisterRoutes(mux)
 	auditHTTP.RegisterRoutes(mux)
 
-	addr := ":8080"
+	addr := strings.TrimSpace(os.Getenv("SERVER_ADDR"))
+	if addr == "" {
+		addr = ":18080"
+	}
 	log.Printf("[Server] Auth mode: %s", authMode)
 	log.Printf("[Server] Ledger mode: %s", ledgerMode)
 	log.Printf("[Server] Story mode: %s", storyMode)
 	log.Printf("[Server] Starting WebSocket server on %s", addr)
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.ListenAndServe(addr, withCORS(mux)); err != nil {
 		log.Fatalf("[Server] Failed to start: %v", err)
 	}
+}
+
+func withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
 }

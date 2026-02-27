@@ -96,8 +96,8 @@ pnpm dev
 Open: `http://127.0.0.1:5173`
 
 Vite proxy forwards:
-- `/api` -> `http://127.0.0.1:8080`
-- `/ws` -> `ws://127.0.0.1:8080`
+- `/api` -> `http://127.0.0.1:18080`
+- `/ws` -> `ws://127.0.0.1:18080`
 
 ## Run (memory mode)
 Useful for fast server-only debugging without PostgreSQL:
@@ -132,7 +132,7 @@ pnpm dev:server
 ```
 
 ## Auth API
-Base URL: `http://127.0.0.1:8080`
+Base URL: `http://127.0.0.1:18080`
 
 - `POST /api/auth/register`
 - `POST /api/auth/login`
@@ -188,7 +188,12 @@ pnpm proto
 ```
 
 Desktop notes:
-- `desktop:dev` expects backend APIs on `http://127.0.0.1:8080` (`/api` and `/ws`).
+- Desktop runtime network is scenario-based (`local`, `remote`, `auto`) and resolved at app start.
+- `desktop:dev` defaults to `auto` -> `local`: starts a managed local Go server process (`AUTH_MODE=local`).
+- `desktop:dev` prepares local server runtime first, then Electron prefers local binary runtime over `go run`.
+- Desktop managed local server listens on `127.0.0.1:18080` by default (`SERVER_ADDR` override supported).
+- Closing Electron (window `X` or `Exit`) also shuts down the managed local server process.
+- If `18080` is still occupied by a stale local process on next start, desktop startup will try to clean it automatically.
 - `desktop:build:win` output is generated under `apps/desktop/release/`.
 
 ## AUTH_MODE and env vars
@@ -203,6 +208,36 @@ Desktop notes:
 - `LEDGER_LOCAL_DATABASE_PATH`: optional ledger/audit sqlite path override
 - `AUDIT_RECENT_LIMIT_X`: recent unsaved hands retained per user/source (default `200`)
 - `AUDIT_SAVED_LIMIT_Y`: max saved hands per user/source (default `50`)
+- `SERVER_ADDR`: server listen address (default `:18080`; desktop local mode uses `127.0.0.1:18080`)
+
+Desktop-specific env (Electron main process):
+- `ELECTRON_NETWORK_SCENARIO`: `local`, `remote`, or `auto` (default: `auto`)
+- `ELECTRON_LOCAL_SERVER`: enable/disable managed local server (`1` default, set `0` to disable)
+- `ELECTRON_LOCAL_SERVER_REUSE_EXISTING`: reuse already-running service on local endpoint (`0` default)
+- `ELECTRON_LOCAL_SERVER_BINARY`: explicit local server binary path override
+- `ELECTRON_GO_BINARY`: Go binary override for desktop dev source-run mode (`go` by default)
+- `ELECTRON_LOCAL_SERVER_HOST`: host override for managed local server (default `127.0.0.1`)
+- `ELECTRON_LOCAL_SERVER_PORT`: port override for managed local server (default `18080`)
+- `ELECTRON_LOCAL_SERVER_START_TIMEOUT_MS`: startup timeout for `/health` check (default `25000`)
+- `ELECTRON_LOCAL_SERVER_POLL_MS`: polling interval for `/health` check (default `300`)
+- `ELECTRON_REMOTE_API_BASE_URL` (or `ELECTRON_API_BASE_URL`): remote API base URL for remote scenario
+- `ELECTRON_REMOTE_WS_URL` (or `ELECTRON_WS_URL`): remote websocket URL for remote scenario
+
+Desktop scenario examples (PowerShell):
+```powershell
+# Local managed server (default behavior)
+Remove-Item Env:ELECTRON_NETWORK_SCENARIO -ErrorAction SilentlyContinue
+Remove-Item Env:ELECTRON_REMOTE_API_BASE_URL -ErrorAction SilentlyContinue
+Remove-Item Env:ELECTRON_REMOTE_WS_URL -ErrorAction SilentlyContinue
+pnpm desktop:dev
+
+# Remote backend
+$env:ELECTRON_NETWORK_SCENARIO = "remote"
+$env:ELECTRON_LOCAL_SERVER = "0"
+$env:ELECTRON_REMOTE_API_BASE_URL = "https://your-remote-domain"
+$env:ELECTRON_REMOTE_WS_URL = "wss://your-remote-domain/ws"
+pnpm desktop:dev
+```
 
 ## Common issues
 1. `auth schema not initialized: missing table accounts`
