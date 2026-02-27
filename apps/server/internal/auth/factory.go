@@ -9,6 +9,7 @@ import (
 const (
 	AuthModeMemory = "memory"
 	AuthModeDB     = "db"
+	AuthModeLocal  = "local"
 )
 
 func authModeFromEnv() string {
@@ -16,6 +17,8 @@ func authModeFromEnv() string {
 	switch raw {
 	case "", AuthModeDB, "postgres", "postgresql":
 		return AuthModeDB
+	case AuthModeLocal, "sqlite":
+		return AuthModeLocal
 	case AuthModeMemory, "mem":
 		return AuthModeMemory
 	default:
@@ -33,9 +36,15 @@ func NewServiceFromEnv() (Service, string, error) {
 			return nil, mode, err
 		}
 		return manager, mode, nil
+	case AuthModeLocal:
+		manager, err := NewSQLiteManagerFromEnv()
+		if err != nil {
+			return nil, mode, err
+		}
+		return manager, mode, nil
 	case AuthModeMemory:
 		return NewManager(), mode, nil
 	default:
-		return nil, mode, fmt.Errorf("invalid AUTH_MODE %q (supported: %s, %s)", mode, AuthModeMemory, AuthModeDB)
+		return nil, mode, fmt.Errorf("invalid AUTH_MODE %q (supported: %s, %s, %s)", mode, AuthModeMemory, AuthModeDB, AuthModeLocal)
 	}
 }

@@ -57,6 +57,9 @@ func NewServiceFromEnv(authMode string) (Service, string, error) {
 			store: make(map[uint64]*storedProgress),
 		}, "memory", nil
 	}
+	if mode == "local" || mode == "sqlite" {
+		return NewSQLiteServiceFromEnv()
+	}
 
 	dsn := storyDSNFromEnv()
 	db, err := sql.Open("postgres", dsn)

@@ -14,9 +14,12 @@ This README reflects the current state of the project (auth + DB + H5 flow).
 - Backend: Go (`net/http`, `gorilla/websocket`)
 - Auth persistence modes:
   - `db` (PostgreSQL, default)
+  - `local` (SQLite file on local disk, recommended for desktop single-machine play)
   - `memory` (in-memory, for quick local runs)
 - Ledger/Audit persistence:
-  - follows DB mode (`AUTH_MODE=db`) and stores live hand events/history in PostgreSQL
+  - `db` mode: PostgreSQL
+  - `local` mode: SQLite local file
+  - `memory` mode: noop in-memory (for quick local runs)
 
 ## Repo layout
 ```text
@@ -111,6 +114,23 @@ $env:AUTH_MODE = "memory"
 pnpm dev:server
 ```
 
+## Run (local mode)
+Use a local SQLite file for auth + story + audit/ledger persistence:
+
+```bash
+export AUTH_MODE=local
+export LOCAL_DATABASE_PATH="./.local/holdem_local.db"
+pnpm dev:server
+```
+
+PowerShell:
+
+```powershell
+$env:AUTH_MODE = "local"
+$env:LOCAL_DATABASE_PATH = ".\\.local\\holdem_local.db"
+pnpm dev:server
+```
+
 ## Auth API
 Base URL: `http://127.0.0.1:8080`
 
@@ -172,11 +192,15 @@ Desktop notes:
 - `desktop:build:win` output is generated under `apps/desktop/release/`.
 
 ## AUTH_MODE and env vars
-- `AUTH_MODE`: `db` (default) or `memory`
+- `AUTH_MODE`: `db` (default), `local`, or `memory`
 - `AUTH_DATABASE_DSN`: postgres DSN used when `AUTH_MODE=db`
 - `DATABASE_URL`: fallback DSN if `AUTH_DATABASE_DSN` is empty
 - `AUTH_SESSION_TTL`: Go duration string, default `720h` (30 days)
 - `LEDGER_DATABASE_DSN`: optional DSN override for ledger/audit tables (defaults to `AUTH_DATABASE_DSN`)
+- `LOCAL_DATABASE_PATH`: sqlite file path used by local mode if service-specific local paths are not set
+- `AUTH_LOCAL_DATABASE_PATH`: optional auth sqlite path override
+- `STORY_LOCAL_DATABASE_PATH`: optional story sqlite path override
+- `LEDGER_LOCAL_DATABASE_PATH`: optional ledger/audit sqlite path override
 - `AUDIT_RECENT_LIMIT_X`: recent unsaved hands retained per user/source (default `200`)
 - `AUDIT_SAVED_LIMIT_Y`: max saved hands per user/source (default `50`)
 

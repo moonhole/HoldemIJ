@@ -112,8 +112,16 @@ type PostgresService struct {
 }
 
 func NewServiceFromEnv(authMode string) (Service, string, error) {
-	if strings.EqualFold(strings.TrimSpace(authMode), "memory") {
+	mode := strings.ToLower(strings.TrimSpace(authMode))
+	if mode == "memory" {
 		return &noopService{}, "memory-noop", nil
+	}
+	if mode == "local" || mode == "sqlite" {
+		service, err := NewSQLiteServiceFromEnv()
+		if err != nil {
+			return nil, "", err
+		}
+		return service, "sqlite", nil
 	}
 
 	dsn := ledgerDSNFromEnv()
