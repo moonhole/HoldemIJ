@@ -12,7 +12,7 @@ import type { UiProfile } from './store/layoutStore';
 import { useLayoutStore } from './store/layoutStore';
 import type { PerfBottleneckKind } from './store/perfStore';
 import { usePerfStore } from './store/perfStore';
-import { useUiStore, type SceneName } from './store/uiStore';
+import { bindUiClientToStore, useUiStore, type SceneName } from './store/uiStore';
 import { UiLayerApp } from './ui/UiLayerApp';
 
 // Design baseline: iPhone 14 Pro Max portrait viewport (430 x 932).
@@ -106,6 +106,7 @@ class GameApp {
         void canvas;
         this.viewportEl = window;
         bindGameClientToStore();
+        bindUiClientToStore();
         bindReiRuntimeToStores();
 
         // Initialize Audio
@@ -707,4 +708,3 @@ const game = new GameApp();
 game.init().catch(console.error);
 
 export { DESIGN_HEIGHT, DESIGN_WIDTH, GameApp };
-

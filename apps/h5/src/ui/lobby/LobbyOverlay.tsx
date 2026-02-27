@@ -27,6 +27,14 @@ function getDesktopBridge(): DesktopBridge | null {
 
 const LOBBY_WS_IDLE_DISCONNECT_MS = 30000;
 
+const STORY_CHAPTERS = [
+    { id: 1, roman: 'I', name: 'NEON GUTTER' },
+    { id: 2, roman: 'II', name: 'CHROME HEAVEN' },
+    { id: 3, roman: 'III', name: 'VOID RUNNER' },
+    { id: 4, roman: 'IV', name: 'GLITCH PALACE' },
+    { id: 5, roman: 'V', name: 'DATA STREAM' },
+] as const;
+
 function toHeroChair(summary: Record<string, unknown>): number {
     const raw = summary.chair;
     if (typeof raw === 'number' && Number.isFinite(raw)) {
@@ -71,6 +79,11 @@ export function LobbyOverlay(): JSX.Element | null {
     const quickStartLabel = useUiStore((s) => s.quickStartLabel);
     const quickStartError = useUiStore((s) => s.quickStartError);
     const startQuickStart = useUiStore((s) => s.startQuickStart);
+    const startStoryChapter = useUiStore((s) => s.startStoryChapter);
+    const setSelectedStoryChapter = useUiStore((s) => s.setSelectedStoryChapter);
+    const selectedStoryChapter = useUiStore((s) => s.selectedStoryChapter);
+    const storyHighestUnlockedChapter = useUiStore((s) => s.storyHighestUnlockedChapter);
+    const storyCompletedChapters = useUiStore((s) => s.storyCompletedChapters);
     const resetQuickStart = useUiStore((s) => s.resetQuickStart);
     const requestScene = useUiStore((s) => s.requestScene);
     const username = useAuthStore((s) => s.username);
@@ -127,6 +140,21 @@ export function LobbyOverlay(): JSX.Element | null {
         if (currentScene !== 'lobby') {
             return;
         }
+        if (gameClient.isConnected) {
+            return;
+        }
+        if (quickStartPhase === 'connecting' || quickStartPhase === 'sitting') {
+            return;
+        }
+        void gameClient.connect().catch((error) => {
+            console.warn('[LobbyOverlay] Failed to prefetch story progress', error);
+        });
+    }, [currentScene, quickStartPhase]);
+
+    useEffect(() => {
+        if (currentScene !== 'lobby') {
+            return;
+        }
         const quickStartBusy = quickStartPhase === 'connecting' || quickStartPhase === 'sitting';
         if (quickStartBusy || !gameClient.isConnected) {
             return;
@@ -177,6 +205,7 @@ export function LobbyOverlay(): JSX.Element | null {
     };
 
     const busy = quickStartPhase === 'connecting' || quickStartPhase === 'sitting';
+    const selectedChapterMeta = STORY_CHAPTERS.find((chapter) => chapter.id === selectedStoryChapter) ?? STORY_CHAPTERS[0];
 
     return (
         <div className="lobby-screen">
@@ -246,37 +275,42 @@ export function LobbyOverlay(): JSX.Element | null {
                             </div>
                         </div>
                         <div className="lobby-story-chapters">
-                            <div className="lobby-story-chapter">
-                                <span className="lobby-story-ch-num">I</span>
-                                <span className="lobby-story-ch-name">NEON GUTTER</span>
-                            </div>
-                            <div className="lobby-story-chapter is-locked">
-                                <span className="lobby-story-ch-num">II</span>
-                                <span className="lobby-story-ch-name">CHROME HEAVEN</span>
-                            </div>
-                            <div className="lobby-story-chapter is-locked">
-                                <span className="lobby-story-ch-num">III</span>
-                                <span className="lobby-story-ch-name">VOID RUNNER</span>
-                            </div>
-                            <div className="lobby-story-chapter is-locked">
-                                <span className="lobby-story-ch-num">IV</span>
-                                <span className="lobby-story-ch-name">GLITCH PALACE</span>
-                            </div>
-                            <div className="lobby-story-chapter is-locked">
-                                <span className="lobby-story-ch-num">V</span>
-                                <span className="lobby-story-ch-name">DATA STREAM</span>
-                            </div>
+                            {STORY_CHAPTERS.map((chapter) => {
+                                const isUnlocked = chapter.id <= storyHighestUnlockedChapter;
+                                const isCompleted = storyCompletedChapters.includes(chapter.id);
+                                const isSelected = selectedStoryChapter === chapter.id;
+                                const classNames = ['lobby-story-chapter'];
+                                if (!isUnlocked) classNames.push('is-locked');
+                                if (isCompleted) classNames.push('is-completed');
+                                if (isSelected) classNames.push('is-selected');
+                                return (
+                                    <button
+                                        key={chapter.id}
+                                        type="button"
+                                        className={classNames.join(' ')}
+                                        disabled={!isUnlocked}
+                                        onClick={() => {
+                                            playUiClick();
+                                            setSelectedStoryChapter(chapter.id);
+                                        }}
+                                    >
+                                        <span className="lobby-story-ch-num">{chapter.roman}</span>
+                                        <span className="lobby-story-ch-name">{chapter.name}</span>
+                                    </button>
+                                );
+                            })}
                         </div>
                         <button
                             type="button"
                             className="lobby-story-play-btn"
+                            disabled={busy || selectedStoryChapter > storyHighestUnlockedChapter}
                             onClick={() => {
                                 playUiClick();
-                                useUiStore.getState().startStoryChapter(1);
+                                void startStoryChapter(selectedStoryChapter);
                             }}
                         >
                             <span className="material-symbols-outlined">play_arrow</span>
-                            <span>BEGIN CHAPTER I</span>
+                            <span>{`ENTER CHAPTER ${selectedChapterMeta.roman}`}</span>
                         </button>
                     </section>
 

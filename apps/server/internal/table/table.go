@@ -55,6 +55,9 @@ type Table struct {
 
 	// NPC support
 	npcManager *npc.Manager
+
+	// Optional callbacks invoked after each hand settles.
+	handEndHooks []HandEndHook
 }
 
 // TableConfig contains table settings
@@ -105,6 +108,17 @@ type Event struct {
 	Timestamp time.Time
 	Response  chan error
 }
+
+// HandEndInfo is emitted when a hand settlement is finalized.
+type HandEndInfo struct {
+	TableID  string
+	Round    uint32
+	Snapshot holdem.Snapshot
+	Result   *holdem.SettlementResult
+}
+
+// HandEndHook is a post-settlement callback.
+type HandEndHook func(info HandEndInfo)
 
 var ErrTableClosed = errors.New("table closed")
 
@@ -436,6 +450,7 @@ func (t *Table) handleHandEnd(result *holdem.SettlementResult) {
 	t.broadcastHandEnd(result)
 	t.clearActionTimeoutLocked()
 	t.persistLiveHandHistory(handID, endedAt, result)
+	t.dispatchHandEndHooks(result)
 	t.handID = ""
 
 	// Schedule next hand from actor tick (no goroutine self-submit).
@@ -447,6 +462,32 @@ func (t *Table) handleHandEnd(result *holdem.SettlementResult) {
 		t.nextHandAt = time.Now().Add(delay)
 	} else {
 		t.nextHandAt = time.Time{}
+	}
+}
+
+func (t *Table) dispatchHandEndHooks(result *holdem.SettlementResult) {
+	if len(t.handEndHooks) == 0 || result == nil {
+		return
+	}
+	info := HandEndInfo{
+		TableID:  t.ID,
+		Round:    t.round,
+		Snapshot: t.game.Snapshot(),
+		Result:   result,
+	}
+	hooks := append([]HandEndHook(nil), t.handEndHooks...)
+	for _, hook := range hooks {
+		if hook == nil {
+			continue
+		}
+		go func(cb HandEndHook) {
+			defer func() {
+				if r := recover(); r != nil {
+					log.Printf("[Table %s] hand end hook panic: %v", t.ID, r)
+				}
+			}()
+			cb(info)
+		}(hook)
 	}
 }
 
@@ -695,6 +736,16 @@ func (t *Table) IsClosed() bool {
 // Snapshot returns current game state (thread-safe)
 func (t *Table) Snapshot() holdem.Snapshot {
 	return t.game.Snapshot()
+}
+
+// AddHandEndHook registers a post-settlement callback.
+func (t *Table) AddHandEndHook(hook HandEndHook) {
+	if hook == nil {
+		return
+	}
+	t.mu.Lock()
+	t.handEndHooks = append(t.handEndHooks, hook)
+	t.mu.Unlock()
 }
 
 // --- NPC support ---

@@ -204,6 +204,12 @@ export declare type ServerEnvelope = Message<"holdem.v1.ServerEnvelope"> & {
      */
     value: StoryChapterInfo;
     case: "storyChapterInfo";
+  } | {
+    /**
+     * @generated from field: holdem.v1.StoryProgressState story_progress = 25;
+     */
+    value: StoryProgressState;
+    case: "storyProgress";
   } | { case: undefined; value?: undefined };
 };
 
@@ -386,6 +392,37 @@ export declare type StoryChapterInfo = Message<"holdem.v1.StoryChapterInfo"> & {
  * Use `create(StoryChapterInfoSchema)` to create a new message.
  */
 export declare const StoryChapterInfoSchema: GenMessage<StoryChapterInfo>;
+
+/**
+ * @generated from message holdem.v1.StoryProgressState
+ */
+export declare type StoryProgressState = Message<"holdem.v1.StoryProgressState"> & {
+  /**
+   * @generated from field: int32 highest_completed_chapter = 1;
+   */
+  highestCompletedChapter: number;
+
+  /**
+   * @generated from field: int32 highest_unlocked_chapter = 2;
+   */
+  highestUnlockedChapter: number;
+
+  /**
+   * @generated from field: repeated int32 completed_chapters = 3;
+   */
+  completedChapters: number[];
+
+  /**
+   * @generated from field: repeated string unlocked_features = 4;
+   */
+  unlockedFeatures: string[];
+};
+
+/**
+ * Describes the message holdem.v1.StoryProgressState.
+ * Use `create(StoryProgressStateSchema)` to create a new message.
+ */
+export declare const StoryProgressStateSchema: GenMessage<StoryProgressState>;
 
 /**
  * @generated from message holdem.v1.ErrorResponse

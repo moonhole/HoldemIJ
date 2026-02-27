@@ -124,6 +124,7 @@ func (g *Gateway) HandleWebSocket(w http.ResponseWriter, r *http.Request) {
 
 	// Send initial LoginResponse
 	c.SendLoginResponse()
+	c.sendStoryProgress("")
 
 	go c.readPump()
 	go c.writePump()
@@ -146,6 +147,15 @@ func (c *Connection) SendLoginResponse() {
 		return
 	}
 	c.Send <- data
+}
+
+func (c *Connection) sendStoryProgress(tableID string) {
+	if c == nil || c.Gateway == nil || c.Gateway.lobby == nil || c.UserID == 0 {
+		return
+	}
+	if err := c.Gateway.lobby.PushStoryProgress(c.UserID, tableID, c.Gateway.broadcastToUser); err != nil {
+		log.Printf("[Gateway] Failed to push story progress for user %d: %v", c.UserID, err)
+	}
 }
 
 func (c *Connection) readPump() {
@@ -270,6 +280,7 @@ func (c *Connection) handleStartStory(env *pb.ClientEnvelope, req *pb.StartStory
 	}
 	data, _ := proto.Marshal(infoEnv)
 	c.Send <- data
+	c.sendStoryProgress(t.ID)
 
 	// Auto-join the story table
 	if err := t.SubmitEvent(table.Event{

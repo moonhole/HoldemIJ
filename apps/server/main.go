@@ -8,6 +8,7 @@ import (
 	"holdem-lite/apps/server/internal/gateway"
 	"holdem-lite/apps/server/internal/ledger"
 	"holdem-lite/apps/server/internal/lobby"
+	"holdem-lite/apps/server/internal/story"
 	"holdem-lite/holdem/npc"
 )
 
@@ -22,6 +23,11 @@ func main() {
 		log.Fatalf("[Server] Failed to init ledger service: %v", err)
 	}
 	defer ledgerService.Close()
+	storyService, storyMode, err := story.NewServiceFromEnv(authMode)
+	if err != nil {
+		log.Fatalf("[Server] Failed to init story service: %v", err)
+	}
+	defer storyService.Close()
 
 	// Initialize NPC subsystem
 	npcRegistry := npc.NewRegistry()
@@ -49,7 +55,7 @@ func main() {
 		}
 	}
 
-	lby := lobby.New(ledgerService, npcManager)
+	lby := lobby.New(ledgerService, storyService, npcManager)
 	lby.SetChapterRegistry(chapterRegistry)
 	gw := gateway.New(lby, authService)
 	authHTTP := auth.NewHTTPHandler(authService)
@@ -67,6 +73,7 @@ func main() {
 	addr := ":8080"
 	log.Printf("[Server] Auth mode: %s", authMode)
 	log.Printf("[Server] Ledger mode: %s", ledgerMode)
+	log.Printf("[Server] Story mode: %s", storyMode)
 	log.Printf("[Server] Starting WebSocket server on %s", addr)
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("[Server] Failed to start: %v", err)

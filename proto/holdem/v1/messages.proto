@@ -46,6 +46,7 @@ message ServerEnvelope {
     WinByFold win_by_fold = 22;
     LoginResponse login_response = 23;
     StoryChapterInfo story_chapter_info = 24;
+    StoryProgressState story_progress = 25;
   }
 }
 
@@ -91,6 +92,13 @@ message StoryChapterInfo {
   string rei_boss_note = 6;
   string boss_name = 7;
   string table_id = 8;
+}
+
+message StoryProgressState {
+  int32 highest_completed_chapter = 1;
+  int32 highest_unlocked_chapter = 2;
+  repeated int32 completed_chapters = 3;
+  repeated string unlocked_features = 4;
 }
 
 // ============================================================

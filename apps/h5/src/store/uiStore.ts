@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { StoryProgressState } from '@gen/messages_pb';
 import { gameClient } from '../network/GameClient';
 import { useGameStore } from './gameStore';
 import { useReplayStore } from '../replay/replayStore';
@@ -14,12 +15,19 @@ type UiStoreState = {
     quickStartPhase: QuickStartPhase;
     quickStartLabel: string;
     quickStartError: string;
+    storyHighestCompletedChapter: number;
+    storyHighestUnlockedChapter: number;
+    storyCompletedChapters: number[];
+    storyUnlockedFeatures: string[];
+    selectedStoryChapter: number;
 
     setCurrentScene: (scene: SceneName) => void;
     requestScene: (scene: SceneName) => void;
     consumeSceneRequest: (scene: SceneName) => void;
     startQuickStart: () => Promise<void>;
     startStoryChapter: (chapterId: number) => Promise<void>;
+    setSelectedStoryChapter: (chapterId: number) => void;
+    ingestStoryProgress: (progress: StoryProgressState) => void;
     resetQuickStart: () => void;
 };
 
@@ -79,6 +87,11 @@ export const useUiStore = create<UiStoreState>((set) => ({
     quickStartPhase: 'idle',
     quickStartLabel: QUICK_START_IDLE_LABEL,
     quickStartError: '',
+    storyHighestCompletedChapter: 0,
+    storyHighestUnlockedChapter: 1,
+    storyCompletedChapters: [],
+    storyUnlockedFeatures: [],
+    selectedStoryChapter: 1,
 
     setCurrentScene: (scene) =>
         set((state) => ({
@@ -164,6 +177,15 @@ export const useUiStore = create<UiStoreState>((set) => ({
         if (state.quickStartPhase === 'connecting' || state.quickStartPhase === 'sitting') {
             return;
         }
+        if (chapterId > state.storyHighestUnlockedChapter) {
+            set((prev) => ({
+                ...prev,
+                quickStartPhase: 'error',
+                quickStartLabel: 'Chapter Locked',
+                quickStartError: `Chapter ${chapterId} is locked.`,
+            }));
+            return;
+        }
 
         useReplayStore.getState().clearTape();
 
@@ -213,6 +235,48 @@ export const useUiStore = create<UiStoreState>((set) => ({
         }
     },
 
+    setSelectedStoryChapter: (chapterId) =>
+        set((state) => {
+            if (!Number.isFinite(chapterId)) {
+                return state;
+            }
+            const next = Math.trunc(chapterId);
+            if (next < 1 || next > state.storyHighestUnlockedChapter) {
+                return state;
+            }
+            return {
+                ...state,
+                selectedStoryChapter: next,
+            };
+        }),
+
+    ingestStoryProgress: (progress) =>
+        set((state) => {
+            const highestCompleted = Math.max(0, Number(progress.highestCompletedChapter) || 0);
+            const highestUnlocked = Math.max(1, Number(progress.highestUnlockedChapter) || 1);
+            const completed = Array.from(
+                new Set(progress.completedChapters.map((ch) => Math.trunc(Number(ch))).filter((ch) => ch > 0)),
+            ).sort((a, b) => a - b);
+            const features = Array.from(
+                new Set(
+                    progress.unlockedFeatures
+                        .map((feature) => feature.trim())
+                        .filter((feature) => feature.length > 0),
+                ),
+            ).sort();
+            const selected =
+                state.selectedStoryChapter > highestUnlocked ? highestUnlocked : Math.max(1, state.selectedStoryChapter);
+
+            return {
+                ...state,
+                storyHighestCompletedChapter: highestCompleted,
+                storyHighestUnlockedChapter: highestUnlocked,
+                storyCompletedChapters: completed,
+                storyUnlockedFeatures: features,
+                selectedStoryChapter: selected,
+            };
+        }),
+
     resetQuickStart: () =>
         set((state) => ({
             ...state,
@@ -221,3 +285,18 @@ export const useUiStore = create<UiStoreState>((set) => ({
             quickStartError: '',
         })),
 }));
+
+let isUiClientBound = false;
+
+export function bindUiClientToStore(): void {
+    if (isUiClientBound) {
+        return;
+    }
+    isUiClientBound = true;
+
+    gameClient.subscribe({
+        onStoryProgress: (value) => {
+            useUiStore.getState().ingestStoryProgress(value);
+        },
+    });
+}

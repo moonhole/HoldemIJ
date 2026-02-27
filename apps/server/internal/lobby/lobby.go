@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"holdem-lite/apps/server/internal/ledger"
+	"holdem-lite/apps/server/internal/story"
 	"holdem-lite/apps/server/internal/table"
 	"holdem-lite/holdem/npc"
 )
@@ -34,13 +35,15 @@ type Lobby struct {
 	done            chan struct{}
 	stopOnce        sync.Once
 	ledger          ledger.Service
+	storyService    story.Service
 	npcManager      *npc.Manager
 	chapterRegistry *npc.ChapterRegistry
+	storySessions   map[string]*storySession
 	rng             *rand.Rand
 }
 
 // New creates a new lobby
-func New(ledgerService ledger.Service, npcMgr ...*npc.Manager) *Lobby {
+func New(ledgerService ledger.Service, storyService story.Service, npcMgr ...*npc.Manager) *Lobby {
 	l := &Lobby{
 		tables: make(map[string]*table.Table),
 		defaultConfig: table.TableConfig{
@@ -55,6 +58,8 @@ func New(ledgerService ledger.Service, npcMgr ...*npc.Manager) *Lobby {
 		cleanupInterval: defaultCleanupInterval,
 		done:            make(chan struct{}),
 		ledger:          ledgerService,
+		storyService:    storyService,
+		storySessions:   make(map[string]*storySession),
 		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	if len(npcMgr) > 0 && npcMgr[0] != nil {
@@ -200,6 +205,7 @@ func (l *Lobby) CleanupIdleTables() int {
 	for tableID, t := range l.tables {
 		if t.IsClosed() || t.IsIdleFor(l.idleTableTTL) {
 			delete(l.tables, tableID)
+			delete(l.storySessions, tableID)
 			idleTables = append(idleTables, t)
 		}
 	}
@@ -223,6 +229,7 @@ func (l *Lobby) Stop() {
 			tables = append(tables, t)
 		}
 		l.tables = make(map[string]*table.Table)
+		l.storySessions = make(map[string]*storySession)
 		l.mu.Unlock()
 
 		for _, t := range tables {

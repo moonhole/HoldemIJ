@@ -57,6 +57,7 @@ Run once:
 psql -U postgres -d postgres -f apps/server/db/create_database.sql
 psql -U postgres -d holdem_lite -f apps/server/db/schema.sql
 psql -U postgres -d holdem_lite -f apps/server/db/003_ledger_audit.sql
+psql -U postgres -d holdem_lite -f apps/server/db/004_story_progress.sql
 psql -U postgres -d holdem_lite -f apps/server/db/002_seed.sql
 ```
 

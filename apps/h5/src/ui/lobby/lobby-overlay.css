@@ -184,6 +184,8 @@
     border: 1px solid rgba(255, 190, 60, 0.25);
     background: rgba(255, 190, 60, 0.06);
     transition: border-color 0.2s;
+    appearance: none;
+    cursor: pointer;
 }
 
 .lobby-story-chapter:hover {
@@ -194,6 +196,20 @@
     border-color: rgba(255, 255, 255, 0.08);
     background: rgba(255, 255, 255, 0.02);
     opacity: 0.45;
+}
+
+.lobby-story-chapter.is-selected {
+    border-color: rgba(0, 243, 255, 0.65);
+    box-shadow: inset 0 0 0 1px rgba(0, 243, 255, 0.3);
+}
+
+.lobby-story-chapter.is-completed {
+    border-color: rgba(84, 255, 174, 0.5);
+    background: rgba(84, 255, 174, 0.08);
+}
+
+.lobby-story-chapter:disabled {
+    cursor: default;
 }
 
 .lobby-story-ch-num {
@@ -250,6 +266,12 @@
 
 .lobby-story-play-btn:active {
     transform: scale(0.98);
+}
+
+.lobby-story-play-btn:disabled {
+    opacity: 0.52;
+    cursor: default;
+    box-shadow: none;
 }
 
 .lobby-story-play-btn .material-symbols-outlined {

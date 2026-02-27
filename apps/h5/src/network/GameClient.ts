@@ -22,6 +22,7 @@ import {
     type WinByFold,
     type SeatUpdate,
     type StoryChapterInfo,
+    type StoryProgressState,
 } from '@gen/messages_pb';
 import { resolveWsUrl } from './runtimeConfig';
 
@@ -42,6 +43,7 @@ export type MessageHandler = {
     onDisconnect?: () => void;
     onSeatUpdate?: (seatUpdate: SeatUpdate) => void;
     onStoryChapterInfo?: (info: StoryChapterInfo) => void;
+    onStoryProgress?: (progress: StoryProgressState) => void;
 };
 
 export class GameClient {
@@ -335,6 +337,12 @@ export class GameClient {
                         const value = env.payload.value;
                         console.log('[GameClient] Story chapter info', value.title);
                         this.notify((h) => h.onStoryChapterInfo?.(value));
+                        break;
+                    }
+                case 'storyProgress':
+                    {
+                        const value = env.payload.value;
+                        this.notify((h) => h.onStoryProgress?.(value));
                         break;
                     }
             }
