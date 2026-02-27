@@ -364,8 +364,14 @@ func (g *Game) Act(chair uint16, action ActionType, amount int64) (handEnd *Sett
 		}
 	case PlayerActionTypeAllin:
 		player.placeBet(player.stack)
-		g.allinCount++
 		_ = originalAction
+	}
+
+	// Any action causing stack to reach 0 makes the player all-in.
+	// Since players with stack == 0 are skipped for action, if they just acted
+	// and now have stack == 0, they just went all-in.
+	if action != PlayerActionTypeFold && player.stack <= 0 {
+		g.allinCount++
 	}
 
 	if action != PlayerActionTypeFold {
