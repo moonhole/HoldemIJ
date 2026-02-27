@@ -14,6 +14,7 @@ import (
 	"holdem-lite/apps/server/internal/ledger"
 	"holdem-lite/card"
 	"holdem-lite/holdem"
+	"holdem-lite/holdem/npc"
 
 	"google.golang.org/protobuf/proto"
 )
@@ -51,6 +52,9 @@ type Table struct {
 	ledger       ledger.Service
 	handID       string
 	userHandTape map[uint64][]ledger.EventItem
+
+	// NPC support
+	npcManager *npc.Manager
 }
 
 // TableConfig contains table settings
@@ -117,6 +121,7 @@ func New(
 	cfg TableConfig,
 	broadcastFn func(userID uint64, data []byte),
 	ledgerService ledger.Service,
+	npcMgr ...*npc.Manager,
 ) *Table {
 	t := &Table{
 		ID:                 id,
@@ -131,6 +136,9 @@ func New(
 		actionTimeoutChair: holdem.InvalidChair,
 		emptySince:         time.Now(),
 		userHandTape:       make(map[uint64][]ledger.EventItem),
+	}
+	if len(npcMgr) > 0 && npcMgr[0] != nil {
+		t.npcManager = npcMgr[0]
 	}
 
 	// Create game engine
@@ -689,6 +697,141 @@ func (t *Table) Snapshot() holdem.Snapshot {
 	return t.game.Snapshot()
 }
 
+// --- NPC support ---
+
+// isNPC checks whether a userID belongs to an NPC (caller must hold t.mu).
+func (t *Table) isNPC(userID uint64) bool {
+	if t.npcManager == nil {
+		return false
+	}
+	return t.npcManager.IsNPC(userID)
+}
+
+// scheduleNPCAction runs the NPC brain in a goroutine and injects the
+// decision as an Event back into the actor queue. The think delay simulates
+// human-like decision timing.
+func (t *Table) scheduleNPCAction(chair uint16, userID uint64) {
+	if t.npcManager == nil {
+		return
+	}
+
+	// Get legal actions for the NPC so the brain can use them.
+	legalActions, minRaise, err := t.game.LegalActions(chair)
+	if err != nil {
+		log.Printf("[Table %s] NPC LegalActions failed chair=%d: %v", t.ID, chair, err)
+		return
+	}
+
+	snap := t.game.Snapshot()
+	thinkDelay := t.npcManager.GetThinkDelay(userID)
+
+	// Build a full GameView with legal actions included.
+	inst := t.npcManager.GetInstance(userID)
+	if inst == nil {
+		log.Printf("[Table %s] NPC instance not found for user %d", t.ID, userID)
+		return
+	}
+
+	go func() {
+		// Simulate thinking
+		time.Sleep(thinkDelay)
+
+		view := npc.GameView{
+			Phase:      snap.Phase,
+			Community:  snap.CommunityCards,
+			CurrentBet: snap.CurBet,
+			MinRaise:   minRaise,
+		}
+		// Calc pot
+		for _, pot := range snap.Pots {
+			view.Pot += pot.Amount
+		}
+		for _, ps := range snap.Players {
+			view.Pot += ps.Bet
+		}
+		// Find NPC's own data
+		for _, ps := range snap.Players {
+			if ps.Chair == chair {
+				view.HoleCards = ps.HandCards
+				view.MyBet = ps.Bet
+				view.MyStack = ps.Stack
+				break
+			}
+		}
+		// Active count
+		for _, ps := range snap.Players {
+			if !ps.Folded {
+				view.ActiveCount++
+			}
+		}
+		// Street
+		switch snap.Phase {
+		case holdem.PhaseTypePreflop:
+			view.Street = 0
+		case holdem.PhaseTypeFlop:
+			view.Street = 1
+		case holdem.PhaseTypeTurn:
+			view.Street = 2
+		case holdem.PhaseTypeRiver:
+			view.Street = 3
+		}
+		view.LegalActions = legalActions
+
+		decision := inst.Brain.Decide(view)
+		log.Printf("[Table %s] NPC %s (chair=%d) decides: %v amount=%d",
+			t.ID, inst.Persona.Name, chair, decision.Action, decision.Amount)
+
+		// Inject the decision back into the actor queue.
+		_ = t.SubmitEvent(Event{
+			Type:   EventAction,
+			UserID: userID,
+			Action: decision.Action,
+			Amount: decision.Amount,
+		})
+	}()
+}
+
+// SeatNPC spawns an NPC at a specific chair. Must be called before hand starts.
+func (t *Table) SeatNPC(persona *npc.NPCPersona, chair uint16, buyIn int64) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+
+	if t.npcManager == nil {
+		return fmt.Errorf("NPC manager not available")
+	}
+	if chair >= t.Config.MaxPlayers {
+		return fmt.Errorf("invalid chair %d", chair)
+	}
+	if t.seats[chair] != 0 {
+		return fmt.Errorf("chair %d is occupied", chair)
+	}
+
+	inst, err := t.npcManager.SpawnNPC(t.game, chair, persona, buyIn)
+	if err != nil {
+		return err
+	}
+
+	// Register the NPC in the table's player/seat tracking
+	t.players[inst.PlayerID] = &PlayerConn{
+		UserID:   inst.PlayerID,
+		Nickname: inst.Persona.Name,
+		Chair:    chair,
+		Stack:    buyIn,
+		Online:   true,
+		LastSeen: time.Now(),
+	}
+	t.seats[chair] = inst.PlayerID
+	t.updateEmptySinceLocked(time.Now())
+
+	log.Printf("[Table %s] NPC %s seated at chair %d with %d", t.ID, persona.Name, chair, buyIn)
+	return nil
+}
+
+// NPCManager returns the table's NPC manager (may be nil).
+func (t *Table) NPCManager() *npc.Manager {
+	return t.npcManager
+}
+
 // --- Broadcast helpers with proto encoding ---
 
 func (t *Table) nextSeq() uint64 {
@@ -1003,6 +1146,13 @@ func (t *Table) sendHoleCards() {
 }
 
 func (t *Table) sendActionPrompt(chair uint16) {
+	// If the player on this chair is an NPC, schedule an auto-action instead
+	// of sending a WebSocket prompt.
+	userID := t.seats[chair]
+	if userID != 0 && t.isNPC(userID) {
+		t.scheduleNPCAction(chair, userID)
+		return
+	}
 	t.sendActionPromptWithTTL(chair, actionTimeLimitSec, true)
 }
 
