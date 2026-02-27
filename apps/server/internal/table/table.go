@@ -1146,10 +1146,12 @@ func (t *Table) sendHoleCards() {
 }
 
 func (t *Table) sendActionPrompt(chair uint16) {
-	// If the player on this chair is an NPC, schedule an auto-action instead
-	// of sending a WebSocket prompt.
+	// If the player on this chair is an NPC, still broadcast the ActionPrompt
+	// so the frontend shows the active-player indicator, but don't set a
+	// server-side timeout (the NPC goroutine handles timing).
 	userID := t.seats[chair]
 	if userID != 0 && t.isNPC(userID) {
+		t.sendActionPromptWithTTL(chair, actionTimeLimitSec, false) // broadcast only, no timeout
 		t.scheduleNPCAction(chair, userID)
 		return
 	}
