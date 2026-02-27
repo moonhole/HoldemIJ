@@ -19,6 +19,7 @@ type UiStoreState = {
     requestScene: (scene: SceneName) => void;
     consumeSceneRequest: (scene: SceneName) => void;
     startQuickStart: () => Promise<void>;
+    startStoryChapter: (chapterId: number) => Promise<void>;
     resetQuickStart: () => void;
 };
 
@@ -154,6 +155,60 @@ export const useUiStore = create<UiStoreState>((set) => ({
                 quickStartPhase: 'error',
                 quickStartLabel: 'Connection Failed - Retry',
                 quickStartError: error instanceof Error ? error.message : 'Connection failed',
+            }));
+        }
+    },
+
+    startStoryChapter: async (chapterId: number) => {
+        const state = useUiStore.getState();
+        if (state.quickStartPhase === 'connecting' || state.quickStartPhase === 'sitting') {
+            return;
+        }
+
+        useReplayStore.getState().clearTape();
+
+        set((prev) => ({
+            ...prev,
+            quickStartPhase: 'connecting',
+            quickStartLabel: 'Loading chapter...',
+            quickStartError: '',
+        }));
+
+        try {
+            const gameState = useGameStore.getState();
+            if (gameClient.isConnected && !gameState.connected) {
+                gameClient.disconnect();
+                await delay(80);
+            }
+
+            if (!gameClient.isConnected) {
+                await gameClient.connect();
+            }
+            const minStreamSeq = useGameStore.getState().streamSeq;
+            gameClient.startStory(chapterId);
+
+            set((prev) => ({
+                ...prev,
+                quickStartPhase: 'sitting',
+                quickStartLabel: 'Entering story...',
+            }));
+
+            await waitForInitialSnapshot(QUICK_START_WAIT_SNAPSHOT_MS, minStreamSeq);
+
+            set((prev) => ({
+                ...prev,
+                quickStartPhase: 'idle',
+                quickStartLabel: QUICK_START_IDLE_LABEL,
+                quickStartError: '',
+                requestedScene: 'table',
+            }));
+        } catch (error) {
+            console.error('[UiStore] Story start failed', error);
+            set((prev) => ({
+                ...prev,
+                quickStartPhase: 'error',
+                quickStartLabel: 'Connection Failed - Retry',
+                quickStartError: error instanceof Error ? error.message : 'Story mode failed',
             }));
         }
     },

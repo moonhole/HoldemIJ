@@ -367,6 +367,7 @@ type ClientEnvelope struct {
 	//	*ClientEnvelope_StandUp
 	//	*ClientEnvelope_BuyIn
 	//	*ClientEnvelope_Action
+	//	*ClientEnvelope_StartStory
 	Payload       isClientEnvelope_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -482,6 +483,15 @@ func (x *ClientEnvelope) GetAction() *ActionRequest {
 	return nil
 }
 
+func (x *ClientEnvelope) GetStartStory() *StartStoryRequest {
+	if x != nil {
+		if x, ok := x.Payload.(*ClientEnvelope_StartStory); ok {
+			return x.StartStory
+		}
+	}
+	return nil
+}
+
 type isClientEnvelope_Payload interface {
 	isClientEnvelope_Payload()
 }
@@ -506,6 +516,10 @@ type ClientEnvelope_Action struct {
 	Action *ActionRequest `protobuf:"bytes,14,opt,name=action,proto3,oneof"`
 }
 
+type ClientEnvelope_StartStory struct {
+	StartStory *StartStoryRequest `protobuf:"bytes,15,opt,name=start_story,json=startStory,proto3,oneof"`
+}
+
 func (*ClientEnvelope_JoinTable) isClientEnvelope_Payload() {}
 
 func (*ClientEnvelope_SitDown) isClientEnvelope_Payload() {}
@@ -515,6 +529,8 @@ func (*ClientEnvelope_StandUp) isClientEnvelope_Payload() {}
 func (*ClientEnvelope_BuyIn) isClientEnvelope_Payload() {}
 
 func (*ClientEnvelope_Action) isClientEnvelope_Payload() {}
+
+func (*ClientEnvelope_StartStory) isClientEnvelope_Payload() {}
 
 type ServerEnvelope struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
@@ -537,6 +553,7 @@ type ServerEnvelope struct {
 	//	*ServerEnvelope_PhaseChange
 	//	*ServerEnvelope_WinByFold
 	//	*ServerEnvelope_LoginResponse
+	//	*ServerEnvelope_StoryChapterInfo
 	Payload       isServerEnvelope_Payload `protobuf_oneof:"payload"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -726,6 +743,15 @@ func (x *ServerEnvelope) GetLoginResponse() *LoginResponse {
 	return nil
 }
 
+func (x *ServerEnvelope) GetStoryChapterInfo() *StoryChapterInfo {
+	if x != nil {
+		if x, ok := x.Payload.(*ServerEnvelope_StoryChapterInfo); ok {
+			return x.StoryChapterInfo
+		}
+	}
+	return nil
+}
+
 type isServerEnvelope_Payload interface {
 	isServerEnvelope_Payload()
 }
@@ -786,6 +812,10 @@ type ServerEnvelope_LoginResponse struct {
 	LoginResponse *LoginResponse `protobuf:"bytes,23,opt,name=login_response,json=loginResponse,proto3,oneof"`
 }
 
+type ServerEnvelope_StoryChapterInfo struct {
+	StoryChapterInfo *StoryChapterInfo `protobuf:"bytes,24,opt,name=story_chapter_info,json=storyChapterInfo,proto3,oneof"`
+}
+
 func (*ServerEnvelope_Error) isServerEnvelope_Payload() {}
 
 func (*ServerEnvelope_TableSnapshot) isServerEnvelope_Payload() {}
@@ -813,6 +843,8 @@ func (*ServerEnvelope_PhaseChange) isServerEnvelope_Payload() {}
 func (*ServerEnvelope_WinByFold) isServerEnvelope_Payload() {}
 
 func (*ServerEnvelope_LoginResponse) isServerEnvelope_Payload() {}
+
+func (*ServerEnvelope_StoryChapterInfo) isServerEnvelope_Payload() {}
 
 type LoginResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1086,6 +1118,150 @@ func (x *ActionRequest) GetAmount() int64 {
 	return 0
 }
 
+type StartStoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ChapterId     int32                  `protobuf:"varint,1,opt,name=chapter_id,json=chapterId,proto3" json:"chapter_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartStoryRequest) Reset() {
+	*x = StartStoryRequest{}
+	mi := &file_messages_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartStoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartStoryRequest) ProtoMessage() {}
+
+func (x *StartStoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_messages_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartStoryRequest.ProtoReflect.Descriptor instead.
+func (*StartStoryRequest) Descriptor() ([]byte, []int) {
+	return file_messages_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *StartStoryRequest) GetChapterId() int32 {
+	if x != nil {
+		return x.ChapterId
+	}
+	return 0
+}
+
+type StoryChapterInfo struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ChapterId     int32                  `protobuf:"varint,1,opt,name=chapter_id,json=chapterId,proto3" json:"chapter_id,omitempty"`
+	Title         string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Subtitle      string                 `protobuf:"bytes,3,opt,name=subtitle,proto3" json:"subtitle,omitempty"`
+	ObjectiveDesc string                 `protobuf:"bytes,4,opt,name=objective_desc,json=objectiveDesc,proto3" json:"objective_desc,omitempty"`
+	ReiIntro      string                 `protobuf:"bytes,5,opt,name=rei_intro,json=reiIntro,proto3" json:"rei_intro,omitempty"`
+	ReiBossNote   string                 `protobuf:"bytes,6,opt,name=rei_boss_note,json=reiBossNote,proto3" json:"rei_boss_note,omitempty"`
+	BossName      string                 `protobuf:"bytes,7,opt,name=boss_name,json=bossName,proto3" json:"boss_name,omitempty"`
+	TableId       string                 `protobuf:"bytes,8,opt,name=table_id,json=tableId,proto3" json:"table_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StoryChapterInfo) Reset() {
+	*x = StoryChapterInfo{}
+	mi := &file_messages_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StoryChapterInfo) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StoryChapterInfo) ProtoMessage() {}
+
+func (x *StoryChapterInfo) ProtoReflect() protoreflect.Message {
+	mi := &file_messages_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StoryChapterInfo.ProtoReflect.Descriptor instead.
+func (*StoryChapterInfo) Descriptor() ([]byte, []int) {
+	return file_messages_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *StoryChapterInfo) GetChapterId() int32 {
+	if x != nil {
+		return x.ChapterId
+	}
+	return 0
+}
+
+func (x *StoryChapterInfo) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
+func (x *StoryChapterInfo) GetSubtitle() string {
+	if x != nil {
+		return x.Subtitle
+	}
+	return ""
+}
+
+func (x *StoryChapterInfo) GetObjectiveDesc() string {
+	if x != nil {
+		return x.ObjectiveDesc
+	}
+	return ""
+}
+
+func (x *StoryChapterInfo) GetReiIntro() string {
+	if x != nil {
+		return x.ReiIntro
+	}
+	return ""
+}
+
+func (x *StoryChapterInfo) GetReiBossNote() string {
+	if x != nil {
+		return x.ReiBossNote
+	}
+	return ""
+}
+
+func (x *StoryChapterInfo) GetBossName() string {
+	if x != nil {
+		return x.BossName
+	}
+	return ""
+}
+
+func (x *StoryChapterInfo) GetTableId() string {
+	if x != nil {
+		return x.TableId
+	}
+	return ""
+}
+
 type ErrorResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Code          int32                  `protobuf:"varint,1,opt,name=code,proto3" json:"code,omitempty"`
@@ -1096,7 +1272,7 @@ type ErrorResponse struct {
 
 func (x *ErrorResponse) Reset() {
 	*x = ErrorResponse{}
-	mi := &file_messages_proto_msgTypes[8]
+	mi := &file_messages_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1108,7 +1284,7 @@ func (x *ErrorResponse) String() string {
 func (*ErrorResponse) ProtoMessage() {}
 
 func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[8]
+	mi := &file_messages_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1121,7 +1297,7 @@ func (x *ErrorResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ErrorResponse.ProtoReflect.Descriptor instead.
 func (*ErrorResponse) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{8}
+	return file_messages_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ErrorResponse) GetCode() int32 {
@@ -1158,7 +1334,7 @@ type TableSnapshot struct {
 
 func (x *TableSnapshot) Reset() {
 	*x = TableSnapshot{}
-	mi := &file_messages_proto_msgTypes[9]
+	mi := &file_messages_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1170,7 +1346,7 @@ func (x *TableSnapshot) String() string {
 func (*TableSnapshot) ProtoMessage() {}
 
 func (x *TableSnapshot) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[9]
+	mi := &file_messages_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1183,7 +1359,7 @@ func (x *TableSnapshot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableSnapshot.ProtoReflect.Descriptor instead.
 func (*TableSnapshot) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{9}
+	return file_messages_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *TableSnapshot) GetConfig() *TableConfig {
@@ -1284,7 +1460,7 @@ type TableConfig struct {
 
 func (x *TableConfig) Reset() {
 	*x = TableConfig{}
-	mi := &file_messages_proto_msgTypes[10]
+	mi := &file_messages_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1296,7 +1472,7 @@ func (x *TableConfig) String() string {
 func (*TableConfig) ProtoMessage() {}
 
 func (x *TableConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[10]
+	mi := &file_messages_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1309,7 +1485,7 @@ func (x *TableConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TableConfig.ProtoReflect.Descriptor instead.
 func (*TableConfig) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{10}
+	return file_messages_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *TableConfig) GetMaxPlayers() uint32 {
@@ -1374,7 +1550,7 @@ type PlayerState struct {
 
 func (x *PlayerState) Reset() {
 	*x = PlayerState{}
-	mi := &file_messages_proto_msgTypes[11]
+	mi := &file_messages_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1386,7 +1562,7 @@ func (x *PlayerState) String() string {
 func (*PlayerState) ProtoMessage() {}
 
 func (x *PlayerState) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[11]
+	mi := &file_messages_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1399,7 +1575,7 @@ func (x *PlayerState) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PlayerState.ProtoReflect.Descriptor instead.
 func (*PlayerState) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{11}
+	return file_messages_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *PlayerState) GetUserId() uint64 {
@@ -1482,7 +1658,7 @@ type Pot struct {
 
 func (x *Pot) Reset() {
 	*x = Pot{}
-	mi := &file_messages_proto_msgTypes[12]
+	mi := &file_messages_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1494,7 +1670,7 @@ func (x *Pot) String() string {
 func (*Pot) ProtoMessage() {}
 
 func (x *Pot) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[12]
+	mi := &file_messages_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1507,7 +1683,7 @@ func (x *Pot) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Pot.ProtoReflect.Descriptor instead.
 func (*Pot) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{12}
+	return file_messages_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *Pot) GetAmount() int64 {
@@ -1539,7 +1715,7 @@ type SeatUpdate struct {
 
 func (x *SeatUpdate) Reset() {
 	*x = SeatUpdate{}
-	mi := &file_messages_proto_msgTypes[13]
+	mi := &file_messages_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1551,7 +1727,7 @@ func (x *SeatUpdate) String() string {
 func (*SeatUpdate) ProtoMessage() {}
 
 func (x *SeatUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[13]
+	mi := &file_messages_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1564,7 +1740,7 @@ func (x *SeatUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SeatUpdate.ProtoReflect.Descriptor instead.
 func (*SeatUpdate) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{13}
+	return file_messages_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *SeatUpdate) GetChair() uint32 {
@@ -1644,7 +1820,7 @@ type HandStart struct {
 
 func (x *HandStart) Reset() {
 	*x = HandStart{}
-	mi := &file_messages_proto_msgTypes[14]
+	mi := &file_messages_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1656,7 +1832,7 @@ func (x *HandStart) String() string {
 func (*HandStart) ProtoMessage() {}
 
 func (x *HandStart) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[14]
+	mi := &file_messages_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1669,7 +1845,7 @@ func (x *HandStart) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandStart.ProtoReflect.Descriptor instead.
 func (*HandStart) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{14}
+	return file_messages_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *HandStart) GetRound() uint32 {
@@ -1724,7 +1900,7 @@ type DealHoleCards struct {
 
 func (x *DealHoleCards) Reset() {
 	*x = DealHoleCards{}
-	mi := &file_messages_proto_msgTypes[15]
+	mi := &file_messages_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1736,7 +1912,7 @@ func (x *DealHoleCards) String() string {
 func (*DealHoleCards) ProtoMessage() {}
 
 func (x *DealHoleCards) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[15]
+	mi := &file_messages_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1749,7 +1925,7 @@ func (x *DealHoleCards) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DealHoleCards.ProtoReflect.Descriptor instead.
 func (*DealHoleCards) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{15}
+	return file_messages_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DealHoleCards) GetCards() []*Card {
@@ -1769,7 +1945,7 @@ type DealBoard struct {
 
 func (x *DealBoard) Reset() {
 	*x = DealBoard{}
-	mi := &file_messages_proto_msgTypes[16]
+	mi := &file_messages_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1781,7 +1957,7 @@ func (x *DealBoard) String() string {
 func (*DealBoard) ProtoMessage() {}
 
 func (x *DealBoard) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[16]
+	mi := &file_messages_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1794,7 +1970,7 @@ func (x *DealBoard) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DealBoard.ProtoReflect.Descriptor instead.
 func (*DealBoard) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{16}
+	return file_messages_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *DealBoard) GetPhase() Phase {
@@ -1830,7 +2006,7 @@ type PhaseChange struct {
 
 func (x *PhaseChange) Reset() {
 	*x = PhaseChange{}
-	mi := &file_messages_proto_msgTypes[17]
+	mi := &file_messages_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1842,7 +2018,7 @@ func (x *PhaseChange) String() string {
 func (*PhaseChange) ProtoMessage() {}
 
 func (x *PhaseChange) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[17]
+	mi := &file_messages_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1855,7 +2031,7 @@ func (x *PhaseChange) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PhaseChange.ProtoReflect.Descriptor instead.
 func (*PhaseChange) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{17}
+	return file_messages_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *PhaseChange) GetPhase() Phase {
@@ -1908,7 +2084,7 @@ type ActionPrompt struct {
 
 func (x *ActionPrompt) Reset() {
 	*x = ActionPrompt{}
-	mi := &file_messages_proto_msgTypes[18]
+	mi := &file_messages_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1920,7 +2096,7 @@ func (x *ActionPrompt) String() string {
 func (*ActionPrompt) ProtoMessage() {}
 
 func (x *ActionPrompt) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[18]
+	mi := &file_messages_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1933,7 +2109,7 @@ func (x *ActionPrompt) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionPrompt.ProtoReflect.Descriptor instead.
 func (*ActionPrompt) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{18}
+	return file_messages_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ActionPrompt) GetChair() uint32 {
@@ -1991,7 +2167,7 @@ type ActionResult struct {
 
 func (x *ActionResult) Reset() {
 	*x = ActionResult{}
-	mi := &file_messages_proto_msgTypes[19]
+	mi := &file_messages_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2003,7 +2179,7 @@ func (x *ActionResult) String() string {
 func (*ActionResult) ProtoMessage() {}
 
 func (x *ActionResult) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[19]
+	mi := &file_messages_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2016,7 +2192,7 @@ func (x *ActionResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ActionResult.ProtoReflect.Descriptor instead.
 func (*ActionResult) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{19}
+	return file_messages_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ActionResult) GetChair() uint32 {
@@ -2063,7 +2239,7 @@ type PotUpdate struct {
 
 func (x *PotUpdate) Reset() {
 	*x = PotUpdate{}
-	mi := &file_messages_proto_msgTypes[20]
+	mi := &file_messages_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2075,7 +2251,7 @@ func (x *PotUpdate) String() string {
 func (*PotUpdate) ProtoMessage() {}
 
 func (x *PotUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[20]
+	mi := &file_messages_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2088,7 +2264,7 @@ func (x *PotUpdate) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PotUpdate.ProtoReflect.Descriptor instead.
 func (*PotUpdate) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{20}
+	return file_messages_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *PotUpdate) GetPots() []*Pot {
@@ -2110,7 +2286,7 @@ type Showdown struct {
 
 func (x *Showdown) Reset() {
 	*x = Showdown{}
-	mi := &file_messages_proto_msgTypes[21]
+	mi := &file_messages_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2122,7 +2298,7 @@ func (x *Showdown) String() string {
 func (*Showdown) ProtoMessage() {}
 
 func (x *Showdown) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[21]
+	mi := &file_messages_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2135,7 +2311,7 @@ func (x *Showdown) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Showdown.ProtoReflect.Descriptor instead.
 func (*Showdown) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{21}
+	return file_messages_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *Showdown) GetHands() []*ShowdownHand {
@@ -2178,7 +2354,7 @@ type ShowdownHand struct {
 
 func (x *ShowdownHand) Reset() {
 	*x = ShowdownHand{}
-	mi := &file_messages_proto_msgTypes[22]
+	mi := &file_messages_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2190,7 +2366,7 @@ func (x *ShowdownHand) String() string {
 func (*ShowdownHand) ProtoMessage() {}
 
 func (x *ShowdownHand) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[22]
+	mi := &file_messages_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2203,7 +2379,7 @@ func (x *ShowdownHand) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ShowdownHand.ProtoReflect.Descriptor instead.
 func (*ShowdownHand) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{22}
+	return file_messages_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ShowdownHand) GetChair() uint32 {
@@ -2244,7 +2420,7 @@ type PotResult struct {
 
 func (x *PotResult) Reset() {
 	*x = PotResult{}
-	mi := &file_messages_proto_msgTypes[23]
+	mi := &file_messages_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2256,7 +2432,7 @@ func (x *PotResult) String() string {
 func (*PotResult) ProtoMessage() {}
 
 func (x *PotResult) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[23]
+	mi := &file_messages_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2269,7 +2445,7 @@ func (x *PotResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PotResult.ProtoReflect.Descriptor instead.
 func (*PotResult) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{23}
+	return file_messages_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *PotResult) GetPotAmount() int64 {
@@ -2296,7 +2472,7 @@ type Winner struct {
 
 func (x *Winner) Reset() {
 	*x = Winner{}
-	mi := &file_messages_proto_msgTypes[24]
+	mi := &file_messages_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2308,7 +2484,7 @@ func (x *Winner) String() string {
 func (*Winner) ProtoMessage() {}
 
 func (x *Winner) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[24]
+	mi := &file_messages_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2321,7 +2497,7 @@ func (x *Winner) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Winner.ProtoReflect.Descriptor instead.
 func (*Winner) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{24}
+	return file_messages_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *Winner) GetChair() uint32 {
@@ -2351,7 +2527,7 @@ type HandEnd struct {
 
 func (x *HandEnd) Reset() {
 	*x = HandEnd{}
-	mi := &file_messages_proto_msgTypes[25]
+	mi := &file_messages_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2363,7 +2539,7 @@ func (x *HandEnd) String() string {
 func (*HandEnd) ProtoMessage() {}
 
 func (x *HandEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[25]
+	mi := &file_messages_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2376,7 +2552,7 @@ func (x *HandEnd) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HandEnd.ProtoReflect.Descriptor instead.
 func (*HandEnd) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{25}
+	return file_messages_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *HandEnd) GetRound() uint32 {
@@ -2418,7 +2594,7 @@ type StackDelta struct {
 
 func (x *StackDelta) Reset() {
 	*x = StackDelta{}
-	mi := &file_messages_proto_msgTypes[26]
+	mi := &file_messages_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2430,7 +2606,7 @@ func (x *StackDelta) String() string {
 func (*StackDelta) ProtoMessage() {}
 
 func (x *StackDelta) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[26]
+	mi := &file_messages_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2443,7 +2619,7 @@ func (x *StackDelta) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StackDelta.ProtoReflect.Descriptor instead.
 func (*StackDelta) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{26}
+	return file_messages_proto_rawDescGZIP(), []int{28}
 }
 
 func (x *StackDelta) GetChair() uint32 {
@@ -2478,7 +2654,7 @@ type WinByFold struct {
 
 func (x *WinByFold) Reset() {
 	*x = WinByFold{}
-	mi := &file_messages_proto_msgTypes[27]
+	mi := &file_messages_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2490,7 +2666,7 @@ func (x *WinByFold) String() string {
 func (*WinByFold) ProtoMessage() {}
 
 func (x *WinByFold) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[27]
+	mi := &file_messages_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2503,7 +2679,7 @@ func (x *WinByFold) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use WinByFold.ProtoReflect.Descriptor instead.
 func (*WinByFold) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{27}
+	return file_messages_proto_rawDescGZIP(), []int{29}
 }
 
 func (x *WinByFold) GetWinnerChair() uint32 {
@@ -2537,7 +2713,7 @@ type ExcessRefund struct {
 
 func (x *ExcessRefund) Reset() {
 	*x = ExcessRefund{}
-	mi := &file_messages_proto_msgTypes[28]
+	mi := &file_messages_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2549,7 +2725,7 @@ func (x *ExcessRefund) String() string {
 func (*ExcessRefund) ProtoMessage() {}
 
 func (x *ExcessRefund) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[28]
+	mi := &file_messages_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2562,7 +2738,7 @@ func (x *ExcessRefund) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExcessRefund.ProtoReflect.Descriptor instead.
 func (*ExcessRefund) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{28}
+	return file_messages_proto_rawDescGZIP(), []int{30}
 }
 
 func (x *ExcessRefund) GetChair() uint32 {
@@ -2590,7 +2766,7 @@ type NetResult struct {
 
 func (x *NetResult) Reset() {
 	*x = NetResult{}
-	mi := &file_messages_proto_msgTypes[29]
+	mi := &file_messages_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2602,7 +2778,7 @@ func (x *NetResult) String() string {
 func (*NetResult) ProtoMessage() {}
 
 func (x *NetResult) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[29]
+	mi := &file_messages_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2615,7 +2791,7 @@ func (x *NetResult) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NetResult.ProtoReflect.Descriptor instead.
 func (*NetResult) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{29}
+	return file_messages_proto_rawDescGZIP(), []int{31}
 }
 
 func (x *NetResult) GetChair() uint32 {
@@ -2649,7 +2825,7 @@ type Card struct {
 
 func (x *Card) Reset() {
 	*x = Card{}
-	mi := &file_messages_proto_msgTypes[30]
+	mi := &file_messages_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2661,7 +2837,7 @@ func (x *Card) String() string {
 func (*Card) ProtoMessage() {}
 
 func (x *Card) ProtoReflect() protoreflect.Message {
-	mi := &file_messages_proto_msgTypes[30]
+	mi := &file_messages_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2674,7 +2850,7 @@ func (x *Card) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Card.ProtoReflect.Descriptor instead.
 func (*Card) Descriptor() ([]byte, []int) {
-	return file_messages_proto_rawDescGZIP(), []int{30}
+	return file_messages_proto_rawDescGZIP(), []int{32}
 }
 
 func (x *Card) GetSuit() Suit {
@@ -2695,7 +2871,7 @@ var File_messages_proto protoreflect.FileDescriptor
 
 const file_messages_proto_rawDesc = "" +
 	"\n" +
-	"\x0emessages.proto\x12\tholdem.v1\"\x87\x03\n" +
+	"\x0emessages.proto\x12\tholdem.v1\"\xc8\x03\n" +
 	"\x0eClientEnvelope\x12\x19\n" +
 	"\btable_id\x18\x01 \x01(\tR\atableId\x12\x17\n" +
 	"\auser_id\x18\x02 \x01(\x04R\x06userId\x12\x10\n" +
@@ -2707,8 +2883,10 @@ const file_messages_proto_rawDesc = "" +
 	"\bsit_down\x18\v \x01(\v2\x19.holdem.v1.SitDownRequestH\x00R\asitDown\x126\n" +
 	"\bstand_up\x18\f \x01(\v2\x19.holdem.v1.StandUpRequestH\x00R\astandUp\x120\n" +
 	"\x06buy_in\x18\r \x01(\v2\x17.holdem.v1.BuyInRequestH\x00R\x05buyIn\x122\n" +
-	"\x06action\x18\x0e \x01(\v2\x18.holdem.v1.ActionRequestH\x00R\x06actionB\t\n" +
-	"\apayload\"\xab\a\n" +
+	"\x06action\x18\x0e \x01(\v2\x18.holdem.v1.ActionRequestH\x00R\x06action\x12?\n" +
+	"\vstart_story\x18\x0f \x01(\v2\x1c.holdem.v1.StartStoryRequestH\x00R\n" +
+	"startStoryB\t\n" +
+	"\apayload\"\xf8\a\n" +
 	"\x0eServerEnvelope\x12\x19\n" +
 	"\btable_id\x18\x01 \x01(\tR\atableId\x12\x1d\n" +
 	"\n" +
@@ -2733,7 +2911,8 @@ const file_messages_proto_rawDesc = "" +
 	"\bhand_end\x18\x14 \x01(\v2\x12.holdem.v1.HandEndH\x00R\ahandEnd\x12;\n" +
 	"\fphase_change\x18\x15 \x01(\v2\x16.holdem.v1.PhaseChangeH\x00R\vphaseChange\x126\n" +
 	"\vwin_by_fold\x18\x16 \x01(\v2\x14.holdem.v1.WinByFoldH\x00R\twinByFold\x12A\n" +
-	"\x0elogin_response\x18\x17 \x01(\v2\x18.holdem.v1.LoginResponseH\x00R\rloginResponseB\t\n" +
+	"\x0elogin_response\x18\x17 \x01(\v2\x18.holdem.v1.LoginResponseH\x00R\rloginResponse\x12K\n" +
+	"\x12story_chapter_info\x18\x18 \x01(\v2\x1b.holdem.v1.StoryChapterInfoH\x00R\x10storyChapterInfoB\t\n" +
 	"\apayload\"M\n" +
 	"\rLoginResponse\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12#\n" +
@@ -2747,7 +2926,20 @@ const file_messages_proto_rawDesc = "" +
 	"\x06amount\x18\x01 \x01(\x03R\x06amount\"V\n" +
 	"\rActionRequest\x12-\n" +
 	"\x06action\x18\x01 \x01(\x0e2\x15.holdem.v1.ActionTypeR\x06action\x12\x16\n" +
-	"\x06amount\x18\x02 \x01(\x03R\x06amount\"=\n" +
+	"\x06amount\x18\x02 \x01(\x03R\x06amount\"2\n" +
+	"\x11StartStoryRequest\x12\x1d\n" +
+	"\n" +
+	"chapter_id\x18\x01 \x01(\x05R\tchapterId\"\x83\x02\n" +
+	"\x10StoryChapterInfo\x12\x1d\n" +
+	"\n" +
+	"chapter_id\x18\x01 \x01(\x05R\tchapterId\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\x12\x1a\n" +
+	"\bsubtitle\x18\x03 \x01(\tR\bsubtitle\x12%\n" +
+	"\x0eobjective_desc\x18\x04 \x01(\tR\robjectiveDesc\x12\x1b\n" +
+	"\trei_intro\x18\x05 \x01(\tR\breiIntro\x12\"\n" +
+	"\rrei_boss_note\x18\x06 \x01(\tR\vreiBossNote\x12\x1b\n" +
+	"\tboss_name\x18\a \x01(\tR\bbossName\x12\x19\n" +
+	"\btable_id\x18\b \x01(\tR\atableId\"=\n" +
 	"\rErrorResponse\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\x05R\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"\xe8\x03\n" +
@@ -2971,44 +3163,46 @@ func file_messages_proto_rawDescGZIP() []byte {
 }
 
 var file_messages_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
-var file_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 31)
+var file_messages_proto_msgTypes = make([]protoimpl.MessageInfo, 33)
 var file_messages_proto_goTypes = []any{
-	(Phase)(0),               // 0: holdem.v1.Phase
-	(ActionType)(0),          // 1: holdem.v1.ActionType
-	(HandRank)(0),            // 2: holdem.v1.HandRank
-	(Suit)(0),                // 3: holdem.v1.Suit
-	(Rank)(0),                // 4: holdem.v1.Rank
-	(*ClientEnvelope)(nil),   // 5: holdem.v1.ClientEnvelope
-	(*ServerEnvelope)(nil),   // 6: holdem.v1.ServerEnvelope
-	(*LoginResponse)(nil),    // 7: holdem.v1.LoginResponse
-	(*JoinTableRequest)(nil), // 8: holdem.v1.JoinTableRequest
-	(*SitDownRequest)(nil),   // 9: holdem.v1.SitDownRequest
-	(*StandUpRequest)(nil),   // 10: holdem.v1.StandUpRequest
-	(*BuyInRequest)(nil),     // 11: holdem.v1.BuyInRequest
-	(*ActionRequest)(nil),    // 12: holdem.v1.ActionRequest
-	(*ErrorResponse)(nil),    // 13: holdem.v1.ErrorResponse
-	(*TableSnapshot)(nil),    // 14: holdem.v1.TableSnapshot
-	(*TableConfig)(nil),      // 15: holdem.v1.TableConfig
-	(*PlayerState)(nil),      // 16: holdem.v1.PlayerState
-	(*Pot)(nil),              // 17: holdem.v1.Pot
-	(*SeatUpdate)(nil),       // 18: holdem.v1.SeatUpdate
-	(*HandStart)(nil),        // 19: holdem.v1.HandStart
-	(*DealHoleCards)(nil),    // 20: holdem.v1.DealHoleCards
-	(*DealBoard)(nil),        // 21: holdem.v1.DealBoard
-	(*PhaseChange)(nil),      // 22: holdem.v1.PhaseChange
-	(*ActionPrompt)(nil),     // 23: holdem.v1.ActionPrompt
-	(*ActionResult)(nil),     // 24: holdem.v1.ActionResult
-	(*PotUpdate)(nil),        // 25: holdem.v1.PotUpdate
-	(*Showdown)(nil),         // 26: holdem.v1.Showdown
-	(*ShowdownHand)(nil),     // 27: holdem.v1.ShowdownHand
-	(*PotResult)(nil),        // 28: holdem.v1.PotResult
-	(*Winner)(nil),           // 29: holdem.v1.Winner
-	(*HandEnd)(nil),          // 30: holdem.v1.HandEnd
-	(*StackDelta)(nil),       // 31: holdem.v1.StackDelta
-	(*WinByFold)(nil),        // 32: holdem.v1.WinByFold
-	(*ExcessRefund)(nil),     // 33: holdem.v1.ExcessRefund
-	(*NetResult)(nil),        // 34: holdem.v1.NetResult
-	(*Card)(nil),             // 35: holdem.v1.Card
+	(Phase)(0),                // 0: holdem.v1.Phase
+	(ActionType)(0),           // 1: holdem.v1.ActionType
+	(HandRank)(0),             // 2: holdem.v1.HandRank
+	(Suit)(0),                 // 3: holdem.v1.Suit
+	(Rank)(0),                 // 4: holdem.v1.Rank
+	(*ClientEnvelope)(nil),    // 5: holdem.v1.ClientEnvelope
+	(*ServerEnvelope)(nil),    // 6: holdem.v1.ServerEnvelope
+	(*LoginResponse)(nil),     // 7: holdem.v1.LoginResponse
+	(*JoinTableRequest)(nil),  // 8: holdem.v1.JoinTableRequest
+	(*SitDownRequest)(nil),    // 9: holdem.v1.SitDownRequest
+	(*StandUpRequest)(nil),    // 10: holdem.v1.StandUpRequest
+	(*BuyInRequest)(nil),      // 11: holdem.v1.BuyInRequest
+	(*ActionRequest)(nil),     // 12: holdem.v1.ActionRequest
+	(*StartStoryRequest)(nil), // 13: holdem.v1.StartStoryRequest
+	(*StoryChapterInfo)(nil),  // 14: holdem.v1.StoryChapterInfo
+	(*ErrorResponse)(nil),     // 15: holdem.v1.ErrorResponse
+	(*TableSnapshot)(nil),     // 16: holdem.v1.TableSnapshot
+	(*TableConfig)(nil),       // 17: holdem.v1.TableConfig
+	(*PlayerState)(nil),       // 18: holdem.v1.PlayerState
+	(*Pot)(nil),               // 19: holdem.v1.Pot
+	(*SeatUpdate)(nil),        // 20: holdem.v1.SeatUpdate
+	(*HandStart)(nil),         // 21: holdem.v1.HandStart
+	(*DealHoleCards)(nil),     // 22: holdem.v1.DealHoleCards
+	(*DealBoard)(nil),         // 23: holdem.v1.DealBoard
+	(*PhaseChange)(nil),       // 24: holdem.v1.PhaseChange
+	(*ActionPrompt)(nil),      // 25: holdem.v1.ActionPrompt
+	(*ActionResult)(nil),      // 26: holdem.v1.ActionResult
+	(*PotUpdate)(nil),         // 27: holdem.v1.PotUpdate
+	(*Showdown)(nil),          // 28: holdem.v1.Showdown
+	(*ShowdownHand)(nil),      // 29: holdem.v1.ShowdownHand
+	(*PotResult)(nil),         // 30: holdem.v1.PotResult
+	(*Winner)(nil),            // 31: holdem.v1.Winner
+	(*HandEnd)(nil),           // 32: holdem.v1.HandEnd
+	(*StackDelta)(nil),        // 33: holdem.v1.StackDelta
+	(*WinByFold)(nil),         // 34: holdem.v1.WinByFold
+	(*ExcessRefund)(nil),      // 35: holdem.v1.ExcessRefund
+	(*NetResult)(nil),         // 36: holdem.v1.NetResult
+	(*Card)(nil),              // 37: holdem.v1.Card
 }
 var file_messages_proto_depIdxs = []int32{
 	8,  // 0: holdem.v1.ClientEnvelope.join_table:type_name -> holdem.v1.JoinTableRequest
@@ -3016,58 +3210,60 @@ var file_messages_proto_depIdxs = []int32{
 	10, // 2: holdem.v1.ClientEnvelope.stand_up:type_name -> holdem.v1.StandUpRequest
 	11, // 3: holdem.v1.ClientEnvelope.buy_in:type_name -> holdem.v1.BuyInRequest
 	12, // 4: holdem.v1.ClientEnvelope.action:type_name -> holdem.v1.ActionRequest
-	13, // 5: holdem.v1.ServerEnvelope.error:type_name -> holdem.v1.ErrorResponse
-	14, // 6: holdem.v1.ServerEnvelope.table_snapshot:type_name -> holdem.v1.TableSnapshot
-	18, // 7: holdem.v1.ServerEnvelope.seat_update:type_name -> holdem.v1.SeatUpdate
-	19, // 8: holdem.v1.ServerEnvelope.hand_start:type_name -> holdem.v1.HandStart
-	20, // 9: holdem.v1.ServerEnvelope.deal_hole_cards:type_name -> holdem.v1.DealHoleCards
-	21, // 10: holdem.v1.ServerEnvelope.deal_board:type_name -> holdem.v1.DealBoard
-	23, // 11: holdem.v1.ServerEnvelope.action_prompt:type_name -> holdem.v1.ActionPrompt
-	24, // 12: holdem.v1.ServerEnvelope.action_result:type_name -> holdem.v1.ActionResult
-	25, // 13: holdem.v1.ServerEnvelope.pot_update:type_name -> holdem.v1.PotUpdate
-	26, // 14: holdem.v1.ServerEnvelope.showdown:type_name -> holdem.v1.Showdown
-	30, // 15: holdem.v1.ServerEnvelope.hand_end:type_name -> holdem.v1.HandEnd
-	22, // 16: holdem.v1.ServerEnvelope.phase_change:type_name -> holdem.v1.PhaseChange
-	32, // 17: holdem.v1.ServerEnvelope.win_by_fold:type_name -> holdem.v1.WinByFold
-	7,  // 18: holdem.v1.ServerEnvelope.login_response:type_name -> holdem.v1.LoginResponse
-	1,  // 19: holdem.v1.ActionRequest.action:type_name -> holdem.v1.ActionType
-	15, // 20: holdem.v1.TableSnapshot.config:type_name -> holdem.v1.TableConfig
-	0,  // 21: holdem.v1.TableSnapshot.phase:type_name -> holdem.v1.Phase
-	35, // 22: holdem.v1.TableSnapshot.community_cards:type_name -> holdem.v1.Card
-	17, // 23: holdem.v1.TableSnapshot.pots:type_name -> holdem.v1.Pot
-	16, // 24: holdem.v1.TableSnapshot.players:type_name -> holdem.v1.PlayerState
-	1,  // 25: holdem.v1.PlayerState.last_action:type_name -> holdem.v1.ActionType
-	35, // 26: holdem.v1.PlayerState.hand_cards:type_name -> holdem.v1.Card
-	16, // 27: holdem.v1.SeatUpdate.player_joined:type_name -> holdem.v1.PlayerState
-	35, // 28: holdem.v1.DealHoleCards.cards:type_name -> holdem.v1.Card
-	0,  // 29: holdem.v1.DealBoard.phase:type_name -> holdem.v1.Phase
-	35, // 30: holdem.v1.DealBoard.cards:type_name -> holdem.v1.Card
-	0,  // 31: holdem.v1.PhaseChange.phase:type_name -> holdem.v1.Phase
-	35, // 32: holdem.v1.PhaseChange.community_cards:type_name -> holdem.v1.Card
-	17, // 33: holdem.v1.PhaseChange.pots:type_name -> holdem.v1.Pot
-	2,  // 34: holdem.v1.PhaseChange.my_hand_rank:type_name -> holdem.v1.HandRank
-	1,  // 35: holdem.v1.ActionPrompt.legal_actions:type_name -> holdem.v1.ActionType
-	1,  // 36: holdem.v1.ActionResult.action:type_name -> holdem.v1.ActionType
-	17, // 37: holdem.v1.PotUpdate.pots:type_name -> holdem.v1.Pot
-	27, // 38: holdem.v1.Showdown.hands:type_name -> holdem.v1.ShowdownHand
-	28, // 39: holdem.v1.Showdown.pot_results:type_name -> holdem.v1.PotResult
-	33, // 40: holdem.v1.Showdown.excess_refund:type_name -> holdem.v1.ExcessRefund
-	34, // 41: holdem.v1.Showdown.net_results:type_name -> holdem.v1.NetResult
-	35, // 42: holdem.v1.ShowdownHand.hole_cards:type_name -> holdem.v1.Card
-	35, // 43: holdem.v1.ShowdownHand.best_five:type_name -> holdem.v1.Card
-	2,  // 44: holdem.v1.ShowdownHand.rank:type_name -> holdem.v1.HandRank
-	29, // 45: holdem.v1.PotResult.winners:type_name -> holdem.v1.Winner
-	31, // 46: holdem.v1.HandEnd.stack_deltas:type_name -> holdem.v1.StackDelta
-	33, // 47: holdem.v1.HandEnd.excess_refund:type_name -> holdem.v1.ExcessRefund
-	34, // 48: holdem.v1.HandEnd.net_results:type_name -> holdem.v1.NetResult
-	33, // 49: holdem.v1.WinByFold.excess_refund:type_name -> holdem.v1.ExcessRefund
-	3,  // 50: holdem.v1.Card.suit:type_name -> holdem.v1.Suit
-	4,  // 51: holdem.v1.Card.rank:type_name -> holdem.v1.Rank
-	52, // [52:52] is the sub-list for method output_type
-	52, // [52:52] is the sub-list for method input_type
-	52, // [52:52] is the sub-list for extension type_name
-	52, // [52:52] is the sub-list for extension extendee
-	0,  // [0:52] is the sub-list for field type_name
+	13, // 5: holdem.v1.ClientEnvelope.start_story:type_name -> holdem.v1.StartStoryRequest
+	15, // 6: holdem.v1.ServerEnvelope.error:type_name -> holdem.v1.ErrorResponse
+	16, // 7: holdem.v1.ServerEnvelope.table_snapshot:type_name -> holdem.v1.TableSnapshot
+	20, // 8: holdem.v1.ServerEnvelope.seat_update:type_name -> holdem.v1.SeatUpdate
+	21, // 9: holdem.v1.ServerEnvelope.hand_start:type_name -> holdem.v1.HandStart
+	22, // 10: holdem.v1.ServerEnvelope.deal_hole_cards:type_name -> holdem.v1.DealHoleCards
+	23, // 11: holdem.v1.ServerEnvelope.deal_board:type_name -> holdem.v1.DealBoard
+	25, // 12: holdem.v1.ServerEnvelope.action_prompt:type_name -> holdem.v1.ActionPrompt
+	26, // 13: holdem.v1.ServerEnvelope.action_result:type_name -> holdem.v1.ActionResult
+	27, // 14: holdem.v1.ServerEnvelope.pot_update:type_name -> holdem.v1.PotUpdate
+	28, // 15: holdem.v1.ServerEnvelope.showdown:type_name -> holdem.v1.Showdown
+	32, // 16: holdem.v1.ServerEnvelope.hand_end:type_name -> holdem.v1.HandEnd
+	24, // 17: holdem.v1.ServerEnvelope.phase_change:type_name -> holdem.v1.PhaseChange
+	34, // 18: holdem.v1.ServerEnvelope.win_by_fold:type_name -> holdem.v1.WinByFold
+	7,  // 19: holdem.v1.ServerEnvelope.login_response:type_name -> holdem.v1.LoginResponse
+	14, // 20: holdem.v1.ServerEnvelope.story_chapter_info:type_name -> holdem.v1.StoryChapterInfo
+	1,  // 21: holdem.v1.ActionRequest.action:type_name -> holdem.v1.ActionType
+	17, // 22: holdem.v1.TableSnapshot.config:type_name -> holdem.v1.TableConfig
+	0,  // 23: holdem.v1.TableSnapshot.phase:type_name -> holdem.v1.Phase
+	37, // 24: holdem.v1.TableSnapshot.community_cards:type_name -> holdem.v1.Card
+	19, // 25: holdem.v1.TableSnapshot.pots:type_name -> holdem.v1.Pot
+	18, // 26: holdem.v1.TableSnapshot.players:type_name -> holdem.v1.PlayerState
+	1,  // 27: holdem.v1.PlayerState.last_action:type_name -> holdem.v1.ActionType
+	37, // 28: holdem.v1.PlayerState.hand_cards:type_name -> holdem.v1.Card
+	18, // 29: holdem.v1.SeatUpdate.player_joined:type_name -> holdem.v1.PlayerState
+	37, // 30: holdem.v1.DealHoleCards.cards:type_name -> holdem.v1.Card
+	0,  // 31: holdem.v1.DealBoard.phase:type_name -> holdem.v1.Phase
+	37, // 32: holdem.v1.DealBoard.cards:type_name -> holdem.v1.Card
+	0,  // 33: holdem.v1.PhaseChange.phase:type_name -> holdem.v1.Phase
+	37, // 34: holdem.v1.PhaseChange.community_cards:type_name -> holdem.v1.Card
+	19, // 35: holdem.v1.PhaseChange.pots:type_name -> holdem.v1.Pot
+	2,  // 36: holdem.v1.PhaseChange.my_hand_rank:type_name -> holdem.v1.HandRank
+	1,  // 37: holdem.v1.ActionPrompt.legal_actions:type_name -> holdem.v1.ActionType
+	1,  // 38: holdem.v1.ActionResult.action:type_name -> holdem.v1.ActionType
+	19, // 39: holdem.v1.PotUpdate.pots:type_name -> holdem.v1.Pot
+	29, // 40: holdem.v1.Showdown.hands:type_name -> holdem.v1.ShowdownHand
+	30, // 41: holdem.v1.Showdown.pot_results:type_name -> holdem.v1.PotResult
+	35, // 42: holdem.v1.Showdown.excess_refund:type_name -> holdem.v1.ExcessRefund
+	36, // 43: holdem.v1.Showdown.net_results:type_name -> holdem.v1.NetResult
+	37, // 44: holdem.v1.ShowdownHand.hole_cards:type_name -> holdem.v1.Card
+	37, // 45: holdem.v1.ShowdownHand.best_five:type_name -> holdem.v1.Card
+	2,  // 46: holdem.v1.ShowdownHand.rank:type_name -> holdem.v1.HandRank
+	31, // 47: holdem.v1.PotResult.winners:type_name -> holdem.v1.Winner
+	33, // 48: holdem.v1.HandEnd.stack_deltas:type_name -> holdem.v1.StackDelta
+	35, // 49: holdem.v1.HandEnd.excess_refund:type_name -> holdem.v1.ExcessRefund
+	36, // 50: holdem.v1.HandEnd.net_results:type_name -> holdem.v1.NetResult
+	35, // 51: holdem.v1.WinByFold.excess_refund:type_name -> holdem.v1.ExcessRefund
+	3,  // 52: holdem.v1.Card.suit:type_name -> holdem.v1.Suit
+	4,  // 53: holdem.v1.Card.rank:type_name -> holdem.v1.Rank
+	54, // [54:54] is the sub-list for method output_type
+	54, // [54:54] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_messages_proto_init() }
@@ -3081,6 +3277,7 @@ func file_messages_proto_init() {
 		(*ClientEnvelope_StandUp)(nil),
 		(*ClientEnvelope_BuyIn)(nil),
 		(*ClientEnvelope_Action)(nil),
+		(*ClientEnvelope_StartStory)(nil),
 	}
 	file_messages_proto_msgTypes[1].OneofWrappers = []any{
 		(*ServerEnvelope_Error)(nil),
@@ -3097,20 +3294,21 @@ func file_messages_proto_init() {
 		(*ServerEnvelope_PhaseChange)(nil),
 		(*ServerEnvelope_WinByFold)(nil),
 		(*ServerEnvelope_LoginResponse)(nil),
+		(*ServerEnvelope_StoryChapterInfo)(nil),
 	}
-	file_messages_proto_msgTypes[13].OneofWrappers = []any{
+	file_messages_proto_msgTypes[15].OneofWrappers = []any{
 		(*SeatUpdate_PlayerJoined)(nil),
 		(*SeatUpdate_PlayerLeftUserId)(nil),
 		(*SeatUpdate_StackChange)(nil),
 	}
-	file_messages_proto_msgTypes[17].OneofWrappers = []any{}
+	file_messages_proto_msgTypes[19].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_messages_proto_rawDesc), len(file_messages_proto_rawDesc)),
 			NumEnums:      5,
-			NumMessages:   31,
+			NumMessages:   33,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -270,7 +270,10 @@ export function LobbyOverlay(): JSX.Element | null {
                         <button
                             type="button"
                             className="lobby-story-play-btn"
-                            onClick={() => playUiClick()}
+                            onClick={() => {
+                                playUiClick();
+                                useUiStore.getState().startStoryChapter(1);
+                            }}
                         >
                             <span className="material-symbols-outlined">play_arrow</span>
                             <span>BEGIN CHAPTER I</span>

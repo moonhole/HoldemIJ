@@ -21,6 +21,7 @@ message ClientEnvelope {
     StandUpRequest stand_up = 12;
     BuyInRequest buy_in = 13;
     ActionRequest action = 14;
+    StartStoryRequest start_story = 15;
   }
 }
 
@@ -44,6 +45,7 @@ message ServerEnvelope {
     PhaseChange phase_change = 21;
     WinByFold win_by_fold = 22;
     LoginResponse login_response = 23;
+    StoryChapterInfo story_chapter_info = 24;
   }
 }
 
@@ -74,6 +76,21 @@ message BuyInRequest {
 message ActionRequest {
   ActionType action = 1;
   int64 amount = 2;  // Total bet amount for this round (for RAISE/BET)
+}
+
+message StartStoryRequest {
+  int32 chapter_id = 1;
+}
+
+message StoryChapterInfo {
+  int32 chapter_id = 1;
+  string title = 2;
+  string subtitle = 3;
+  string objective_desc = 4;
+  string rei_intro = 5;
+  string rei_boss_note = 6;
+  string boss_name = 7;
+  string table_id = 8;
 }
 
 // ============================================================

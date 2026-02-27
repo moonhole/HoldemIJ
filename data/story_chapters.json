@@ -1,0 +1,117 @@
+[
+    {
+        "id": 1,
+        "title": "NEON GUTTER",
+        "subtitle": "Every legend starts in the gutter.",
+        "bossId": "proxy",
+        "supportIds": [
+            "dasher",
+            "glow",
+            "moth",
+            "static"
+        ],
+        "objective": {
+            "type": "win_bb",
+            "target": 10,
+            "desc": "Win 10 big blinds from your starting stack."
+        },
+        "unlocks": [
+            "hand_audit"
+        ],
+        "teachTheme": "Basics: fold equity and value betting",
+        "reiIntro": "Welcome to the Neon Gutter — where every grinder starts. The regulars here are loose and sloppy. Focus on finding strong hands and betting for value. Your goal: build your stack by 10 big blinds.",
+        "reiBossNote": "PROXY is the boss here. He calls everything — use that against him by betting bigger with your strong hands."
+    },
+    {
+        "id": 2,
+        "title": "CHROME HEAVEN",
+        "subtitle": "Patience is the price of admission.",
+        "bossId": "mirror",
+        "supportIds": [
+            "flux",
+            "shard",
+            "dasher",
+            "glow"
+        ],
+        "objective": {
+            "type": "survive",
+            "target": 30,
+            "desc": "Survive 30 hands without losing chips."
+        },
+        "unlocks": [
+            "agent_coach"
+        ],
+        "teachTheme": "Position awareness and blind stealing",
+        "reiIntro": "Chrome Heaven — a quieter room where tight players wait for the nuts. You need patience here, but also aggression in the right spots. Survive 30 hands without losing your stack.",
+        "reiBossNote": "MIRROR only plays premium hands. When he enters a pot, respect it. But steal his blinds relentlessly — he'll fold almost anything."
+    },
+    {
+        "id": 3,
+        "title": "VOID RUNNER",
+        "subtitle": "In the void, only the fearless survive.",
+        "bossId": "vector",
+        "supportIds": [
+            "drift",
+            "spark",
+            "moth",
+            "flux"
+        ],
+        "objective": {
+            "type": "win_pots",
+            "target": 3,
+            "desc": "Win 3 pots against VECTOR."
+        },
+        "unlocks": [
+            "agent_ui_programming"
+        ],
+        "teachTheme": "Reading bluffs and exploiting aggressive players",
+        "reiIntro": "Welcome to Void Runner — home of the maniacs. VECTOR will pressure you relentlessly with bets and raises. Your mission: call him down and win 3 pots against him specifically.",
+        "reiBossNote": "VECTOR bets with almost anything. Don't fold medium-strength hands against him. He bluffs on the river more than 60% of the time."
+    },
+    {
+        "id": 4,
+        "title": "GLITCH PALACE",
+        "subtitle": "Only one player leaves the palace standing.",
+        "bossId": "cipher",
+        "supportIds": [
+            "null",
+            "echo",
+            "shard",
+            "drift"
+        ],
+        "objective": {
+            "type": "eliminate",
+            "target": 5,
+            "desc": "Eliminate all opponents (tournament mode)."
+        },
+        "unlocks": [
+            "invite_friends"
+        ],
+        "teachTheme": "Tournament strategy and ICM",
+        "reiIntro": "Glitch Palace runs a freezeout tournament. No rebuys, no mercy. When a player busts, they're gone. Be the last one standing.",
+        "reiBossNote": "CIPHER is disciplined and calculating. He picks his spots carefully and maximizes value. Avoid marginal confrontations — wait for clear edges."
+    },
+    {
+        "id": 5,
+        "title": "DATA STREAM",
+        "subtitle": "The final test. Prove you've learned.",
+        "bossId": "nexus",
+        "supportIds": [
+            "wraith",
+            "signal",
+            "arc",
+            "haze"
+        ],
+        "objective": {
+            "type": "most_chips",
+            "target": 60,
+            "desc": "Have the most chips after 60 hands."
+        },
+        "unlocks": [
+            "story_complete"
+        ],
+        "teachTheme": "Full GTO play and dynamic adaptation",
+        "reiIntro": "Data Stream — the final arena. NEXUS plays near-perfect strategy. Every opponent here is strong. You have 60 hands to accumulate the most chips at the table.",
+        "reiBossNote": "NEXUS plays balanced, GTO-adjacent poker. You can't exploit him with simple patterns. Mix your strategies and stay unpredictable."
+    }
+]

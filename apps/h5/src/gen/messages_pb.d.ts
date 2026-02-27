@@ -73,6 +73,12 @@ export declare type ClientEnvelope = Message<"holdem.v1.ClientEnvelope"> & {
      */
     value: ActionRequest;
     case: "action";
+  } | {
+    /**
+     * @generated from field: holdem.v1.StartStoryRequest start_story = 15;
+     */
+    value: StartStoryRequest;
+    case: "startStory";
   } | { case: undefined; value?: undefined };
 };
 
@@ -192,6 +198,12 @@ export declare type ServerEnvelope = Message<"holdem.v1.ServerEnvelope"> & {
      */
     value: LoginResponse;
     case: "loginResponse";
+  } | {
+    /**
+     * @generated from field: holdem.v1.StoryChapterInfo story_chapter_info = 24;
+     */
+    value: StoryChapterInfo;
+    case: "storyChapterInfo";
   } | { case: undefined; value?: undefined };
 };
 
@@ -307,6 +319,73 @@ export declare type ActionRequest = Message<"holdem.v1.ActionRequest"> & {
  * Use `create(ActionRequestSchema)` to create a new message.
  */
 export declare const ActionRequestSchema: GenMessage<ActionRequest>;
+
+/**
+ * @generated from message holdem.v1.StartStoryRequest
+ */
+export declare type StartStoryRequest = Message<"holdem.v1.StartStoryRequest"> & {
+  /**
+   * @generated from field: int32 chapter_id = 1;
+   */
+  chapterId: number;
+};
+
+/**
+ * Describes the message holdem.v1.StartStoryRequest.
+ * Use `create(StartStoryRequestSchema)` to create a new message.
+ */
+export declare const StartStoryRequestSchema: GenMessage<StartStoryRequest>;
+
+/**
+ * @generated from message holdem.v1.StoryChapterInfo
+ */
+export declare type StoryChapterInfo = Message<"holdem.v1.StoryChapterInfo"> & {
+  /**
+   * @generated from field: int32 chapter_id = 1;
+   */
+  chapterId: number;
+
+  /**
+   * @generated from field: string title = 2;
+   */
+  title: string;
+
+  /**
+   * @generated from field: string subtitle = 3;
+   */
+  subtitle: string;
+
+  /**
+   * @generated from field: string objective_desc = 4;
+   */
+  objectiveDesc: string;
+
+  /**
+   * @generated from field: string rei_intro = 5;
+   */
+  reiIntro: string;
+
+  /**
+   * @generated from field: string rei_boss_note = 6;
+   */
+  reiBossNote: string;
+
+  /**
+   * @generated from field: string boss_name = 7;
+   */
+  bossName: string;
+
+  /**
+   * @generated from field: string table_id = 8;
+   */
+  tableId: string;
+};
+
+/**
+ * Describes the message holdem.v1.StoryChapterInfo.
+ * Use `create(StoryChapterInfoSchema)` to create a new message.
+ */
+export declare const StoryChapterInfoSchema: GenMessage<StoryChapterInfo>;
 
 /**
  * @generated from message holdem.v1.ErrorResponse

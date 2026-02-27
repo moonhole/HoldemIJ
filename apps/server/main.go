@@ -39,7 +39,18 @@ func main() {
 	}
 	npcManager := npc.NewManager(npcRegistry)
 
+	// Load story chapters
+	chapterRegistry := npc.NewChapterRegistry()
+	chapterPaths := []string{"data/story_chapters.json", "../../data/story_chapters.json"}
+	for _, p := range chapterPaths {
+		if err := chapterRegistry.LoadFromFile(p); err == nil {
+			log.Printf("[Server] Story chapters loaded from %s: %d chapters", p, chapterRegistry.Count())
+			break
+		}
+	}
+
 	lby := lobby.New(ledgerService, npcManager)
+	lby.SetChapterRegistry(chapterRegistry)
 	gw := gateway.New(lby, authService)
 	authHTTP := auth.NewHTTPHandler(authService)
 	auditHTTP := ledger.NewHTTPHandler(authService, ledgerService)

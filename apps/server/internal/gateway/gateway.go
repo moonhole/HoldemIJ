@@ -196,6 +196,8 @@ func (c *Connection) handleMessage(data []byte) {
 		c.handleStandUp(&env, payload.StandUp)
 	case *pb.ClientEnvelope_Action:
 		c.handleAction(&env, payload.Action)
+	case *pb.ClientEnvelope_StartStory:
+		c.handleStartStory(&env, payload.StartStory)
 	default:
 		log.Printf("[Gateway] Unknown payload type: %T", env.Payload)
 	}
@@ -229,6 +231,58 @@ func (c *Connection) handleJoinTable(env *pb.ClientEnvelope, req *pb.JoinTableRe
 	}
 
 	log.Printf("[Gateway] User %d joined table %s", c.UserID, t.ID)
+}
+
+func (c *Connection) handleStartStory(env *pb.ClientEnvelope, req *pb.StartStoryRequest) {
+	chapterID := int(req.ChapterId)
+	t, chapter, err := c.Gateway.lobby.StartStoryChapter(c.UserID, chapterID, c.Gateway.broadcastToUser)
+	if err != nil {
+		c.sendError(10, fmt.Sprintf("story mode: %v", err))
+		return
+	}
+
+	c.TableID = t.ID
+	c.Table = t
+
+	// Send chapter info to client
+	bossName := ""
+	if mgr := t.NPCManager(); mgr != nil {
+		if boss := mgr.Registry().Get(chapter.BossID); boss != nil {
+			bossName = boss.Name
+		}
+	}
+
+	infoEnv := &pb.ServerEnvelope{
+		TableId:    t.ID,
+		ServerTsMs: time.Now().UnixMilli(),
+		Payload: &pb.ServerEnvelope_StoryChapterInfo{
+			StoryChapterInfo: &pb.StoryChapterInfo{
+				ChapterId:     int32(chapter.ID),
+				Title:         chapter.Title,
+				Subtitle:      chapter.Subtitle,
+				ObjectiveDesc: chapter.Objective.Desc,
+				ReiIntro:      chapter.ReiIntro,
+				ReiBossNote:   chapter.ReiBossNote,
+				BossName:      bossName,
+				TableId:       t.ID,
+			},
+		},
+	}
+	data, _ := proto.Marshal(infoEnv)
+	c.Send <- data
+
+	// Auto-join the story table
+	if err := t.SubmitEvent(table.Event{
+		Type:     table.EventJoinTable,
+		UserID:   c.UserID,
+		Nickname: c.DisplayName,
+	}); err != nil {
+		c.sendError(2, err.Error())
+		return
+	}
+
+	log.Printf("[Gateway] User %d started story chapter %d (%s), table %s",
+		c.UserID, chapterID, chapter.Title, t.ID)
 }
 
 func (c *Connection) handleSitDown(env *pb.ClientEnvelope, req *pb.SitDownRequest) {

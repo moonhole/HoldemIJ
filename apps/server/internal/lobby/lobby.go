@@ -35,6 +35,7 @@ type Lobby struct {
 	stopOnce        sync.Once
 	ledger          ledger.Service
 	npcManager      *npc.Manager
+	chapterRegistry *npc.ChapterRegistry
 	rng             *rand.Rand
 }
 
@@ -61,6 +62,11 @@ func New(ledgerService ledger.Service, npcMgr ...*npc.Manager) *Lobby {
 	}
 	go l.cleanupLoop()
 	return l
+}
+
+// SetChapterRegistry sets the chapter registry for story mode.
+func (l *Lobby) SetChapterRegistry(cr *npc.ChapterRegistry) {
+	l.chapterRegistry = cr
 }
 
 // QuickStart finds or creates a table for the player

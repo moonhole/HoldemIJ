@@ -6,6 +6,7 @@ import {
     SitDownRequestSchema,
     StandUpRequestSchema,
     ActionRequestSchema,
+    StartStoryRequestSchema,
     ActionType,
     type ClientEnvelope,
     type TableSnapshot,
@@ -20,6 +21,7 @@ import {
     type HandEnd,
     type WinByFold,
     type SeatUpdate,
+    type StoryChapterInfo,
 } from '@gen/messages_pb';
 import { resolveWsUrl } from './runtimeConfig';
 
@@ -39,6 +41,7 @@ export type MessageHandler = {
     onConnect?: () => void;
     onDisconnect?: () => void;
     onSeatUpdate?: (seatUpdate: SeatUpdate) => void;
+    onStoryChapterInfo?: (info: StoryChapterInfo) => void;
 };
 
 export class GameClient {
@@ -327,6 +330,13 @@ export class GameClient {
                         this.notify((h) => h.onError?.(value.code, value.message));
                         break;
                     }
+                case 'storyChapterInfo':
+                    {
+                        const value = env.payload.value;
+                        console.log('[GameClient] Story chapter info', value.title);
+                        this.notify((h) => h.onStoryChapterInfo?.(value));
+                        break;
+                    }
             }
         } catch (error) {
             console.error('[GameClient] Failed to parse message', error);
@@ -465,6 +475,15 @@ export class GameClient {
 
     allIn(amount: bigint = 0n): void {
         this.action(ActionType.ACTION_ALLIN, amount);
+    }
+
+    startStory(chapterId: number): void {
+        this.send({
+            case: 'startStory',
+            value: create(StartStoryRequestSchema, {
+                chapterId,
+            }),
+        });
     }
 
     getMyBet(): bigint {
