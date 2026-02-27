@@ -59,9 +59,11 @@ func (m *Manager) SpawnNPC(
 
 	brain := NewRuleBrain(persona, seed)
 
-	// Think delay: 1–3 seconds, varies by persona randomness
-	baseDelay := 1000 + int(persona.Brain.Randomness*2000)
-	thinkDelay := time.Duration(baseDelay) * time.Millisecond
+	// Think delay: 2–5 seconds base, plus random jitter.
+	// This makes NPC pacing feel natural, especially in multi-NPC sequences.
+	baseMs := 2000 + int(persona.Brain.Randomness*3000)
+	jitterMs := m.rng.Intn(2000)
+	thinkDelay := time.Duration(baseMs+jitterMs) * time.Millisecond
 
 	if err := game.SitDown(chair, playerID, stack, true); err != nil {
 		return nil, fmt.Errorf("spawn NPC %s at chair %d: %w", persona.Name, chair, err)
