@@ -8,6 +8,7 @@ import (
 	"holdem-lite/apps/server/internal/gateway"
 	"holdem-lite/apps/server/internal/ledger"
 	"holdem-lite/apps/server/internal/lobby"
+	"holdem-lite/holdem/npc"
 )
 
 func main() {
@@ -22,7 +23,16 @@ func main() {
 	}
 	defer ledgerService.Close()
 
-	lby := lobby.New(ledgerService)
+	// Initialize NPC subsystem
+	npcRegistry := npc.NewRegistry()
+	if err := npcRegistry.LoadFromFile("data/npc_personas.json"); err != nil {
+		log.Printf("[Server] NPC personas not loaded (non-fatal): %v", err)
+	} else {
+		log.Printf("[Server] NPC personas loaded: %d personas", npcRegistry.Count())
+	}
+	npcManager := npc.NewManager(npcRegistry)
+
+	lby := lobby.New(ledgerService, npcManager)
 	gw := gateway.New(lby, authService)
 	authHTTP := auth.NewHTTPHandler(authService)
 	auditHTTP := ledger.NewHTTPHandler(authService, ledgerService)

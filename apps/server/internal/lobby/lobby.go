@@ -3,16 +3,21 @@ package lobby
 import (
 	"fmt"
 	"log"
+	"math/rand"
 	"sync"
 	"time"
 
 	"holdem-lite/apps/server/internal/ledger"
 	"holdem-lite/apps/server/internal/table"
+	"holdem-lite/holdem/npc"
 )
 
 const (
 	defaultIdleTableTTL    = 60 * time.Second
 	defaultCleanupInterval = 30 * time.Second
+
+	// NPC auto-fill: how many NPC seats to add for Quick Join
+	npcFillSeats = 4
 )
 
 // Lobby manages all tables and player assignments
@@ -29,10 +34,12 @@ type Lobby struct {
 	done            chan struct{}
 	stopOnce        sync.Once
 	ledger          ledger.Service
+	npcManager      *npc.Manager
+	rng             *rand.Rand
 }
 
 // New creates a new lobby
-func New(ledgerService ledger.Service) *Lobby {
+func New(ledgerService ledger.Service, npcMgr ...*npc.Manager) *Lobby {
 	l := &Lobby{
 		tables: make(map[string]*table.Table),
 		defaultConfig: table.TableConfig{
@@ -47,6 +54,10 @@ func New(ledgerService ledger.Service) *Lobby {
 		cleanupInterval: defaultCleanupInterval,
 		done:            make(chan struct{}),
 		ledger:          ledgerService,
+		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
+	}
+	if len(npcMgr) > 0 && npcMgr[0] != nil {
+		l.npcManager = npcMgr[0]
 	}
 	go l.cleanupLoop()
 	return l
@@ -85,17 +96,63 @@ func (l *Lobby) QuickStart(userID uint64, broadcastFn func(userID uint64, data [
 		}
 	}
 
-	// Create new table
+	// Create new table (with NPC manager if available)
 	l.nextID++
 	tableID := fmt.Sprintf("table_%d", l.nextID)
-	t := table.New(tableID, l.defaultConfig, broadcastFn, l.ledger)
+	t := table.New(tableID, l.defaultConfig, broadcastFn, l.ledger, l.npcManager)
 	if t == nil {
 		return nil, fmt.Errorf("failed to create table")
 	}
 	l.tables[tableID] = t
 
+	// Auto-fill with NPCs so the table always has opponents
+	l.fillTableWithNPCs(t)
+
 	log.Printf("[Lobby] QuickStart: user %d created new table %s", userID, tableID)
 	return t, nil
+}
+
+// fillTableWithNPCs seats NPCs at empty chairs until the table has enough players.
+func (l *Lobby) fillTableWithNPCs(t *table.Table) {
+	if l.npcManager == nil {
+		return
+	}
+	registry := l.npcManager.Registry()
+	if registry.Count() == 0 {
+		return
+	}
+
+	allPersonas := registry.All()
+	if len(allPersonas) == 0 {
+		return
+	}
+
+	// Shuffle personas for variety
+	shuffled := make([]*npc.NPCPersona, len(allPersonas))
+	copy(shuffled, allPersonas)
+	l.rng.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	buyIn := l.defaultConfig.MaxBuyIn
+	filled := 0
+	personaIdx := 0
+
+	// Fill chairs 1–5 (leave chair 0 for the human player)
+	for chair := uint16(1); chair < t.Config.MaxPlayers && filled < npcFillSeats; chair++ {
+		if personaIdx >= len(shuffled) {
+			personaIdx = 0 // wrap around if we have fewer personas than seats
+		}
+		persona := shuffled[personaIdx]
+		personaIdx++
+
+		if err := t.SeatNPC(persona, chair, buyIn); err != nil {
+			log.Printf("[Lobby] Failed to seat NPC %s at chair %d: %v", persona.Name, chair, err)
+			continue
+		}
+		filled++
+	}
+	log.Printf("[Lobby] Filled table %s with %d NPCs", t.ID, filled)
 }
 
 // GetTable returns a table by ID
