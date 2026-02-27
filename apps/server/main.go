@@ -25,10 +25,17 @@ func main() {
 
 	// Initialize NPC subsystem
 	npcRegistry := npc.NewRegistry()
-	if err := npcRegistry.LoadFromFile("data/npc_personas.json"); err != nil {
-		log.Printf("[Server] NPC personas not loaded (non-fatal): %v", err)
-	} else {
-		log.Printf("[Server] NPC personas loaded: %d personas", npcRegistry.Count())
+	personaPaths := []string{"data/npc_personas.json", "../../data/npc_personas.json"}
+	personasLoaded := false
+	for _, p := range personaPaths {
+		if err := npcRegistry.LoadFromFile(p); err == nil {
+			log.Printf("[Server] NPC personas loaded from %s: %d personas", p, npcRegistry.Count())
+			personasLoaded = true
+			break
+		}
+	}
+	if !personasLoaded {
+		log.Printf("[Server] NPC personas not found (non-fatal), tried: %v", personaPaths)
 	}
 	npcManager := npc.NewManager(npcRegistry)
 
