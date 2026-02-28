@@ -58,6 +58,10 @@ type Table struct {
 
 	// Optional callbacks invoked after each hand settles.
 	handEndHooks []HandEndHook
+
+	// Users who requested stand-up after folding in an active hand.
+	// These are executed right after the hand settles.
+	pendingStandUps map[uint64]bool
 }
 
 // TableConfig contains table settings
@@ -150,6 +154,7 @@ func New(
 		actionTimeoutChair: holdem.InvalidChair,
 		emptySince:         time.Now(),
 		userHandTape:       make(map[uint64][]ledger.EventItem),
+		pendingStandUps:    make(map[uint64]bool),
 	}
 	if len(npcMgr) > 0 && npcMgr[0] != nil {
 		t.npcManager = npcMgr[0]
@@ -299,6 +304,7 @@ func (t *Table) handleSitDown(userID uint64, chair uint16, buyIn int64) error {
 	player.Online = true
 	player.LastSeen = time.Now()
 	t.seats[chair] = userID
+	delete(t.pendingStandUps, userID)
 	t.updateEmptySinceLocked(player.LastSeen)
 
 	log.Printf("[Table %s] Player %d sat down at chair %d with %d", t.ID, userID, chair, buyIn)
@@ -317,13 +323,28 @@ func (t *Table) handleSitDown(userID uint64, chair uint16, buyIn int64) error {
 func (t *Table) handleStandUp(userID uint64) error {
 	player := t.players[userID]
 	if player == nil || player.Chair == holdem.InvalidChair {
+		delete(t.pendingStandUps, userID)
 		return nil
 	}
 
 	chair := player.Chair
 	if err := t.game.StandUp(chair); err != nil {
+		if errors.Is(err, holdem.ErrHandInProgress) {
+			// Allow folded players to leave immediately from UX perspective, but
+			// defer the actual engine seat mutation until hand settlement to keep
+			// pot/settlement accounting intact.
+			if t.pendingStandUps[userID] {
+				return nil
+			}
+			if t.canDeferStandUpLocked(chair) {
+				t.pendingStandUps[userID] = true
+				log.Printf("[Table %s] Deferred stand-up for user %d at chair %d (folded in active hand)", t.ID, userID, chair)
+				return nil
+			}
+		}
 		return err
 	}
+	delete(t.pendingStandUps, userID)
 
 	delete(t.seats, chair)
 	player.Chair = holdem.InvalidChair
@@ -452,6 +473,7 @@ func (t *Table) handleHandEnd(result *holdem.SettlementResult) {
 	t.persistLiveHandHistory(handID, endedAt, result)
 	t.dispatchHandEndHooks(result)
 	t.handID = ""
+	t.processDeferredStandUpsLocked()
 
 	// Schedule next hand from actor tick (no goroutine self-submit).
 	if len(t.seats) >= 2 {
@@ -462,6 +484,33 @@ func (t *Table) handleHandEnd(result *holdem.SettlementResult) {
 		t.nextHandAt = time.Now().Add(delay)
 	} else {
 		t.nextHandAt = time.Time{}
+	}
+}
+
+func (t *Table) canDeferStandUpLocked(chair uint16) bool {
+	snap := t.game.Snapshot()
+	for _, ps := range snap.Players {
+		if ps.Chair != chair {
+			continue
+		}
+		return ps.Folded
+	}
+	return false
+}
+
+func (t *Table) processDeferredStandUpsLocked() {
+	if len(t.pendingStandUps) == 0 {
+		return
+	}
+	userIDs := make([]uint64, 0, len(t.pendingStandUps))
+	for userID := range t.pendingStandUps {
+		userIDs = append(userIDs, userID)
+	}
+	sort.Slice(userIDs, func(i, j int) bool { return userIDs[i] < userIDs[j] })
+	for _, userID := range userIDs {
+		if err := t.handleStandUp(userID); err != nil {
+			log.Printf("[Table %s] deferred stand-up failed for user %d: %v", t.ID, userID, err)
+		}
 	}
 }
 
