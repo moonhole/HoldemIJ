@@ -3,8 +3,6 @@ import { DesktopChatPanel } from './DesktopChatPanel';
 import { DesktopLeftRail } from './DesktopLeftRail';
 import { audioManager } from '../../audio/AudioManager';
 import { SoundMap } from '../../audio/SoundMap';
-import { gameClient } from '../../network/GameClient';
-import { useGameStore } from '../../store/gameStore';
 import { useLayoutStore } from '../../store/layoutStore';
 import { useLiveUiStore } from '../../store/liveUiStore';
 import { useAuthStore } from '../../store/authStore';
@@ -19,8 +17,8 @@ export function DesktopWorkspace(): JSX.Element | null {
     const uiProfile = useLayoutStore((s) => s.uiProfile);
     const currentScene = useUiStore((s) => s.currentScene);
     const requestScene = useUiStore((s) => s.requestScene);
+    const returnLobbyFromTable = useUiStore((s) => s.returnLobbyFromTable);
     const replayMode = useReplayStore((s) => s.mode);
-    const myChair = useGameStore((s) => s.myChair);
     const closePlayerCard = useLiveUiStore((s) => s.closePlayerCard);
     const logout = useAuthStore((s) => s.logout);
 
@@ -29,18 +27,7 @@ export function DesktopWorkspace(): JSX.Element | null {
 
     const returnLobby = (): void => {
         audioManager.play(SoundMap.UI_CLICK, 0.7);
-        if (myChair !== -1) {
-            gameClient.standUp();
-            window.setTimeout(() => {
-                const state = useUiStore.getState();
-                if (state.currentScene === 'lobby' && gameClient.isConnected) {
-                    gameClient.disconnect();
-                }
-            }, 350);
-        } else if (gameClient.isConnected) {
-            gameClient.disconnect();
-        }
-        requestScene('lobby');
+        returnLobbyFromTable();
         closePlayerCard();
     };
 

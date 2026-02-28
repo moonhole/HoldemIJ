@@ -2,6 +2,7 @@ package lobby
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"sync"
@@ -32,6 +33,7 @@ type storySession struct {
 	currentStack int64
 	potWins      int
 	completed    bool
+	paused       bool
 
 	broadcastFn func(userID uint64, data []byte)
 }
@@ -41,6 +43,7 @@ type storySession struct {
 func (l *Lobby) StartStoryChapter(
 	userID uint64,
 	chapterID int,
+	resumeRequested bool,
 	broadcastFn func(userID uint64, data []byte),
 ) (*table.Table, *npc.ChapterConfig, error) {
 	if l.chapterRegistry == nil {
@@ -84,8 +87,31 @@ func (l *Lobby) StartStoryChapter(
 		supports = append(supports, p)
 	}
 
+	var stalePausedTable *table.Table
 	l.mu.Lock()
-	defer l.mu.Unlock()
+	if ref := l.pausedStories[userID]; ref != nil {
+		if resumeRequested && ref.ChapterID == chapterID {
+			session := l.storySessions[ref.TableID]
+			t := l.tables[ref.TableID]
+			if session != nil && session.chapter != nil && session.userID == userID && t != nil && !t.IsClosed() {
+				delete(l.pausedStories, userID)
+				session.mu.Lock()
+				session.paused = false
+				chapter := session.chapter
+				session.mu.Unlock()
+				l.mu.Unlock()
+
+				if err := t.SubmitEvent(table.Event{
+					Type:   table.EventResume,
+					UserID: userID,
+				}); err != nil {
+					return nil, nil, fmt.Errorf("resume story table: %w", err)
+				}
+				return t, chapter, nil
+			}
+		}
+		stalePausedTable = l.detachPausedStoryLocked(userID)
+	}
 
 	// Create a story mode table
 	l.nextID++
@@ -102,6 +128,10 @@ func (l *Lobby) StartStoryChapter(
 
 	t := table.New(tableID, storyCfg, broadcastFn, l.ledger, l.npcManager)
 	if t == nil {
+		l.mu.Unlock()
+		if stalePausedTable != nil {
+			stalePausedTable.Stop()
+		}
 		return nil, nil, fmt.Errorf("failed to create story table")
 	}
 	l.tables[tableID] = t
@@ -144,6 +174,11 @@ func (l *Lobby) StartStoryChapter(
 	t.AddHandEndHook(func(info table.HandEndInfo) {
 		l.onStoryHandEnd(session, chapterCount, info)
 	})
+	l.mu.Unlock()
+
+	if stalePausedTable != nil {
+		stalePausedTable.Stop()
+	}
 
 	return t, chapter, nil
 }
@@ -272,8 +307,15 @@ func (l *Lobby) onStoryHandEnd(
 		return
 	}
 	session.completed = true
+	session.paused = false
 	broadcastFn := session.broadcastFn
 	session.mu.Unlock()
+
+	l.mu.Lock()
+	if ref := l.pausedStories[session.userID]; ref != nil && ref.TableID == session.tableID {
+		delete(l.pausedStories, session.userID)
+	}
+	l.mu.Unlock()
 
 	log.Printf("[Lobby] story chapter completed: user=%d chapter=%d unlocked=%d",
 		session.userID, session.chapterID, progress.HighestUnlockedChapter)
@@ -281,6 +323,70 @@ func (l *Lobby) onStoryHandEnd(
 	if broadcastFn != nil {
 		l.sendStoryProgress(session.tableID, session.userID, progress, broadcastFn)
 	}
+}
+
+// PauseStorySession freezes an active story table when the owning user leaves the table scene.
+func (l *Lobby) PauseStorySession(userID uint64, tableID string) {
+	if userID == 0 || tableID == "" {
+		return
+	}
+
+	var t *table.Table
+	var chapterID int
+	var alreadyPaused bool
+
+	l.mu.Lock()
+	session := l.storySessions[tableID]
+	if session == nil || session.userID != userID || session.chapter == nil {
+		l.mu.Unlock()
+		return
+	}
+	session.mu.Lock()
+	if session.completed {
+		session.mu.Unlock()
+		delete(l.pausedStories, userID)
+		l.mu.Unlock()
+		return
+	}
+	alreadyPaused = session.paused
+	session.paused = true
+	chapterID = session.chapterID
+	session.mu.Unlock()
+
+	t = l.tables[tableID]
+	if t == nil || t.IsClosed() {
+		delete(l.pausedStories, userID)
+		l.mu.Unlock()
+		return
+	}
+	l.pausedStories[userID] = &pausedStoryRef{
+		TableID:   tableID,
+		ChapterID: chapterID,
+		PausedAt:  time.Now().UTC(),
+	}
+	l.mu.Unlock()
+
+	if alreadyPaused {
+		return
+	}
+	if err := t.SubmitEvent(table.Event{
+		Type:   table.EventPause,
+		UserID: userID,
+	}); err != nil && !errors.Is(err, table.ErrTableClosed) {
+		log.Printf("[Lobby] pause story session failed: user=%d table=%s err=%v", userID, tableID, err)
+	}
+}
+
+func (l *Lobby) detachPausedStoryLocked(userID uint64) *table.Table {
+	ref := l.pausedStories[userID]
+	delete(l.pausedStories, userID)
+	if ref == nil {
+		return nil
+	}
+	delete(l.storySessions, ref.TableID)
+	t := l.tables[ref.TableID]
+	delete(l.tables, ref.TableID)
+	return t
 }
 
 func (l *Lobby) sendStoryProgress(

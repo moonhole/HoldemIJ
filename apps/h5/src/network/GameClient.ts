@@ -485,13 +485,19 @@ export class GameClient {
         this.action(ActionType.ACTION_ALLIN, amount);
     }
 
-    startStory(chapterId: number): void {
+    startStory(chapterId: number, mode: 'start' | 'resume' = 'start'): void {
+        const normalized = Math.max(1, Math.trunc(Number(chapterId) || 1));
+        const encodedChapterId = mode === 'resume' ? -normalized : normalized;
         this.send({
             case: 'startStory',
             value: create(StartStoryRequestSchema, {
-                chapterId,
+                chapterId: encodedChapterId,
             }),
         });
+    }
+
+    getCurrentTableId(): string {
+        return this.tableId;
     }
 
     getMyBet(): bigint {

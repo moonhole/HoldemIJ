@@ -73,11 +73,14 @@ export function LobbyOverlay(): JSX.Element | null {
     const quickStartError = useUiStore((s) => s.quickStartError);
     const startQuickStart = useUiStore((s) => s.startQuickStart);
     const startStoryChapter = useUiStore((s) => s.startStoryChapter);
+    const resumePausedStory = useUiStore((s) => s.resumePausedStory);
+    const restartStoryChapter = useUiStore((s) => s.restartStoryChapter);
     const setSelectedStoryChapter = useUiStore((s) => s.setSelectedStoryChapter);
     const selectedStoryChapter = useUiStore((s) => s.selectedStoryChapter);
     const storyHighestUnlockedChapter = useUiStore((s) => s.storyHighestUnlockedChapter);
     const storyCompletedChapters = useUiStore((s) => s.storyCompletedChapters);
     const storyUnlockedFeatures = useUiStore((s) => s.storyUnlockedFeatures);
+    const pausedStoryInstance = useUiStore((s) => s.pausedStoryInstance);
     const resetQuickStart = useUiStore((s) => s.resetQuickStart);
     const requestScene = useUiStore((s) => s.requestScene);
     const username = useAuthStore((s) => s.username);
@@ -200,6 +203,14 @@ export function LobbyOverlay(): JSX.Element | null {
 
     const busy = quickStartPhase === 'connecting' || quickStartPhase === 'sitting';
     const selectedChapterMeta = STORY_CHAPTERS.find((chapter) => chapter.id === selectedStoryChapter) ?? STORY_CHAPTERS[0];
+    const pausedChapterMeta =
+        pausedStoryInstance
+            ? STORY_CHAPTERS.find((chapter) => chapter.id === pausedStoryInstance.chapterId) ?? null
+            : null;
+    const canResumePausedStory =
+        !!pausedStoryInstance &&
+        pausedStoryInstance.chapterId > 0 &&
+        pausedStoryInstance.chapterId <= storyHighestUnlockedChapter;
     const hasHandAudit = storyUnlockedFeatures.includes('hand_audit');
     const hasAgentCoach = storyUnlockedFeatures.includes('agent_coach');
     const hasAgentUiProgramming = storyUnlockedFeatures.includes('agent_ui_programming');
@@ -306,18 +317,52 @@ export function LobbyOverlay(): JSX.Element | null {
                                 );
                             })}
                         </div>
-                        <button
-                            type="button"
-                            className="lobby-story-play-btn"
-                            disabled={busy || selectedStoryChapter > storyHighestUnlockedChapter}
-                            onClick={() => {
-                                playUiClick();
-                                void startStoryChapter(selectedStoryChapter);
-                            }}
-                        >
-                            <span className="material-symbols-outlined">play_arrow</span>
-                            <span>{`ENTER CHAPTER ${selectedChapterMeta.roman}`}</span>
-                        </button>
+                        {pausedStoryInstance ? (
+                            <div className="lobby-story-paused-wrap">
+                                <div className="lobby-story-paused-hint">
+                                    {`Paused session: Chapter ${pausedChapterMeta?.roman ?? pausedStoryInstance.chapterId}`}
+                                </div>
+                                <div className="lobby-story-paused-actions">
+                                    <button
+                                        type="button"
+                                        className="lobby-story-play-btn is-resume"
+                                        disabled={busy || !canResumePausedStory}
+                                        onClick={() => {
+                                            playUiClick();
+                                            void resumePausedStory();
+                                        }}
+                                    >
+                                        <span className="material-symbols-outlined">play_arrow</span>
+                                        <span>{`RESUME CHAPTER ${pausedChapterMeta?.roman ?? pausedStoryInstance.chapterId}`}</span>
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className="lobby-story-restart-btn"
+                                        disabled={busy || selectedStoryChapter > storyHighestUnlockedChapter}
+                                        onClick={() => {
+                                            playUiClick();
+                                            void restartStoryChapter(selectedStoryChapter);
+                                        }}
+                                    >
+                                        <span className="material-symbols-outlined">restart_alt</span>
+                                        <span>{`RESTART CHAPTER ${selectedChapterMeta.roman}`}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                className="lobby-story-play-btn"
+                                disabled={busy || selectedStoryChapter > storyHighestUnlockedChapter}
+                                onClick={() => {
+                                    playUiClick();
+                                    void startStoryChapter(selectedStoryChapter, 'start');
+                                }}
+                            >
+                                <span className="material-symbols-outlined">play_arrow</span>
+                                <span>{`ENTER CHAPTER ${selectedChapterMeta.roman}`}</span>
+                            </button>
+                        )}
                     </section>
 
                     {/* Audit Feature Card */}

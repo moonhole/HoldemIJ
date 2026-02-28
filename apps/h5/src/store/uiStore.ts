@@ -9,6 +9,13 @@ import { getStoryFeatureMeta, storyChapterTitle } from '../story/storyCatalog';
 export type SceneName = 'boot' | 'login' | 'lobby' | 'table';
 
 type QuickStartPhase = 'idle' | 'connecting' | 'sitting' | 'error';
+type StoryStartMode = 'start' | 'resume';
+
+export type PausedStoryInstance = {
+    chapterId: number;
+    tableId: string;
+    pausedAtMs: number;
+};
 
 type UiStoreState = {
     currentScene: SceneName;
@@ -24,13 +31,17 @@ type UiStoreState = {
     storyProgressHydrated: boolean;
     storyChapterInfo: StoryChapterInfo | null;
     storyReiNarration: ReiStoryNarration | null;
+    pausedStoryInstance: PausedStoryInstance | null;
     selectedStoryChapter: number;
 
     setCurrentScene: (scene: SceneName) => void;
     requestScene: (scene: SceneName) => void;
     consumeSceneRequest: (scene: SceneName) => void;
+    returnLobbyFromTable: () => void;
     startQuickStart: () => Promise<void>;
-    startStoryChapter: (chapterId: number) => Promise<void>;
+    startStoryChapter: (chapterId: number, mode?: StoryStartMode) => Promise<void>;
+    resumePausedStory: () => Promise<void>;
+    restartStoryChapter: (chapterId: number) => Promise<void>;
     setSelectedStoryChapter: (chapterId: number) => void;
     ingestStoryChapterInfo: (info: StoryChapterInfo) => void;
     ingestStoryProgress: (progress: StoryProgressState) => void;
@@ -39,6 +50,7 @@ type UiStoreState = {
 
 const QUICK_START_IDLE_LABEL = 'Quick Join';
 const QUICK_START_WAIT_SNAPSHOT_MS = 8000;
+const RETURN_LOBBY_DISCONNECT_GRACE_MS = 350;
 const STORY_NARRATION_CHAPTER_INTRO_TTL_MS = 20000;
 const STORY_NARRATION_CHAPTER_CLEAR_TTL_MS = 22000;
 
@@ -170,6 +182,7 @@ export const useUiStore = create<UiStoreState>((set) => ({
     storyProgressHydrated: false,
     storyChapterInfo: null,
     storyReiNarration: null,
+    pausedStoryInstance: null,
     selectedStoryChapter: 1,
 
     setCurrentScene: (scene) =>
@@ -177,6 +190,7 @@ export const useUiStore = create<UiStoreState>((set) => ({
             ...state,
             currentScene: scene,
             quickStartError: scene === 'lobby' ? state.quickStartError : '',
+            pausedStoryInstance: scene === 'login' ? null : state.pausedStoryInstance,
         })),
 
     requestScene: (scene) =>
@@ -195,6 +209,56 @@ export const useUiStore = create<UiStoreState>((set) => ({
                 requestedScene: null,
             };
         }),
+
+    returnLobbyFromTable: () => {
+        const state = useUiStore.getState();
+        const gameState = useGameStore.getState();
+        const currentTableId = gameClient.getCurrentTableId();
+        const storyInfo = state.storyChapterInfo;
+        const isStoryTableActive =
+            !!storyInfo &&
+            storyInfo.tableId.length > 0 &&
+            storyInfo.tableId === currentTableId &&
+            gameState.myChair !== -1;
+
+        set((prev) => {
+            let pausedStoryInstance = prev.pausedStoryInstance;
+            if (isStoryTableActive && storyInfo) {
+                pausedStoryInstance = {
+                    chapterId: Math.max(1, Math.trunc(Number(storyInfo.chapterId) || prev.selectedStoryChapter)),
+                    tableId: storyInfo.tableId,
+                    pausedAtMs: Date.now(),
+                };
+            }
+            return {
+                ...prev,
+                requestedScene: 'lobby',
+                pausedStoryInstance,
+            };
+        });
+
+        if (isStoryTableActive) {
+            if (gameClient.isConnected) {
+                gameClient.disconnect();
+            }
+            return;
+        }
+
+        if (gameState.myChair !== -1) {
+            gameClient.standUp();
+            window.setTimeout(() => {
+                const latest = useUiStore.getState();
+                if (latest.currentScene === 'lobby' && gameClient.isConnected) {
+                    gameClient.disconnect();
+                }
+            }, RETURN_LOBBY_DISCONNECT_GRACE_MS);
+            return;
+        }
+
+        if (gameClient.isConnected) {
+            gameClient.disconnect();
+        }
+    },
 
     startQuickStart: async () => {
         const state = useUiStore.getState();
@@ -251,17 +315,29 @@ export const useUiStore = create<UiStoreState>((set) => ({
         }
     },
 
-    startStoryChapter: async (chapterId: number) => {
+    startStoryChapter: async (chapterId: number, mode: StoryStartMode = 'start') => {
         const state = useUiStore.getState();
         if (state.quickStartPhase === 'connecting' || state.quickStartPhase === 'sitting') {
             return;
         }
-        if (chapterId > state.storyHighestUnlockedChapter) {
+        const normalizedChapterId = Math.max(1, Math.trunc(Number(chapterId) || 1));
+        if (mode === 'resume') {
+            const paused = state.pausedStoryInstance;
+            if (!paused || paused.chapterId !== normalizedChapterId) {
+                set((prev) => ({
+                    ...prev,
+                    quickStartPhase: 'error',
+                    quickStartLabel: 'No Paused Story',
+                    quickStartError: 'No paused story session for this chapter.',
+                }));
+                return;
+            }
+        } else if (normalizedChapterId > state.storyHighestUnlockedChapter) {
             set((prev) => ({
                 ...prev,
                 quickStartPhase: 'error',
                 quickStartLabel: 'Chapter Locked',
-                quickStartError: `Chapter ${chapterId} is locked.`,
+                quickStartError: `Chapter ${normalizedChapterId} is locked.`,
             }));
             return;
         }
@@ -271,7 +347,7 @@ export const useUiStore = create<UiStoreState>((set) => ({
         set((prev) => ({
             ...prev,
             quickStartPhase: 'connecting',
-            quickStartLabel: 'Loading chapter...',
+            quickStartLabel: mode === 'resume' ? 'Resuming chapter...' : 'Loading chapter...',
             quickStartError: '',
         }));
 
@@ -286,12 +362,12 @@ export const useUiStore = create<UiStoreState>((set) => ({
                 await gameClient.connect();
             }
             const minStreamSeq = useGameStore.getState().streamSeq;
-            gameClient.startStory(chapterId);
+            gameClient.startStory(normalizedChapterId, mode);
 
             set((prev) => ({
                 ...prev,
                 quickStartPhase: 'sitting',
-                quickStartLabel: 'Entering story...',
+                quickStartLabel: mode === 'resume' ? 'Rejoining paused table...' : 'Entering story...',
             }));
 
             await waitForInitialSnapshot(QUICK_START_WAIT_SNAPSHOT_MS, minStreamSeq);
@@ -301,6 +377,7 @@ export const useUiStore = create<UiStoreState>((set) => ({
                 quickStartPhase: 'idle',
                 quickStartLabel: QUICK_START_IDLE_LABEL,
                 quickStartError: '',
+                pausedStoryInstance: null,
                 requestedScene: 'table',
             }));
         } catch (error) {
@@ -309,9 +386,27 @@ export const useUiStore = create<UiStoreState>((set) => ({
                 ...prev,
                 quickStartPhase: 'error',
                 quickStartLabel: 'Connection Failed - Retry',
-                quickStartError: error instanceof Error ? error.message : 'Story mode failed',
+                quickStartError: error instanceof Error ? error.message : mode === 'resume' ? 'Story resume failed' : 'Story mode failed',
             }));
         }
+    },
+
+    resumePausedStory: async () => {
+        const state = useUiStore.getState();
+        if (!state.pausedStoryInstance) {
+            set((prev) => ({
+                ...prev,
+                quickStartPhase: 'error',
+                quickStartLabel: 'No Paused Story',
+                quickStartError: 'No paused story session found.',
+            }));
+            return;
+        }
+        await useUiStore.getState().startStoryChapter(state.pausedStoryInstance.chapterId, 'resume');
+    },
+
+    restartStoryChapter: async (chapterId) => {
+        await useUiStore.getState().startStoryChapter(chapterId, 'start');
     },
 
     setSelectedStoryChapter: (chapterId) =>

@@ -244,8 +244,18 @@ func (c *Connection) handleJoinTable(env *pb.ClientEnvelope, req *pb.JoinTableRe
 }
 
 func (c *Connection) handleStartStory(env *pb.ClientEnvelope, req *pb.StartStoryRequest) {
-	chapterID := int(req.ChapterId)
-	t, chapter, err := c.Gateway.lobby.StartStoryChapter(c.UserID, chapterID, c.Gateway.broadcastToUser)
+	rawChapterID := int(req.ChapterId)
+	resumeRequested := rawChapterID < 0
+	if rawChapterID < 0 {
+		rawChapterID = -rawChapterID
+	}
+	if rawChapterID <= 0 {
+		c.sendError(10, "story mode: invalid chapter id")
+		return
+	}
+	chapterID := rawChapterID
+
+	t, chapter, err := c.Gateway.lobby.StartStoryChapter(c.UserID, chapterID, resumeRequested, c.Gateway.broadcastToUser)
 	if err != nil {
 		c.sendError(10, fmt.Sprintf("story mode: %v", err))
 		return
@@ -417,6 +427,9 @@ func (g *Gateway) removeConnection(c *Connection) {
 	g.mu.RUnlock()
 
 	if isCurrent && c.Table != nil {
+		if g.lobby != nil && c.TableID != "" {
+			g.lobby.PauseStorySession(c.UserID, c.TableID)
+		}
 		if err := c.Table.SubmitEvent(table.Event{
 			Type:   table.EventConnLost,
 			UserID: c.UserID,

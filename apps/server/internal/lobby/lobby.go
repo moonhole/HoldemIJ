@@ -39,7 +39,14 @@ type Lobby struct {
 	npcManager      *npc.Manager
 	chapterRegistry *npc.ChapterRegistry
 	storySessions   map[string]*storySession
+	pausedStories   map[uint64]*pausedStoryRef
 	rng             *rand.Rand
+}
+
+type pausedStoryRef struct {
+	TableID   string
+	ChapterID int
+	PausedAt  time.Time
 }
 
 // New creates a new lobby
@@ -60,6 +67,7 @@ func New(ledgerService ledger.Service, storyService story.Service, npcMgr ...*np
 		ledger:          ledgerService,
 		storyService:    storyService,
 		storySessions:   make(map[string]*storySession),
+		pausedStories:   make(map[uint64]*pausedStoryRef),
 		rng:             rand.New(rand.NewSource(time.Now().UnixNano())),
 	}
 	if len(npcMgr) > 0 && npcMgr[0] != nil {
@@ -79,10 +87,18 @@ func (l *Lobby) QuickStart(userID uint64, broadcastFn func(userID uint64, data [
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
+	pausedStoryTableID := ""
+	if ref := l.pausedStories[userID]; ref != nil {
+		pausedStoryTableID = ref.TableID
+	}
+
 	// Reconnect/resume path: always prefer the table where the user is already seated.
 	for tableID, t := range l.tables {
 		if t.IsClosed() {
 			delete(l.tables, tableID)
+			continue
+		}
+		if pausedStoryTableID != "" && tableID == pausedStoryTableID {
 			continue
 		}
 		snap := t.Snapshot()
@@ -98,6 +114,9 @@ func (l *Lobby) QuickStart(userID uint64, broadcastFn func(userID uint64, data [
 	for tableID, t := range l.tables {
 		if t.IsClosed() {
 			delete(l.tables, tableID)
+			continue
+		}
+		if pausedStoryTableID != "" && tableID == pausedStoryTableID {
 			continue
 		}
 		snap := t.Snapshot()
@@ -206,6 +225,7 @@ func (l *Lobby) CleanupIdleTables() int {
 		if t.IsClosed() || t.IsIdleFor(l.idleTableTTL) {
 			delete(l.tables, tableID)
 			delete(l.storySessions, tableID)
+			l.removePausedStoryByTableLocked(tableID)
 			idleTables = append(idleTables, t)
 		}
 	}
@@ -230,10 +250,23 @@ func (l *Lobby) Stop() {
 		}
 		l.tables = make(map[string]*table.Table)
 		l.storySessions = make(map[string]*storySession)
+		l.pausedStories = make(map[uint64]*pausedStoryRef)
 		l.mu.Unlock()
 
 		for _, t := range tables {
 			t.Stop()
 		}
 	})
+}
+
+func (l *Lobby) removePausedStoryByTableLocked(tableID string) {
+	for userID, ref := range l.pausedStories {
+		if ref == nil {
+			delete(l.pausedStories, userID)
+			continue
+		}
+		if ref.TableID == tableID {
+			delete(l.pausedStories, userID)
+		}
+	}
 }

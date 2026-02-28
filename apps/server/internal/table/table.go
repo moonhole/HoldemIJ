@@ -30,6 +30,7 @@ type Table struct {
 	seats    map[uint16]uint64      // chair -> userID
 	round    uint32
 	closed   bool
+	paused   bool
 	stopOnce sync.Once
 	// Stack baseline at hand start for delta/net settlement messages.
 	handStartStacks map[uint16]int64
@@ -98,6 +99,8 @@ const (
 	EventStartHand
 	EventConnLost
 	EventConnResume
+	EventPause
+	EventResume
 	EventClose
 )
 
@@ -231,6 +234,10 @@ func (t *Table) handleEvent(e Event) error {
 		return t.handleConnLost(e.UserID, e.Timestamp)
 	case EventConnResume:
 		return t.handleConnResume(e.UserID, e.Nickname, e.Timestamp)
+	case EventPause:
+		return t.handlePause(e.UserID)
+	case EventResume:
+		return t.handleResume(e.UserID)
 	case EventClose:
 		t.stopLocked()
 		return nil
@@ -371,6 +378,10 @@ func (t *Table) handleBuyIn(userID uint64, amount int64) error {
 }
 
 func (t *Table) handleAction(userID uint64, action holdem.ActionType, amount int64) error {
+	if t.paused {
+		return fmt.Errorf("table is paused")
+	}
+
 	player := t.players[userID]
 	if player == nil || player.Chair == holdem.InvalidChair {
 		return fmt.Errorf("player not seated")
@@ -547,6 +558,9 @@ func (t *Table) tick() {
 	if t.closed {
 		return
 	}
+	if t.paused {
+		return
+	}
 	now := time.Now()
 	if err := t.handleTimeout(now); err != nil {
 		log.Printf("[Table %s] timeout handler failed: %v", t.ID, err)
@@ -657,6 +671,37 @@ func (t *Table) handleConnResume(userID uint64, nickname string, ts time.Time) e
 	t.sendSnapshot(userID)
 	t.sendPromptIfActingUser(userID)
 	log.Printf("[Table %s] Player %d connection resumed", t.ID, userID)
+	return nil
+}
+
+func (t *Table) handlePause(userID uint64) error {
+	if t.paused {
+		return nil
+	}
+	t.paused = true
+	t.nextHandAt = time.Time{}
+	t.clearActionTimeoutLocked()
+	log.Printf("[Table %s] Paused (requested by user %d)", t.ID, userID)
+	return nil
+}
+
+func (t *Table) handleResume(userID uint64) error {
+	if !t.paused {
+		return nil
+	}
+	t.paused = false
+	log.Printf("[Table %s] Resumed (requested by user %d)", t.ID, userID)
+
+	before := t.game.Snapshot()
+	now := time.Now()
+	if err := t.tryStartHand(now); err != nil {
+		return err
+	}
+
+	snap := t.game.Snapshot()
+	if snap.Round == before.Round && snap.Round > 0 && !snap.Ended && snap.Phase != holdem.PhaseTypeRoundEnd && snap.ActionChair != holdem.InvalidChair {
+		t.sendActionPrompt(snap.ActionChair)
+	}
 	return nil
 }
 
@@ -780,6 +825,12 @@ func (t *Table) IsClosed() bool {
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	return t.closed
+}
+
+func (t *Table) IsPaused() bool {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	return t.paused
 }
 
 // Snapshot returns current game state (thread-safe)
