@@ -69,6 +69,7 @@ function collectRuntimeInput(): ReiRuntimeInput {
         replayCursor: replay.cursor,
         replayStepCount: replay.visualSteps.length,
         replaySeeking: replay.isSeeking,
+        storyNarration: ui.storyReiNarration,
     };
 }
 

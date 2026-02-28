@@ -8,13 +8,12 @@
 
 ## 1. Core Design Principles
 
-1. **One interface, four brain types.** All NPC types implement `BrainDecider`.
-2. **6-max is the standard.** Story Mode is 1 human + 5 NPCs on a full ring.
-3. **NPCs are persistent characters.** They have names, faces, and play styles
-   that players learn to recognize across modes.
-4. **Rei is the sole narrator.** NPCs never speak. Rei comments on them,
-   introduces them, and provides tactical advice about them.
-5. **NPC = JSON data.** Adding a new NPC requires zero code — just a config entry.
+1. **One core policy engine.** Rule/Script/LLM all execute through the same decision core.
+2. **Style modulates strategy, not replaces it.** Persona traits are bounded biases over a shared policy structure.
+3. **6-max is the standard.** Story Mode is 1 human + 5 NPCs on a full ring.
+4. **NPCs are persistent characters.** They have names, faces, and play styles that players learn to recognize across modes.
+5. **Rei is the sole narrator.** NPCs never speak. Rei comments on them, introduces them, and provides tactical advice about them.
+6. **NPC = data-first config.** Personas and strategy presets are data-driven, so new opponents do not require engine rewrites.
 
 ---
 
@@ -51,7 +50,8 @@ type Decision struct {
     Amount int64
 }
 
-// BrainDecider is the core interface all NPC types implement.
+// BrainDecider is the runtime adapter used by table/game loop.
+// Internally, all adapters delegate to one core policy engine.
 type BrainDecider interface {
     Decide(view GameView) Decision
     Name() string
@@ -64,8 +64,8 @@ type BrainDecider interface {
 
 ### 3.1 Persona Definition
 
-Every NPC is defined by a lightweight persona card. NPCs do not have dialogue
-— Rei handles all narrative using the persona's `ReiIntro` and `ReiStyle` fields.
+Every NPC is defined by a lightweight persona card. NPCs do not have dialogue.
+Rei handles all narrative using the persona's `ReiIntro` and `ReiStyle` fields.
 
 ```go
 type NPCPersona struct {
@@ -73,21 +73,21 @@ type NPCPersona struct {
     Name      string             // "DASHER"
     Tagline   string             // "Fast hands, empty pockets"
     AvatarKey string             // asset key for avatar rendering
-    Brain     PersonalityProfile // decision parameters
+    Brain     PersonalityProfile // style modulation parameters
     FirstSeen int                // chapter where NPC first appears (0 = random pool only)
     Tier      int                // 1=boss, 2=supporting, 3=random/generated
 
     // Fields consumed by Rei for contextual commentary
-    ReiIntro  string // "Likes to 3-bet from cutoff, often gives up on the river"
-    ReiStyle  string // "loose-aggressive"
+    ReiIntro  string
+    ReiStyle  string
 }
 
 type PersonalityProfile struct {
-    Aggression float64 // 0.0–1.0: tendency to bet/raise vs check/call
-    Tightness  float64 // 0.0–1.0: hand range width (1.0 = only premiums)
-    Bluffing   float64 // 0.0–1.0: bluff frequency
-    Positional float64 // 0.0–1.0: how much position affects play
-    Randomness float64 // 0.0–1.0: decision noise (0 = robotic, 1 = chaotic)
+    Aggression float64 // tendency to bet/raise vs check/call
+    Tightness  float64 // hand range width (1.0 = only premiums)
+    Bluffing   float64 // bluff frequency tendency
+    Positional float64 // how much position affects play
+    Randomness float64 // bounded noise (0 = robotic, 1 = chaotic)
 }
 ```
 
@@ -95,21 +95,12 @@ type PersonalityProfile struct {
 
 ```
 NPC Universe
-│
 ├── Tier 1: Story Bosses (5)
-│   One per chapter. Full backstory. Unique avatar art.
-│   Strongest personality traits (most recognizable).
-│   After chapter is cleared → enters Quick Join pool.
-│
-├── Tier 2: Supporting Cast (15–20)
-│   Appear as 6-max table fillers in Story Mode.
-│   Named, with avatar and identifiable play style.
-│   Enter Quick Join pool after first encounter.
-│
+│   One per chapter. Full backstory. Strongest identity.
+├── Tier 2: Supporting Cast (15-20)
+│   Named fillers with recognizable styles.
 └── Tier 3: Random NPCs (unlimited)
-    Procedurally generated name + avatar combos.
-    Brain params = slight mutation from base templates.
-    Always available in Quick Join. No story significance.
+    Generated combinations for population fill.
 ```
 
 ### 3.3 Persona Registry (JSON-driven)
@@ -133,25 +124,7 @@ NPC Universe
     },
     "reiIntro": "A true calling station. Rarely folds to any bet, but almost never raises. Punish him with larger value bets.",
     "reiStyle": "passive-loose"
-  },
-  {
-    "id": "dasher",
-    "name": "DASHER",
-    "tagline": "Fast hands, empty pockets.",
-    "avatarKey": "npc_dasher",
-    "tier": 2,
-    "firstSeen": 1,
-    "brain": {
-      "aggression": 0.75,
-      "tightness": 0.3,
-      "bluffing": 0.55,
-      "positional": 0.5,
-      "randomness": 0.25
-    },
-    "reiIntro": "Loves to 3-bet from cutoff and steal blinds aggressively, but tends to give up on the river when called.",
-    "reiStyle": "loose-aggressive"
   }
-  // ... more personas
 ]
 ```
 
@@ -174,9 +147,6 @@ simple "beat the boss" conditions.
 | 3 | VOID RUNNER | VECTOR | Loose-Aggressive | DRIFT, SPARK + 2 returning | Win 3 pots against VECTOR | Reading bluffs + exploiting LAGs |
 | 4 | GLITCH PALACE | CIPHER | Tight-Aggressive | 4 mixed (2 new + 2 returning) | Tournament: eliminate everyone | Tournament strategy + ICM |
 | 5 | DATA STREAM | NEXUS | Balanced/GTO | 4 strong (all returning faces) | Most chips after 60 hands | Full GTO + dynamic adaptation |
-
-**Key design:** Later chapters reintroduce NPCs from earlier chapters.
-Players use the knowledge they've built about those characters.
 
 ### 4.3 Passage Unlocks
 
@@ -209,114 +179,118 @@ type NPCRecord struct {
 }
 ```
 
-When a player encounters an NPC in Story Mode for the first time,
-that NPC is added to their unlock pool.
-
 ### 5.2 Quick Join Table Filling Rules
 
 ```
 Seat filling priority:
-1. Real human players (matchmaking)
-2. Named NPCs from player's unlock pool (0–3, random)
-3. Tier 3 random NPCs to fill remaining seats
+1. Real human players
+2. Named NPCs from player's unlock pool
+3. Tier 3 random NPCs for remaining seats
 
 NPC count by rank tier:
-  Bronze:  up to 4 NPCs (many new players, few humans)
-  Silver:  up to 2 NPCs
-  Gold:    up to 1 NPC (mostly humans)
-  Diamond: 0 NPCs (pure human)
+  Bronze: up to 4 NPCs
+  Silver: up to 2 NPCs
+  Gold:   up to 1 NPC
+  Diamond: 0 NPCs
 ```
 
 ### 5.3 Rei's Recognition System
 
 When a known NPC sits at the table, Rei messages the player in Agent Chat:
 
-**First encounter (Story Mode):**
-> 🤖 Rei: This is **DASHER** — fast and reckless. He loves to 3-bet from
-> cutoff but crumbles under pressure on the river.
-
-**Re-encounter (Quick Join):**
-> 🤖 Rei: Look who's here — **DASHER** again. You've played 20 hands
-> against him so far. Record: 12W / 8L, up $4,200. He hasn't changed
-> his habits.
-
-**During play (triggered by NPC's signature behavior):**
-> 🤖 Rei: Classic DASHER — 3-bet from CO again. Consider flatting
-> with your position advantage.
+- First encounter intro
+- Re-encounter recap (record and habits)
+- Triggered tactical hints from signature behavior
 
 ---
 
-## 6. Four Brain Types
+## 6. Unified Policy Architecture
 
-### 6.1 RuleBrain — Story Mode & Ranked Filler
+### 6.1 One Execution Core
 
-Deterministic rules with tunable personality parameters.
+All NPC decisions are executed by one deterministic core policy engine.
+Rule/Script/LLM do **not** execute actions directly; they provide strategy
+plans (or deltas), and the core engine emits the final `Decision`.
 
 ```go
-type RuleBrain struct {
-    Profile    PersonalityProfile
-    rng        *rand.Rand
-}
-
-func (b *RuleBrain) Decide(view GameView) Decision {
-    // Uses Profile params to weight action probabilities
-    // e.g., high Aggression → more likely to bet/raise
-    // high Tightness → fold more marginal hands preflop
-    // Randomness adds noise to make play less predictable
+type CorePolicyEngine interface {
+    Decide(view GameView, runtime PolicyRuntime) Decision
 }
 ```
 
-### 6.2 ScriptBrain — Player-Created Strategy Bots
+### 6.2 Shared Strategy Plan
 
-Players write strategy rules in a DSL or visual editor.
-
-```go
-type ScriptBrain struct {
-    Script   *StrategyScript
-    AuthorID uint64
-    Name     string
-}
-
-// Example player-authored DSL:
-// PREFLOP:
-//   hand_strength > 0.8 → RAISE 3x BB
-//   hand_strength > 0.5 → CALL
-//   else → FOLD
-```
-
-This is the backend for the "Agent UI Programming" lobby feature card.
-
-### 6.3 LLMBrain — LLM-Powered Reasoning NPC
-
-Calls an external LLM for each decision. Most expensive but most human-like.
+All strategy sources target the same plan schema so they are comparable,
+testable, and replayable.
 
 ```go
-type LLMBrain struct {
-    Provider    LLMProvider
-    Model       string
-    SystemPrompt string
-    Temperature float64
-    Fallback    BrainDecider   // RuleBrain fallback on timeout
-    Timeout     time.Duration  // max 5s
+type PolicyPlan struct {
+    OpenRaiseByPos       map[string]float64
+    ThreeBetByPos        map[string]float64
+    CBetByStreet         map[int]float64 // 1=flop,2=turn,3=river
+    BarrelByStreet       map[int]float64
+    CheckRaiseByStreet   map[int]float64
+    BetSizeFractions     []float64
+    RaiseSizeMultipliers []float64
+    MaxBluffFreq         float64
+    MaxAllInFreq         float64
 }
 ```
 
-LLMBrain returns a `reasoning` field that Rei can display in Agent Chat,
-creating a learning experience:
+### 6.3 Style Modulator (Persona Layer)
 
-> 🤖 Rei: NEXUS is thinking... He has top pair on a wet board. He's
-> considering a check-raise here to trap aggressive players.
+`Aggression / Tightness / Bluffing / Positional / Randomness` are style biases
+over `PolicyPlan`, not full strategy definitions.
 
-### 6.4 Brain Assignment by Context
+- `Aggression`: nudges bet/raise frequencies and larger sizing choices.
+- `Tightness`: narrows preflop participation and marginal continues.
+- `Bluffing`: adjusts bluff branches under guard bounds.
+- `Positional`: scales IP/OOP pressure and defense frequencies.
+- `Randomness`: adds bounded entropy to avoid robotic repetition.
 
-| Context | Brain Type | Notes |
-|---------|-----------|-------|
-| Story Mode Boss | RuleBrain (strong params) | Predictable enough to learn patterns |
-| Story Mode Supporting | RuleBrain (varied params) | Unique per-persona |
-| Quick Join (Bronze–Silver) | RuleBrain | From unlock pool |
-| Quick Join (filler) | RuleBrain (Tier 3) | Random weak NPCs |
-| Player Bot Arena | ScriptBrain | Community bots |
-| Premium AI Mode | LLMBrain | Opt-in, possibly paid feature |
+### 6.4 Strategy Providers
+
+| Provider | Input | Output | Typical Use |
+|---------|-------|--------|-------------|
+| `RuleProvider` | Persona + built-in templates | Full `PolicyPlan` | Story baseline, Quick Join fillers |
+| `ScriptProvider` | DSL / visual strategy graph | `PolicyPlan` or validated delta | Player bot arena |
+| `LLMProvider` | Prompt + table context | Proposed delta + reasoning | Premium adaptive mode |
+
+### 6.5 Brain Level = Execution Cadence
+
+Brain level defines **when** strategy updates happen, not a separate
+decision engine.
+
+| Brain Level | Update cadence | Typical mapping |
+|------------|----------------|-----------------|
+| Mechanical | Static per table/session | RuleProvider baseline NPCs |
+| Dynamic | Recompute at hand/street triggers | ScriptProvider bots, advanced bosses |
+| Intelligent | Contextual deltas + guard + fallback | LLMProvider modes |
+
+### 6.6 Guardrails and Fallback
+
+Every provider output passes through a guard layer before execution.
+
+```go
+type PolicyGuard interface {
+    Validate(plan PolicyPlan) error
+    Clamp(base PolicyPlan, delta PolicyDelta) PolicyPlan
+}
+```
+
+If a provider fails (timeout/parse/invalid), fallback path is:
+`last_good_plan -> rule baseline -> safe action`.
+
+### 6.7 Context Assignment
+
+| Context | Provider | Brain Level | Notes |
+|---------|----------|-------------|-------|
+| Story Mode Boss (Ch1-Ch3) | RuleProvider | Mechanical | Learnable patterns first |
+| Story Mode Boss (Ch4-Ch5) | RuleProvider (+ scripted deltas) | Dynamic | Add adaptation pressure |
+| Story Mode Supporting | RuleProvider | Mechanical | Stable cast identities |
+| Quick Join filler | RuleProvider | Mechanical | Low cost, deterministic |
+| Player Bot Arena | ScriptProvider | Dynamic | User-authored strategies |
+| Premium AI Mode | LLMProvider (+ Rule fallback) | Intelligent | Opt-in, cost-controlled |
 
 ---
 
@@ -324,31 +298,36 @@ creating a learning experience:
 
 ```go
 type NPCManager struct {
-    registry  *PersonaRegistry          // all persona definitions
-    instances map[uint64]*NPCInstance    // active NPC instances on tables
-    pools     map[uint64]*PlayerNPCPool  // per-player unlock state
-    mu        sync.RWMutex
+    registry     *PersonaRegistry
+    instances    map[uint64]*NPCInstance
+    pools        map[uint64]*PlayerNPCPool
+    coreEngine   CorePolicyEngine
+    ruleSource   RuleProvider
+    scriptSource ScriptProvider
+    llmSource    LLMProvider
+    guard        PolicyGuard
+    mu           sync.RWMutex
 }
 
 type NPCInstance struct {
     PlayerID   uint64
     Chair      uint16
     Persona    *NPCPersona
-    Brain      BrainDecider
-    ThinkDelay time.Duration // simulate "thinking" for UX (1–4s)
+    Brain      BrainDecider  // thin adapter over coreEngine + runtime
+    Provider   string        // rule|script|llm
+    Level      string        // mechanical|dynamic|intelligent
+    Runtime    PolicyRuntime // current effective plan + metadata
+    ThinkDelay time.Duration
 }
 
-// SpawnNPC creates and seats an NPC at the table.
 func (m *NPCManager) SpawnNPC(
     table *holdem.Game,
     chair uint16,
     persona *NPCPersona,
 ) (*NPCInstance, error)
 
-// OnTurn is called by the game loop when it's an NPC's turn to act.
 func (m *NPCManager) OnTurn(playerID uint64, view GameView) Decision
 
-// FillTable picks NPCs for a Quick Join table based on player's pool + rank.
 func (m *NPCManager) FillTable(
     userID uint64,
     rank string,
@@ -356,23 +335,26 @@ func (m *NPCManager) FillTable(
 ) []*NPCPersona
 ```
 
+### OnTurn Flow
+
+1. Build/refresh runtime plan by provider + level cadence.
+2. Apply `PolicyGuard` validation/clamp.
+3. Execute one action via `coreEngine.Decide(view, runtime)`.
+4. Emit optional reasoning metadata to Rei channel (if available).
+
 ### Integration with Game Loop
 
 ```
-Game Loop (tables.go)
-│
+Game Loop
 ├── game.StartHand()
-│
 ├── for each turn:
 │   ├── if player.IsRobot():
-│   │   └── decision = npcManager.OnTurn(playerID, view)
-│   │       └── time.Sleep(instance.ThinkDelay)  // UX realism
-│   │       └── game.Act(chair, decision.Action, decision.Amount)
-│   │
+│   │   ├── decision = npcManager.OnTurn(playerID, view)
+│   │   ├── time.Sleep(instance.ThinkDelay)
+│   │   └── game.Act(chair, decision.Action, decision.Amount)
 │   └── if human:
-│       └── wait for WebSocket → game.Act(...)
-│
-└── game.EndHand() → update NPCRecords
+│       └── wait for WebSocket -> game.Act(...)
+└── game.EndHand() -> update records / progression
 ```
 
 ---
@@ -380,21 +362,18 @@ Game Loop (tables.go)
 ## 8. Data Schema
 
 ```sql
--- NPC persona templates (developer-authored, loaded from JSON at startup)
--- Stored in DB for querying and potential community contributions.
 CREATE TABLE npc_personas (
-    id          TEXT PRIMARY KEY,       -- "dasher"
-    name        TEXT NOT NULL,          -- "DASHER"
+    id          TEXT PRIMARY KEY,
+    name        TEXT NOT NULL,
     tagline     TEXT,
     avatar_key  TEXT,
-    tier        INT NOT NULL DEFAULT 3, -- 1=boss, 2=supporting, 3=random
-    first_seen  INT DEFAULT 0,          -- chapter number (0 = no story)
-    brain       JSONB NOT NULL,         -- PersonalityProfile
+    tier        INT NOT NULL DEFAULT 3,
+    first_seen  INT DEFAULT 0,
+    brain       JSONB NOT NULL,
     rei_intro   TEXT,
     rei_style   TEXT
 );
 
--- Player's unlocked NPC pool and per-NPC records
 CREATE TABLE player_npc_records (
     user_id     BIGINT NOT NULL,
     npc_id      TEXT NOT NULL REFERENCES npc_personas(id),
@@ -406,15 +385,13 @@ CREATE TABLE player_npc_records (
     PRIMARY KEY (user_id, npc_id)
 );
 
--- Story mode progress
 CREATE TABLE story_progress (
     user_id     BIGINT PRIMARY KEY,
-    chapter     INT NOT NULL DEFAULT 0,     -- highest completed chapter
-    unlocks     JSONB DEFAULT '[]'::jsonb,  -- ["hand_audit", "agent_coach", ...]
+    chapter     INT NOT NULL DEFAULT 0,
+    unlocks     JSONB DEFAULT '[]'::jsonb,
     updated_at  TIMESTAMPTZ DEFAULT now()
 );
 
--- Player-created bots (for Agent UI Programming)
 CREATE TABLE player_bots (
     id          SERIAL PRIMARY KEY,
     author_id   BIGINT NOT NULL,
@@ -432,19 +409,19 @@ CREATE TABLE player_bots (
 ## 9. Frontend Display
 
 ### NPC Badge on Player Seat
-- Small icon next to NPC name: 🤖 (rule), ⚡ (script bot), 🧠 (LLM)
+- Small icon next to NPC name: rule / script / llm source badge
 - Story NPCs: unique avatar art rendered in seat
-- Hover/click: shows simplified persona card (name, tagline, your record vs them)
+- Hover/click: persona card (name, tagline, record vs them)
 
 ### Left Rail Enhancements
 - **Story Mode:** chapter objective + Boss intel card
-- **Quick Join:** if named NPCs are present, show mini cards in Opponent section
+- **Quick Join:** mini cards for named NPCs in table
 
-### Rei (Agent Chat) — The Single Narrative Channel
+### Rei (Agent Chat) - The Single Narrative Channel
 - NPC introductions on seat join
 - Tactical commentary during play
-- Post-hand summary ("You just won $800 from DASHER, your best pot against him")
-- Story chapter narration (chapter intro, objective reminders, completion celebration)
+- Post-hand summary
+- Story chapter narration
 
 ---
 
@@ -490,7 +467,8 @@ CREATE TABLE player_bots (
 - ✔ Quick Join can already auto-fill newly created tables with 4 NPCs.
 - ✔ Story Mode has baseline wiring end-to-end: chapter JSON, chapter registry, story table creation, proto messages, gateway handler, frontend entrypoint.
 - ✔ Frontend seat rendering already distinguishes NPC players with a dedicated badge.
-- Partial only: Feature unlock gating, returning-NPC records/pool logic, and Rei recognition/commentary loops are not implemented yet.
+- Partial only: Returning-NPC records/pool logic and Rei recognition/commentary loops are not implemented yet.
+- New architecture direction (this doc): migrate to unified policy core + provider model.
 
 ### Phase 1: Foundation
 - ✔ Create `holdem/npc/` package with `BrainDecider` interface
@@ -503,7 +481,7 @@ CREATE TABLE player_bots (
 ### Phase 2: Story Mode
 - ✔ Story chapter config (objectives, NPC assignments, unlock rewards)
 - ✔ Chapter progress tracking (`story_progress` table)
-- [ ] Feature unlock gating (Audit, Coach, etc.)
+- ✔ Feature unlock gating (Audit, Coach, etc.)
 - [ ] Rei story narration templates (chapter intro, NPC intro, completion)
 - [ ] 5 Boss personas + 15 supporting personas (brain tuning + avatar art)
 
@@ -511,7 +489,7 @@ Current state:
 - ✔ `data/story_chapters.json` + `ChapterRegistry` are in place.
 - ✔ Story table creation, chapter info proto payloads, gateway handler, and frontend "Begin Chapter I" entry are wired.
 - ✔ Story progress persistence + chapter lock/unlock flow are implemented (memory/postgres/sqlite backends + server push to frontend).
-- Partial: chapter intro/boss note text exists, but a full Rei narration pipeline for NPC intro/completion is still missing.
+- Partial: chapter intro + chapter completion narration is wired into frontend Rei runtime, but per-NPC encounter/return narration is still missing.
 - Partial: 20 personas and brain tuning exist in JSON, but the avatar-art portion is still outstanding.
 
 ### Phase 3: Quick Join Integration
@@ -526,14 +504,14 @@ Current state:
 
 ### Phase 4: Player Bots (Agent UI Programming)
 - [ ] Strategy DSL specification
-- [ ] DSL parser → `ScriptBrain`
+- [ ] DSL parser -> `ScriptProvider` (PolicyPlan / delta)
 - [ ] Visual strategy editor (lobby feature card)
 - [ ] Bot leaderboard + ELO system
 - [ ] Bot vs Bot arena mode
 
 ### Phase 5: LLM Integration
-- [ ] `LLMBrain` with provider abstraction (OpenAI, Ollama)
-- [ ] Prompt engineering + JSON response parsing
-- [ ] Timeout + RuleBrain fallback
-- [ ] LLM reasoning → Rei Agent Chat pipeline
+- [ ] `LLMProvider` abstraction (OpenAI, Ollama, etc.)
+- [ ] Prompt engineering + structured delta parsing
+- [ ] Timeout + Rule fallback + `PolicyGuard` clamp
+- [ ] LLM reasoning -> Rei Agent Chat pipeline
 - [ ] Cost control (caching, rate limiting, opt-in premium)

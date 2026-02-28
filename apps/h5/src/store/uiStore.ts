@@ -1,8 +1,10 @@
 import { create } from 'zustand';
-import type { StoryProgressState } from '@gen/messages_pb';
+import type { StoryChapterInfo, StoryProgressState } from '@gen/messages_pb';
 import { gameClient } from '../network/GameClient';
+import type { ReiStoryNarration } from '../rei/types';
 import { useGameStore } from './gameStore';
 import { useReplayStore } from '../replay/replayStore';
+import { getStoryFeatureMeta, storyChapterTitle } from '../story/storyCatalog';
 
 export type SceneName = 'boot' | 'login' | 'lobby' | 'table';
 
@@ -19,6 +21,9 @@ type UiStoreState = {
     storyHighestUnlockedChapter: number;
     storyCompletedChapters: number[];
     storyUnlockedFeatures: string[];
+    storyProgressHydrated: boolean;
+    storyChapterInfo: StoryChapterInfo | null;
+    storyReiNarration: ReiStoryNarration | null;
     selectedStoryChapter: number;
 
     setCurrentScene: (scene: SceneName) => void;
@@ -27,12 +32,83 @@ type UiStoreState = {
     startQuickStart: () => Promise<void>;
     startStoryChapter: (chapterId: number) => Promise<void>;
     setSelectedStoryChapter: (chapterId: number) => void;
+    ingestStoryChapterInfo: (info: StoryChapterInfo) => void;
     ingestStoryProgress: (progress: StoryProgressState) => void;
     resetQuickStart: () => void;
 };
 
 const QUICK_START_IDLE_LABEL = 'Quick Join';
 const QUICK_START_WAIT_SNAPSHOT_MS = 8000;
+const STORY_NARRATION_CHAPTER_INTRO_TTL_MS = 20000;
+const STORY_NARRATION_CHAPTER_CLEAR_TTL_MS = 22000;
+
+function normalizeStoryText(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+}
+
+function featureLabel(featureId: string): string {
+    const meta = getStoryFeatureMeta(featureId);
+    if (meta) {
+        return meta.label;
+    }
+    return featureId.replace(/_/g, ' ').trim();
+}
+
+function formatFeatureList(features: string[]): string {
+    const labels = features.map(featureLabel);
+    if (labels.length === 0) {
+        return '';
+    }
+    if (labels.length === 1) {
+        return labels[0];
+    }
+    if (labels.length === 2) {
+        return `${labels[0]} and ${labels[1]}`;
+    }
+    return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
+}
+
+function buildChapterIntroNarration(info: StoryChapterInfo): ReiStoryNarration {
+    const chapterId = Math.max(1, Math.trunc(Number(info.chapterId) || 1));
+    const now = Date.now();
+    const intro = normalizeStoryText(info.reiIntro);
+    const boss = normalizeStoryText(info.bossName);
+    const bossNote = normalizeStoryText(info.reiBossNote);
+    const detailsParts = [
+        intro,
+        boss && bossNote ? `Boss ${boss}: ${bossNote}` : bossNote,
+    ].filter((part) => part.length > 0);
+
+    return {
+        id: now,
+        statusTag: 'OBSERVE',
+        keyLine: `${storyChapterTitle(chapterId)} started.`,
+        details: detailsParts.join(' '),
+        expiresAtMs: now + STORY_NARRATION_CHAPTER_INTRO_TTL_MS,
+    };
+}
+
+function buildChapterCompleteNarration(
+    chapterId: number,
+    newlyUnlockedFeatures: string[],
+    highestUnlockedChapter: number,
+): ReiStoryNarration {
+    const now = Date.now();
+    const featureText = formatFeatureList(newlyUnlockedFeatures);
+    const unlockText = featureText.length > 0 ? `Unlocked: ${featureText}.` : 'Progress synchronized.';
+    const nextText =
+        highestUnlockedChapter > chapterId
+            ? `${storyChapterTitle(highestUnlockedChapter)} is now unlocked.`
+            : 'Story progression updated.';
+
+    return {
+        id: now,
+        statusTag: 'HAND_WRAP',
+        keyLine: `${storyChapterTitle(chapterId)} completed.`,
+        details: `${unlockText} ${nextText}`,
+        expiresAtMs: now + STORY_NARRATION_CHAPTER_CLEAR_TTL_MS,
+    };
+}
 
 function delay(ms: number): Promise<void> {
     return new Promise((resolve) => window.setTimeout(resolve, ms));
@@ -91,6 +167,9 @@ export const useUiStore = create<UiStoreState>((set) => ({
     storyHighestUnlockedChapter: 1,
     storyCompletedChapters: [],
     storyUnlockedFeatures: [],
+    storyProgressHydrated: false,
+    storyChapterInfo: null,
+    storyReiNarration: null,
     selectedStoryChapter: 1,
 
     setCurrentScene: (scene) =>
@@ -250,6 +329,18 @@ export const useUiStore = create<UiStoreState>((set) => ({
             };
         }),
 
+    ingestStoryChapterInfo: (info) =>
+        set((state) => {
+            const chapterId = Math.max(1, Math.trunc(Number(info.chapterId) || 1));
+            return {
+                ...state,
+                storyChapterInfo: info,
+                selectedStoryChapter:
+                    chapterId <= state.storyHighestUnlockedChapter ? chapterId : state.selectedStoryChapter,
+                storyReiNarration: buildChapterIntroNarration(info),
+            };
+        }),
+
     ingestStoryProgress: (progress) =>
         set((state) => {
             const highestCompleted = Math.max(0, Number(progress.highestCompletedChapter) || 0);
@@ -264,6 +355,13 @@ export const useUiStore = create<UiStoreState>((set) => ({
                         .filter((feature) => feature.length > 0),
                 ),
             ).sort();
+            const newlyCompleted = completed.filter((chapter) => !state.storyCompletedChapters.includes(chapter));
+            const newlyUnlockedFeatures = features.filter((feature) => !state.storyUnlockedFeatures.includes(feature));
+            let storyReiNarration = state.storyReiNarration;
+            if (state.storyProgressHydrated && newlyCompleted.length > 0) {
+                const chapterId = newlyCompleted[newlyCompleted.length - 1];
+                storyReiNarration = buildChapterCompleteNarration(chapterId, newlyUnlockedFeatures, highestUnlocked);
+            }
             const selected =
                 state.selectedStoryChapter > highestUnlocked ? highestUnlocked : Math.max(1, state.selectedStoryChapter);
 
@@ -273,6 +371,8 @@ export const useUiStore = create<UiStoreState>((set) => ({
                 storyHighestUnlockedChapter: highestUnlocked,
                 storyCompletedChapters: completed,
                 storyUnlockedFeatures: features,
+                storyProgressHydrated: true,
+                storyReiNarration,
                 selectedStoryChapter: selected,
             };
         }),
@@ -295,6 +395,9 @@ export function bindUiClientToStore(): void {
     isUiClientBound = true;
 
     gameClient.subscribe({
+        onStoryChapterInfo: (value) => {
+            useUiStore.getState().ingestStoryChapterInfo(value);
+        },
         onStoryProgress: (value) => {
             useUiStore.getState().ingestStoryProgress(value);
         },

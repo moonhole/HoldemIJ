@@ -292,6 +292,13 @@
     box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
 }
 
+.lobby-audit-card.is-locked {
+    border-color: rgba(255, 255, 255, 0.14);
+    background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(244, 37, 175, 0.03)),
+        rgba(12, 8, 14, 0.85);
+}
+
 .lobby-audit-card-header {
     display: flex;
     align-items: flex-start;
@@ -362,6 +369,15 @@
     transform: scale(0.98);
 }
 
+.lobby-audit-open-btn:disabled {
+    cursor: default;
+    opacity: 0.6;
+    border-color: rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: none;
+    color: rgba(255, 255, 255, 0.72);
+}
+
 .lobby-audit-preview {
     padding: 8px 0 0;
     border-top: 1px solid rgba(255, 255, 255, 0.08);
@@ -387,6 +403,22 @@
 
 .lobby-feature-card:hover {
     border-color: rgba(255, 255, 255, 0.2);
+}
+
+.lobby-feature-card.is-locked {
+    border-color: rgba(255, 255, 255, 0.14);
+    background: rgba(12, 8, 14, 0.74);
+}
+
+.lobby-feature-card.is-locked .lobby-feature-card-desc {
+    color: rgba(255, 255, 255, 0.36);
+}
+
+.lobby-feature-card.is-unlocked {
+    border-color: rgba(84, 255, 174, 0.32);
+    background:
+        linear-gradient(135deg, rgba(84, 255, 174, 0.07), rgba(0, 243, 255, 0.05)),
+        rgba(12, 8, 14, 0.9);
 }
 
 .lobby-feature-card-header {
@@ -454,6 +486,12 @@
     letter-spacing: 0.12em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.45);
+}
+
+.lobby-feature-card.is-unlocked .lobby-feature-card-badge {
+    border-color: rgba(84, 255, 174, 0.42);
+    background: rgba(84, 255, 174, 0.16);
+    color: rgba(213, 255, 235, 0.95);
 }
 
 .lobby-footer {

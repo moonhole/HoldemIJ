@@ -82,6 +82,18 @@ export function reduceReiRuntimeState(prev: ReiRuntimeState, input: ReiRuntimeIn
     });
 
     const active = nextMode === 'replay' ? mapReplayToView(nextReplaySnapshot) : mapLiveToView(nextLiveSnapshot);
+    const storyNarration =
+        input.storyNarration && input.storyNarration.expiresAtMs > input.nowMs
+            ? input.storyNarration
+            : null;
+    const view = storyNarration
+        ? {
+            machineState: active.machineState,
+            statusTag: storyNarration.statusTag,
+            keyLine: storyNarration.keyLine,
+            details: storyNarration.details,
+        }
+        : active;
 
     const liveChanged =
         prev.liveSnapshot.machineState !== nextLiveSnapshot.machineState ||
@@ -99,10 +111,10 @@ export function reduceReiRuntimeState(prev: ReiRuntimeState, input: ReiRuntimeIn
 
     const changed =
         prev.mode !== nextMode ||
-        prev.machineState !== active.machineState ||
-        prev.statusTag !== active.statusTag ||
-        prev.keyLine !== active.keyLine ||
-        prev.details !== active.details ||
+        prev.machineState !== view.machineState ||
+        prev.statusTag !== view.statusTag ||
+        prev.keyLine !== view.keyLine ||
+        prev.details !== view.details ||
         liveChanged ||
         replayChanged;
 
@@ -113,10 +125,10 @@ export function reduceReiRuntimeState(prev: ReiRuntimeState, input: ReiRuntimeIn
     return {
         ...prev,
         mode: nextMode,
-        machineState: active.machineState,
-        statusTag: active.statusTag,
-        keyLine: active.keyLine,
-        details: active.details,
+        machineState: view.machineState,
+        statusTag: view.statusTag,
+        keyLine: view.keyLine,
+        details: view.details,
         updatedAtMs: input.nowMs,
         liveSnapshot: nextLiveSnapshot,
         replaySnapshot: nextReplaySnapshot,

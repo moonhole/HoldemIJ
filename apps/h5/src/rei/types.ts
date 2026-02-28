@@ -51,6 +51,15 @@ export type ReiRuntimeInput = {
     replayCursor: number;
     replayStepCount: number;
     replaySeeking: boolean;
+    storyNarration: ReiStoryNarration | null;
+};
+
+export type ReiStoryNarration = {
+    id: number;
+    statusTag: ReiStatusTag;
+    keyLine: string;
+    details: string;
+    expiresAtMs: number;
 };
 
 export type ReiRuntimeEvent =

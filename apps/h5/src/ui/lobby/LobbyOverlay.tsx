@@ -5,6 +5,11 @@ import { auditApi, type AuditHandEvent, type AuditRecentHandItem } from '../../n
 import { gameClient } from '../../network/GameClient';
 import { decodeReplayServerTape, type ReplayServerTape } from '../../replay/replayCodec';
 import { useReplayStore } from '../../replay/replayStore';
+import {
+    getStoryFeatureMeta,
+    STORY_CHAPTERS,
+    storyChapterRoman,
+} from '../../story/storyCatalog';
 import { useAuthStore } from '../../store/authStore';
 import { useLayoutStore } from '../../store/layoutStore';
 import { useUiStore } from '../../store/uiStore';
@@ -21,19 +26,7 @@ function getDesktopBridge(): DesktopBridge | null {
     const host = globalThis as typeof globalThis & { desktopBridge?: DesktopBridge };
     return host.desktopBridge ?? null;
 }
-
-
-
-
 const LOBBY_WS_IDLE_DISCONNECT_MS = 30000;
-
-const STORY_CHAPTERS = [
-    { id: 1, roman: 'I', name: 'NEON GUTTER' },
-    { id: 2, roman: 'II', name: 'CHROME HEAVEN' },
-    { id: 3, roman: 'III', name: 'VOID RUNNER' },
-    { id: 4, roman: 'IV', name: 'GLITCH PALACE' },
-    { id: 5, roman: 'V', name: 'DATA STREAM' },
-] as const;
 
 function toHeroChair(summary: Record<string, unknown>): number {
     const raw = summary.chair;
@@ -84,6 +77,7 @@ export function LobbyOverlay(): JSX.Element | null {
     const selectedStoryChapter = useUiStore((s) => s.selectedStoryChapter);
     const storyHighestUnlockedChapter = useUiStore((s) => s.storyHighestUnlockedChapter);
     const storyCompletedChapters = useUiStore((s) => s.storyCompletedChapters);
+    const storyUnlockedFeatures = useUiStore((s) => s.storyUnlockedFeatures);
     const resetQuickStart = useUiStore((s) => s.resetQuickStart);
     const requestScene = useUiStore((s) => s.requestScene);
     const username = useAuthStore((s) => s.username);
@@ -206,6 +200,18 @@ export function LobbyOverlay(): JSX.Element | null {
 
     const busy = quickStartPhase === 'connecting' || quickStartPhase === 'sitting';
     const selectedChapterMeta = STORY_CHAPTERS.find((chapter) => chapter.id === selectedStoryChapter) ?? STORY_CHAPTERS[0];
+    const hasHandAudit = storyUnlockedFeatures.includes('hand_audit');
+    const hasAgentCoach = storyUnlockedFeatures.includes('agent_coach');
+    const hasAgentUiProgramming = storyUnlockedFeatures.includes('agent_ui_programming');
+    const hasInviteFriends = storyUnlockedFeatures.includes('invite_friends');
+
+    const lockHint = (featureId: string): string => {
+        const meta = getStoryFeatureMeta(featureId);
+        if (!meta) {
+            return 'LOCKED';
+        }
+        return `LOCKED - CLEAR CHAPTER ${storyChapterRoman(meta.chapterUnlocked)}`;
+    };
 
     return (
         <div className="lobby-screen">
@@ -315,7 +321,7 @@ export function LobbyOverlay(): JSX.Element | null {
                     </section>
 
                     {/* Audit Feature Card */}
-                    <section className="lobby-audit-card">
+                    <section className={`lobby-audit-card ${hasHandAudit ? '' : 'is-locked'}`}>
                         <div className="lobby-audit-card-header">
                             <div className="lobby-audit-card-icon">
                                 <span className="material-symbols-outlined">history</span>
@@ -328,15 +334,19 @@ export function LobbyOverlay(): JSX.Element | null {
                         <button
                             type="button"
                             className="lobby-audit-open-btn"
+                            disabled={!hasHandAudit}
                             onClick={() => {
+                                if (!hasHandAudit) {
+                                    return;
+                                }
                                 playUiClick();
                                 setAuditOpen(true);
                             }}
                         >
                             <span className="material-symbols-outlined">play_arrow</span>
-                            <span>OPEN AUDIT CONSOLE</span>
+                            <span>{hasHandAudit ? 'OPEN AUDIT CONSOLE' : lockHint('hand_audit')}</span>
                         </button>
-                        {auditItems.length > 0 && !auditOpen && (
+                        {hasHandAudit && auditItems.length > 0 && !auditOpen && (
                             <div className="lobby-audit-preview">
                                 <span className="lobby-audit-preview-label">{auditItems.length} recent hand{auditItems.length !== 1 ? 's' : ''} available</span>
                             </div>
@@ -344,7 +354,7 @@ export function LobbyOverlay(): JSX.Element | null {
                     </section>
 
                     {/* Agent Coach Card */}
-                    <section className="lobby-feature-card">
+                    <section className={`lobby-feature-card ${hasAgentCoach ? 'is-unlocked' : 'is-locked'}`}>
                         <div className="lobby-feature-card-header">
                             <div className="lobby-feature-card-icon tone-magenta">
                                 <span className="material-symbols-outlined">psychology</span>
@@ -354,11 +364,13 @@ export function LobbyOverlay(): JSX.Element | null {
                                 <p className="lobby-feature-card-desc">AI-powered real-time coaching. Get instant feedback on your decisions and improve your game.</p>
                             </div>
                         </div>
-                        <div className="lobby-feature-card-badge">Coming Soon</div>
+                        <div className="lobby-feature-card-badge">
+                            {hasAgentCoach ? 'UNLOCKED - COMING SOON' : lockHint('agent_coach')}
+                        </div>
                     </section>
 
                     {/* Agent UI Programming Card */}
-                    <section className="lobby-feature-card">
+                    <section className={`lobby-feature-card ${hasAgentUiProgramming ? 'is-unlocked' : 'is-locked'}`}>
                         <div className="lobby-feature-card-header">
                             <div className="lobby-feature-card-icon tone-purple">
                                 <span className="material-symbols-outlined">code</span>
@@ -368,11 +380,13 @@ export function LobbyOverlay(): JSX.Element | null {
                                 <p className="lobby-feature-card-desc">Build custom interfaces and automation scripts with natural language. Let the agent code your poker HUD.</p>
                             </div>
                         </div>
-                        <div className="lobby-feature-card-badge">Coming Soon</div>
+                        <div className="lobby-feature-card-badge">
+                            {hasAgentUiProgramming ? 'UNLOCKED - COMING SOON' : lockHint('agent_ui_programming')}
+                        </div>
                     </section>
 
                     {/* Invite Friends Card */}
-                    <section className="lobby-feature-card">
+                    <section className={`lobby-feature-card ${hasInviteFriends ? 'is-unlocked' : 'is-locked'}`}>
                         <div className="lobby-feature-card-header">
                             <div className="lobby-feature-card-icon tone-green">
                                 <span className="material-symbols-outlined">group_add</span>
@@ -382,7 +396,9 @@ export function LobbyOverlay(): JSX.Element | null {
                                 <p className="lobby-feature-card-desc">Create a private table and invite friends for a multiplayer session. Play together in real-time.</p>
                             </div>
                         </div>
-                        <div className="lobby-feature-card-badge">Coming Soon</div>
+                        <div className="lobby-feature-card-badge">
+                            {hasInviteFriends ? 'UNLOCKED - COMING SOON' : lockHint('invite_friends')}
+                        </div>
                     </section>
                 </div>
 
