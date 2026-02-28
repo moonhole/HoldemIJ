@@ -22,12 +22,11 @@ func NewRuleBrain(persona *NPCPersona, seed int64) *RuleBrain {
 
 func (b *RuleBrain) Name() string { return b.Persona.Name }
 
-// Decide implements BrainDecider. It selects an action based on personality
-// parameters and the current game state.
+// Decide implements BrainDecider.
 func (b *RuleBrain) Decide(view GameView) Decision {
 	p := b.Persona.Brain
 
-	// Add randomness noise to parameters for this decision
+	// Add controlled noise so personas feel less robotic.
 	aggression := clamp01(p.Aggression + (b.rng.Float64()-0.5)*p.Randomness*0.4)
 	tightness := clamp01(p.Tightness + (b.rng.Float64()-0.5)*p.Randomness*0.3)
 
@@ -36,7 +35,6 @@ func (b *RuleBrain) Decide(view GameView) Decision {
 		return Decision{Action: holdem.PlayerActionTypeFold}
 	}
 
-	// Convenience: check what actions are available
 	canFold := contains(legal, holdem.PlayerActionTypeFold)
 	canCheck := contains(legal, holdem.PlayerActionTypeCheck)
 	canCall := contains(legal, holdem.PlayerActionTypeCall)
@@ -44,14 +42,12 @@ func (b *RuleBrain) Decide(view GameView) Decision {
 	canRaise := contains(legal, holdem.PlayerActionTypeRaise)
 	canAllIn := contains(legal, holdem.PlayerActionTypeAllin)
 
-	// Estimate hand strength (simplified heuristic based on street)
 	strength := b.estimateHandStrength(view)
 
-	// Preflop: tight players fold more marginal hands
+	// Preflop: tighter personas fold marginal opens.
 	if view.Street == 0 {
 		foldThreshold := tightness * 0.6
 		if strength < foldThreshold && canFold {
-			// But check if we can check for free
 			if canCheck {
 				return Decision{Action: holdem.PlayerActionTypeCheck}
 			}
@@ -59,39 +55,43 @@ func (b *RuleBrain) Decide(view GameView) Decision {
 		}
 	}
 
-	// Post-flop: evaluate whether to be aggressive or passive
 	aggressivePlay := strength > (1.0-aggression)*0.5
 
-	// Strong hand + aggressive → bet/raise
+	// Strong hands should often be aggressive, but not always raise.
 	if aggressivePlay {
-		if canRaise {
+		if canRaise && b.rng.Float64() < b.raiseChance(view, aggression, strength) {
 			raiseAmount := b.calcRaiseAmount(view, aggression)
 			return Decision{Action: holdem.PlayerActionTypeRaise, Amount: raiseAmount}
 		}
-		if canBet {
+		if canBet && b.rng.Float64() < b.betChance(view, aggression, strength) {
 			betAmount := b.calcBetAmount(view, aggression)
 			return Decision{Action: holdem.PlayerActionTypeBet, Amount: betAmount}
 		}
 	}
 
-	// Bluff attempt
-	if !aggressivePlay && b.rng.Float64() < p.Bluffing*0.3 {
-		if canBet {
-			betAmount := b.calcBetAmount(view, 0.4)
+	// Bluff attempts are probabilistic and usually prefer betting to raising.
+	bluffChance := p.Bluffing * (0.2 + (1.0-tightness)*0.15)
+	if !aggressivePlay && b.rng.Float64() < bluffChance {
+		bluffBetChance := clampRange(0.35+p.Bluffing*0.25, 0.1, 0.65)
+		if canBet && b.rng.Float64() < bluffBetChance {
+			betAmount := b.calcBetAmount(view, 0.35+aggression*0.3)
 			return Decision{Action: holdem.PlayerActionTypeBet, Amount: betAmount}
 		}
-		if canRaise {
-			raiseAmount := b.calcRaiseAmount(view, 0.4)
+
+		bluffRaiseChance := 0.08 + p.Bluffing*0.15 + aggression*0.08
+		if view.Street == 0 {
+			bluffRaiseChance *= 0.7
+		}
+		if canRaise && b.rng.Float64() < clampRange(bluffRaiseChance, 0.03, 0.45) {
+			raiseAmount := b.calcRaiseAmount(view, 0.3+aggression*0.25)
 			return Decision{Action: holdem.PlayerActionTypeRaise, Amount: raiseAmount}
 		}
 	}
 
-	// Marginal hand: call or check
 	if canCheck {
 		return Decision{Action: holdem.PlayerActionTypeCheck}
 	}
 	if canCall {
-		// Loose players call more often; tight players fold facing bets
 		callThreshold := tightness * 0.4
 		if strength > callThreshold || b.rng.Float64() < (1.0-tightness)*0.5 {
 			return Decision{Action: holdem.PlayerActionTypeCall, Amount: view.CurrentBet}
@@ -102,7 +102,7 @@ func (b *RuleBrain) Decide(view GameView) Decision {
 		return Decision{Action: holdem.PlayerActionTypeCall, Amount: view.CurrentBet}
 	}
 
-	// All-in as last resort if it's the only option
+	// All-in as last resort if no lower-variance line is available.
 	if canAllIn {
 		if strength > 0.6 || b.rng.Float64() < aggression*0.2 {
 			return Decision{Action: holdem.PlayerActionTypeAllin, Amount: view.MyStack + view.MyBet}
@@ -113,12 +113,10 @@ func (b *RuleBrain) Decide(view GameView) Decision {
 		return Decision{Action: holdem.PlayerActionTypeAllin, Amount: view.MyStack + view.MyBet}
 	}
 
-	// Fallback: first legal action
 	return Decision{Action: legal[0]}
 }
 
-// estimateHandStrength returns a 0.0–1.0 heuristic based on street.
-// This is intentionally simple; can be replaced with a proper equity calculator later.
+// estimateHandStrength returns a 0.0..1.0 heuristic by hole cards and street.
 func (b *RuleBrain) estimateHandStrength(view GameView) float64 {
 	if len(view.HoleCards) < 2 {
 		return 0.3
@@ -129,20 +127,16 @@ func (b *RuleBrain) estimateHandStrength(view GameView) float64 {
 	rank0 := int(c0.Rank())
 	rank1 := int(c1.Rank())
 
-	// Normalize ranks: Ace=14 is strongest
+	// Normalize raw rank values into a rough 0..1 scale.
 	strength := (float64(rank0) + float64(rank1)) / 28.0
 
-	// Pair bonus
 	if rank0 == rank1 {
 		strength += 0.25
 	}
-
-	// Suited bonus
 	if c0.Suit() == c1.Suit() {
 		strength += 0.05
 	}
 
-	// Connected bonus
 	gap := rank0 - rank1
 	if gap < 0 {
 		gap = -gap
@@ -151,7 +145,7 @@ func (b *RuleBrain) estimateHandStrength(view GameView) float64 {
 		strength += 0.05
 	}
 
-	// Post-flop: add noise — real evaluation would use community cards
+	// Add slight postflop variance (placeholder for richer equity logic).
 	if view.Street > 0 {
 		strength += (b.rng.Float64() - 0.5) * 0.2
 	}
@@ -161,7 +155,7 @@ func (b *RuleBrain) estimateHandStrength(view GameView) float64 {
 
 // calcBetAmount determines bet sizing based on aggression.
 func (b *RuleBrain) calcBetAmount(view GameView, aggression float64) int64 {
-	// Bet between 0.33x and 1.0x pot based on aggression
+	// Bet between 0.33x and 1.0x pot based on aggression.
 	fraction := 0.33 + aggression*0.67
 	bet := int64(float64(view.Pot) * fraction)
 	if bet < view.MinRaise {
@@ -175,7 +169,7 @@ func (b *RuleBrain) calcBetAmount(view GameView, aggression float64) int64 {
 
 // calcRaiseAmount determines raise sizing.
 func (b *RuleBrain) calcRaiseAmount(view GameView, aggression float64) int64 {
-	// Raise between min raise and 3x current bet
+	// Raise between min raise and about 3x current bet.
 	multiplier := 2.0 + aggression*1.5
 	raise := int64(float64(view.CurrentBet) * multiplier)
 	if raise < view.MinRaise {
@@ -187,6 +181,38 @@ func (b *RuleBrain) calcRaiseAmount(view GameView, aggression float64) int64 {
 	return raise
 }
 
+func (b *RuleBrain) raiseChance(view GameView, aggression float64, strength float64) float64 {
+	base := 0.07
+	switch view.Street {
+	case 0: // preflop
+		base = 0.03
+	case 1: // flop
+		base = 0.07
+	case 2: // turn
+		base = 0.09
+	case 3: // river
+		base = 0.08
+	}
+	chance := base + aggression*0.22 + maxFloat(0, strength-0.62)*0.5
+	return clampRange(chance, 0.02, 0.65)
+}
+
+func (b *RuleBrain) betChance(view GameView, aggression float64, strength float64) float64 {
+	base := 0.18
+	switch view.Street {
+	case 0:
+		base = 0.12
+	case 1:
+		base = 0.18
+	case 2:
+		base = 0.22
+	case 3:
+		base = 0.2
+	}
+	chance := base + aggression*0.35 + maxFloat(0, strength-0.52)*0.38
+	return clampRange(chance, 0.08, 0.85)
+}
+
 func clamp01(v float64) float64 {
 	if v < 0 {
 		return 0
@@ -195,6 +221,23 @@ func clamp01(v float64) float64 {
 		return 1
 	}
 	return v
+}
+
+func clampRange(v float64, lo float64, hi float64) float64 {
+	if v < lo {
+		return lo
+	}
+	if v > hi {
+		return hi
+	}
+	return v
+}
+
+func maxFloat(a float64, b float64) float64 {
+	if a > b {
+		return a
+	}
+	return b
 }
 
 func contains(actions []holdem.ActionType, target holdem.ActionType) bool {

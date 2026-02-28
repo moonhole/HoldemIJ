@@ -490,7 +490,7 @@ CREATE TABLE player_bots (
 - ✔ Quick Join can already auto-fill newly created tables with 4 NPCs.
 - ✔ Story Mode has baseline wiring end-to-end: chapter JSON, chapter registry, story table creation, proto messages, gateway handler, frontend entrypoint.
 - ✔ Frontend seat rendering already distinguishes NPC players with a dedicated badge.
-- Partial only: Story progression persistence, unlock gating, returning-NPC records/pool logic, and Rei recognition/commentary loops are not implemented yet.
+- Partial only: Feature unlock gating, returning-NPC records/pool logic, and Rei recognition/commentary loops are not implemented yet.
 
 ### Phase 1: Foundation
 - ✔ Create `holdem/npc/` package with `BrainDecider` interface
@@ -502,7 +502,7 @@ CREATE TABLE player_bots (
 
 ### Phase 2: Story Mode
 - ✔ Story chapter config (objectives, NPC assignments, unlock rewards)
-- [ ] Chapter progress tracking (`story_progress` table)
+- ✔ Chapter progress tracking (`story_progress` table)
 - [ ] Feature unlock gating (Audit, Coach, etc.)
 - [ ] Rei story narration templates (chapter intro, NPC intro, completion)
 - [ ] 5 Boss personas + 15 supporting personas (brain tuning + avatar art)
@@ -510,6 +510,7 @@ CREATE TABLE player_bots (
 Current state:
 - ✔ `data/story_chapters.json` + `ChapterRegistry` are in place.
 - ✔ Story table creation, chapter info proto payloads, gateway handler, and frontend "Begin Chapter I" entry are wired.
+- ✔ Story progress persistence + chapter lock/unlock flow are implemented (memory/postgres/sqlite backends + server push to frontend).
 - Partial: chapter intro/boss note text exists, but a full Rei narration pipeline for NPC intro/completion is still missing.
 - Partial: 20 personas and brain tuning exist in JSON, but the avatar-art portion is still outstanding.
 
