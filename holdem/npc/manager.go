@@ -21,20 +21,26 @@ type NPCInstance struct {
 
 // Manager manages NPC lifecycle and decision-making at tables.
 type Manager struct {
-	registry  *PersonaRegistry
-	instances map[uint64]*NPCInstance // keyed by PlayerID
-	mu        sync.RWMutex
-	rng       *rand.Rand
-	nextID    uint64 // auto-incrementing fake player IDs for NPCs
+	registry   *PersonaRegistry
+	instances  map[uint64]*NPCInstance // keyed by PlayerID
+	coreEngine CorePolicyEngine
+	ruleSource RuleProvider
+	guard      PolicyGuard
+	mu         sync.RWMutex
+	rng        *rand.Rand
+	nextID     uint64 // auto-incrementing fake player IDs for NPCs
 }
 
 // NewManager creates an NPC manager with the given persona registry.
 func NewManager(registry *PersonaRegistry) *Manager {
 	return &Manager{
-		registry:  registry,
-		instances: make(map[uint64]*NPCInstance),
-		rng:       rand.New(rand.NewSource(time.Now().UnixNano())),
-		nextID:    9_000_000, // NPC IDs start from 9M to avoid collision with real users
+		registry:   registry,
+		instances:  make(map[uint64]*NPCInstance),
+		coreEngine: NewDeterministicCorePolicyEngine(),
+		ruleSource: NewDefaultRuleProvider(),
+		guard:      NewDefaultPolicyGuard(),
+		rng:        rand.New(rand.NewSource(time.Now().UnixNano())),
+		nextID:     9_000_000, // NPC IDs start from 9M to avoid collision with real users
 	}
 }
 
@@ -57,7 +63,7 @@ func (m *Manager) SpawnNPC(
 	seed := m.rng.Int63()
 	m.mu.Unlock()
 
-	brain := NewRuleBrain(persona, seed)
+	brain := NewRuleBrainWithDeps(persona, seed, m.ruleSource, m.coreEngine, m.guard)
 
 	// Think delay: 2–5 seconds base, plus random jitter.
 	// This makes NPC pacing feel natural, especially in multi-NPC sequences.
