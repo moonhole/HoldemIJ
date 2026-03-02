@@ -74,6 +74,33 @@
       );
     }
 
+    /* Resize degradation mode: prioritize smooth drag-resize interactions. */
+    :root.is-resizing.profile-desktop #game-canvas {
+      clip-path: none;
+    }
+
+    :root.is-resizing *,
+    :root.is-resizing *::before,
+    :root.is-resizing *::after {
+      animation: none !important;
+      transition: none !important;
+    }
+
+    :root.is-resizing .action-overlay-shell,
+    :root.is-resizing .desktop-right-rail .replay-shell,
+    :root.is-resizing .desktop-right-rail .rei-replay-shell.action-overlay-shell,
+    :root.is-resizing .login-card,
+    :root.is-resizing .lobby-header,
+    :root.is-resizing .desktop-rail-card,
+    :root.is-resizing .desktop-chat-panel {
+      backdrop-filter: none !important;
+      box-shadow: none !important;
+    }
+
+    :root.is-resizing .logo-glow {
+      filter: none !important;
+    }
+
     #ui-layer {
       position: absolute;
       top: 0;

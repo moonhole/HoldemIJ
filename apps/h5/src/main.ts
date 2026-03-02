@@ -26,6 +26,7 @@ const PERF_SAMPLE_WINDOW = 180;
 const PERF_FLUSH_INTERVAL_MS = 250;
 const LONG_FRAME_THRESHOLD_MS = 34;
 const PERF_AUTOPILOT_TICK_MS = 220;
+const RESIZE_SETTLE_MS = 180;
 
 type DynamicRenderer = {
     name?: string;
@@ -76,7 +77,13 @@ class GameApp {
     private pendingDestroy: Container[] = [];
     private forcedUiProfile: UiProfile | null = null;
     private resizeObserver: ResizeObserver | null = null;
+    private resizeRafHandle: number | null = null;
+    private resizeSettleHandle: number | null = null;
+    private isResizeInteractive = false;
+    private lastResizeSignature = '';
+    private cssVarCache = new Map<string, string>();
     private desktopMask: Graphics | null = null;
+    private lastDesktopMaskClip: { top: number; height: number } | null = null;
     private perfLoopHandle: number | null = null;
     private restoreRendererRender: (() => void) | null = null;
     private perfExportEnabled = false;
@@ -88,6 +95,12 @@ class GameApp {
     private perfAutopilotPass = 'password';
     private perfAutopilotMode: PerfAutopilotMode = 'tableActive';
     private perfAutopilotLastPromptSig = '';
+    private readonly onWindowResize = (): void => {
+        this.scheduleResize();
+    };
+    private readonly onViewportResize = (): void => {
+        this.scheduleResize();
+    };
 
     constructor() {
         this.app = new Application();
@@ -159,13 +172,13 @@ class GameApp {
 
         // Setup resize handling
         this.handleResize();
-        window.addEventListener('resize', () => this.handleResize());
+        window.addEventListener('resize', this.onWindowResize);
         if (this.viewportEl instanceof HTMLElement && 'ResizeObserver' in window) {
-            this.resizeObserver = new ResizeObserver(() => this.handleResize());
+            this.resizeObserver = new ResizeObserver(this.onViewportResize);
             this.resizeObserver.observe(this.viewportEl);
         }
         // Avoid zero-size first frame in grid/flex containers.
-        window.requestAnimationFrame(() => this.handleResize());
+        window.requestAnimationFrame(() => this.scheduleResize(false));
 
         const authenticated = await bootstrapAuthSession();
         await this.loadScene(authenticated ? 'lobby' : 'login');
@@ -209,6 +222,56 @@ class GameApp {
         return nextProfile;
     }
 
+    private scheduleResize(markInteractive = true): void {
+        if (markInteractive) {
+            this.markResizeInteractive();
+        }
+        if (this.resizeRafHandle !== null) {
+            return;
+        }
+        this.resizeRafHandle = window.requestAnimationFrame(() => {
+            this.resizeRafHandle = null;
+            this.handleResize();
+        });
+    }
+
+    private markResizeInteractive(): void {
+        const root = document.documentElement;
+        if (!this.isResizeInteractive) {
+            this.isResizeInteractive = true;
+            root.classList.add('is-resizing');
+        }
+        if (this.resizeSettleHandle !== null) {
+            window.clearTimeout(this.resizeSettleHandle);
+        }
+        this.resizeSettleHandle = window.setTimeout(() => {
+            this.resizeSettleHandle = null;
+            this.isResizeInteractive = false;
+            root.classList.remove('is-resizing');
+        }, RESIZE_SETTLE_MS);
+    }
+
+    private setRootCssVar(name: string, value: string): void {
+        if (this.cssVarCache.get(name) === value) {
+            return;
+        }
+        document.documentElement.style.setProperty(name, value);
+        this.cssVarCache.set(name, value);
+    }
+
+    private setStageTransform(scale: number, x: number, y: number): void {
+        const stage = this.app.stage;
+        if (Math.abs(stage.scale.x - scale) > 0.0001 || Math.abs(stage.scale.y - scale) > 0.0001) {
+            stage.scale.set(scale);
+        }
+        if (Math.abs(stage.x - x) > 0.1) {
+            stage.x = x;
+        }
+        if (Math.abs(stage.y - y) > 0.1) {
+            stage.y = y;
+        }
+    }
+
     private handleResize(): void {
         const profile = this.syncUiProfile();
 
@@ -221,6 +284,11 @@ class GameApp {
         let viewportLeft = hasViewportSize ? (viewportRect?.left ?? 0) : 0;
         const viewportTop = hasViewportSize ? (viewportRect?.top ?? 0) : 0;
         let layoutW = w;
+        const resizeSignature = `${profile}|${Math.round(w)}|${Math.round(h)}|${Math.round(viewportLeft * 100) / 100}|${Math.round(viewportTop * 100) / 100}`;
+        if (this.lastResizeSignature === resizeSignature) {
+            return;
+        }
+        this.lastResizeSignature = resizeSignature;
 
         if (profile === 'desktop') {
             // 1. Lock center column to the design aspect ratio.
@@ -244,9 +312,7 @@ class GameApp {
             const stageX = viewportLeft;
             const stageY = viewportTop + (h - DESIGN_HEIGHT * scale) / 2;
 
-            this.app.stage.scale.set(scale);
-            this.app.stage.x = stageX;
-            this.app.stage.y = stageY;
+            this.setStageTransform(scale, stageX, stageY);
 
             // Clip the stage to the center column bounds so content
             // doesn't overflow above/below the window.
@@ -256,20 +322,26 @@ class GameApp {
             }
             const clipTop = -stageY / scale;
             const clipH = h / scale;
-            this.desktopMask.clear();
-            this.desktopMask.rect(0, clipTop, DESIGN_WIDTH, clipH);
-            this.desktopMask.fill({ color: 0xffffff });
+            const shouldRefreshMask =
+                !this.lastDesktopMaskClip ||
+                Math.abs(this.lastDesktopMaskClip.top - clipTop) > 0.25 ||
+                Math.abs(this.lastDesktopMaskClip.height - clipH) > 0.25;
+            if (shouldRefreshMask) {
+                this.desktopMask.clear();
+                this.desktopMask.rect(0, clipTop, DESIGN_WIDTH, clipH);
+                this.desktopMask.fill({ color: 0xffffff });
+                this.lastDesktopMaskClip = { top: clipTop, height: clipH };
+            }
             this.app.stage.mask = this.desktopMask;
 
-            const rootStyle = document.documentElement.style;
-            rootStyle.setProperty('--stage-x', `${stageX}px`);
-            rootStyle.setProperty('--stage-y', `${viewportTop}px`);
-            rootStyle.setProperty('--stage-width', `${layoutW}px`);
-            rootStyle.setProperty('--stage-height', `${h}px`);
-            rootStyle.setProperty('--stage-scale', `${scale}`);
+            this.setRootCssVar('--stage-x', `${stageX}px`);
+            this.setRootCssVar('--stage-y', `${viewportTop}px`);
+            this.setRootCssVar('--stage-width', `${layoutW}px`);
+            this.setRootCssVar('--stage-height', `${h}px`);
+            this.setRootCssVar('--stage-scale', `${scale}`);
             // Push rail sizes to CSS variables so React layout Grid matches perfectly
-            rootStyle.setProperty('--panel-left-width', `${rails.left}px`);
-            rootStyle.setProperty('--panel-right-width', `${rails.right}px`);
+            this.setRootCssVar('--panel-left-width', `${rails.left}px`);
+            this.setRootCssVar('--panel-right-width', `${rails.right}px`);
             return;
         }
 
@@ -278,6 +350,7 @@ class GameApp {
             this.app.stage.mask = null;
             this.desktopMask.destroy();
             this.desktopMask = null;
+            this.lastDesktopMaskClip = null;
         }
 
         // Use contain scaling to avoid any left/right cropping.
@@ -286,25 +359,20 @@ class GameApp {
         const scale = Math.min(scaleX, scaleY);
 
         // Apply scale to stage
-        this.app.stage.scale.set(scale);
-
-        // Center the stage
         const stageX = (layoutW - DESIGN_WIDTH * scale) / 2;
         const stageY = (h - DESIGN_HEIGHT * scale) / 2;
-        this.app.stage.x = stageX;
-        this.app.stage.y = stageY;
+        this.setStageTransform(scale, stageX, stageY);
 
         // Expose stage bounds to DOM overlay for pixel alignment.
         const stageW = DESIGN_WIDTH * scale;
         const stageH = DESIGN_HEIGHT * scale;
         const stageScreenX = viewportLeft + stageX;
         const stageScreenY = viewportTop + stageY;
-        const rootStyle = document.documentElement.style;
-        rootStyle.setProperty('--stage-x', `${stageScreenX}px`);
-        rootStyle.setProperty('--stage-y', `${stageScreenY}px`);
-        rootStyle.setProperty('--stage-width', `${stageW}px`);
-        rootStyle.setProperty('--stage-height', `${stageH}px`);
-        rootStyle.setProperty('--stage-scale', `${scale}`);
+        this.setRootCssVar('--stage-x', `${stageScreenX}px`);
+        this.setRootCssVar('--stage-y', `${stageScreenY}px`);
+        this.setRootCssVar('--stage-width', `${stageW}px`);
+        this.setRootCssVar('--stage-height', `${stageH}px`);
+        this.setRootCssVar('--stage-scale', `${scale}`);
     }
 
     private shouldEnablePerfOverlay(): boolean {

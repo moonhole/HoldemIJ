@@ -12,6 +12,7 @@ export function ReiOverlay(): JSX.Element | null {
     const keyLine = useReiStore((s) => s.keyLine);
     const details = useReiStore((s) => s.details);
     const scrollRef = useRef<HTMLDivElement | null>(null);
+    const syncRafRef = useRef<number | null>(null);
     const [hasOverflow, setHasOverflow] = useState(false);
     const [canScrollUp, setCanScrollUp] = useState(false);
     const [canScrollDown, setCanScrollDown] = useState(false);
@@ -28,6 +29,25 @@ export function ReiOverlay(): JSX.Element | null {
         setHasOverflow(overflow);
         setCanScrollUp(overflow && el.scrollTop > 1);
         setCanScrollDown(overflow && el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+    }, []);
+
+    const scheduleSyncScrollHints = useCallback((): void => {
+        if (syncRafRef.current !== null) {
+            return;
+        }
+        syncRafRef.current = window.requestAnimationFrame(() => {
+            syncRafRef.current = null;
+            syncScrollHints();
+        });
+    }, [syncScrollHints]);
+
+    useEffect(() => {
+        return () => {
+            if (syncRafRef.current !== null) {
+                window.cancelAnimationFrame(syncRafRef.current);
+                syncRafRef.current = null;
+            }
+        };
     }, []);
 
     useEffect(() => {
@@ -52,25 +72,23 @@ export function ReiOverlay(): JSX.Element | null {
         }
 
         const handleScroll = (): void => {
-            syncScrollHints();
+            scheduleSyncScrollHints();
         };
         el.addEventListener('scroll', handleScroll, { passive: true });
 
         let ro: ResizeObserver | null = null;
         if ('ResizeObserver' in window) {
             ro = new ResizeObserver(() => {
-                syncScrollHints();
+                scheduleSyncScrollHints();
             });
             ro.observe(el);
         }
-        window.addEventListener('resize', syncScrollHints);
 
         return () => {
             el.removeEventListener('scroll', handleScroll);
             ro?.disconnect();
-            window.removeEventListener('resize', syncScrollHints);
         };
-    }, [currentScene, replayMode, syncScrollHints]);
+    }, [currentScene, replayMode, scheduleSyncScrollHints]);
 
     if (currentScene !== 'table') {
         return null;
