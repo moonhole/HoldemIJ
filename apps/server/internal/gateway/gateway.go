@@ -286,6 +286,7 @@ func (c *Connection) handleStartStory(env *pb.ClientEnvelope, req *pb.StartStory
 				ReiStyle:         persona.ReiStyle,
 				IsBoss:           isBoss,
 				FirstSeenChapter: int32(persona.FirstSeen),
+				AvatarKey:        persona.AvatarKey,
 			})
 		}
 

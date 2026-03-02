@@ -77,13 +77,14 @@ type TableConfig struct {
 
 // PlayerConn represents a connected player at the table
 type PlayerConn struct {
-	UserID   uint64
-	Nickname string
-	Chair    uint16
-	Stack    int64
-	Wallet   int64 // Chips not yet at table
-	Online   bool
-	LastSeen time.Time
+	UserID    uint64
+	Nickname  string
+	AvatarKey string
+	Chair     uint16
+	Stack     int64
+	Wallet    int64 // Chips not yet at table
+	Online    bool
+	LastSeen  time.Time
 }
 
 // Event types for the actor message queue
@@ -258,11 +259,12 @@ func (t *Table) handleJoinTable(userID uint64, nickname string) error {
 		return nil // Already joined
 	}
 	t.players[userID] = &PlayerConn{
-		UserID:   userID,
-		Nickname: resolvedNickname,
-		Chair:    holdem.InvalidChair,
-		Online:   true,
-		LastSeen: now,
+		UserID:    userID,
+		Nickname:  resolvedNickname,
+		AvatarKey: "",
+		Chair:     holdem.InvalidChair,
+		Online:    true,
+		LastSeen:  now,
 	}
 	log.Printf("[Table %s] Player %d joined", t.ID, userID)
 
@@ -797,6 +799,14 @@ func (t *Table) playerNickname(userID uint64) string {
 	return fmt.Sprintf("user_%d", userID)
 }
 
+func (t *Table) playerAvatarKey(userID uint64) string {
+	player := t.players[userID]
+	if player == nil {
+		return ""
+	}
+	return strings.TrimSpace(player.AvatarKey)
+}
+
 func normalizeNickname(raw string, userID uint64) string {
 	nickname := strings.TrimSpace(raw)
 	if nickname == "" {
@@ -964,12 +974,13 @@ func (t *Table) SeatNPC(persona *npc.NPCPersona, chair uint16, buyIn int64) erro
 
 	// Register the NPC in the table's player/seat tracking
 	t.players[inst.PlayerID] = &PlayerConn{
-		UserID:   inst.PlayerID,
-		Nickname: inst.Persona.Name,
-		Chair:    chair,
-		Stack:    buyIn,
-		Online:   true,
-		LastSeen: time.Now(),
+		UserID:    inst.PlayerID,
+		Nickname:  inst.Persona.Name,
+		AvatarKey: inst.Persona.AvatarKey,
+		Chair:     chair,
+		Stack:     buyIn,
+		Online:    true,
+		LastSeen:  time.Now(),
 	}
 	t.seats[chair] = inst.PlayerID
 	t.updateEmptySinceLocked(time.Now())
@@ -1102,6 +1113,7 @@ func (t *Table) buildTableSnapshotForUser(userID uint64) *pb.TableSnapshot {
 			AllIn:      ps.AllIn,
 			LastAction: actionToProto(ps.LastAction),
 			HasCards:   len(ps.HandCards) > 0,
+			AvatarKey:  t.playerAvatarKey(ps.ID),
 		}
 		// Only expose hole cards for the current user.
 		if ps.ID == userID {
@@ -1208,6 +1220,7 @@ func (t *Table) sendSnapshot(userID uint64) {
 func (t *Table) broadcastSeatUpdate(chair uint16, userID uint64, stack int64) {
 	log.Printf("[Table %s] Broadcasting seat update: chair=%d user=%d stack=%d", t.ID, chair, userID, stack)
 	nickname := t.playerNickname(userID)
+	avatarKey := t.playerAvatarKey(userID)
 
 	env := &pb.ServerEnvelope{
 		TableId:    t.ID,
@@ -1218,11 +1231,12 @@ func (t *Table) broadcastSeatUpdate(chair uint16, userID uint64, stack int64) {
 				Chair: uint32(chair),
 				Update: &pb.SeatUpdate_PlayerJoined{
 					PlayerJoined: &pb.PlayerState{
-						UserId:   userID,
-						Nickname: nickname,
-						Chair:    uint32(chair),
-						Stack:    stack,
-						HasCards: false,
+						UserId:    userID,
+						Nickname:  nickname,
+						Chair:     uint32(chair),
+						Stack:     stack,
+						HasCards:  false,
+						AvatarKey: avatarKey,
 					},
 				},
 			},

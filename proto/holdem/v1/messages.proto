@@ -90,6 +90,7 @@ message StoryNpcInfo {
   string rei_style = 4;
   bool is_boss = 5;
   int32 first_seen_chapter = 6;
+  string avatar_key = 7;
 }
 
 message StoryChapterInfo {
@@ -157,6 +158,7 @@ message PlayerState {
   repeated Card hand_cards = 9;
   // true when this player has been dealt hole cards in the current hand.
   bool has_cards = 10;
+  string avatar_key = 11;
 }
 
 message Pot {

@@ -1705,8 +1705,9 @@ class SeatView extends Container {
         return palette[(hash + offset) % palette.length];
     }
 
-    private setAvatar(userId: bigint): void {
-        const seed = userId.toString();
+    private setAvatar(userId: bigint, avatarKey: string): void {
+        const normalizedAvatarKey = avatarKey.trim().toLowerCase();
+        const seed = normalizedAvatarKey.length > 0 ? normalizedAvatarKey : userId.toString();
         if (this.avatarSeed === seed && this.avatarVisual) {
             return;
         }
@@ -1790,7 +1791,7 @@ class SeatView extends Container {
         this.avatarContainer.visible = true;
         this.eventMode = 'static';
         this.cursor = 'pointer';
-        this.setAvatar(player.userId);
+        this.setAvatar(player.userId, player.avatarKey);
         const nickname = player.nickname.trim();
         const isNPC = player.userId > 9_000_000n;
         this.nameText.text = isMe ? 'YOU' : (nickname || `PLAYER_${player.userId.toString()}`);

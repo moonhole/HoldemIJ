@@ -1186,6 +1186,7 @@ type StoryNpcInfo struct {
 	ReiStyle         string                 `protobuf:"bytes,4,opt,name=rei_style,json=reiStyle,proto3" json:"rei_style,omitempty"`
 	IsBoss           bool                   `protobuf:"varint,5,opt,name=is_boss,json=isBoss,proto3" json:"is_boss,omitempty"`
 	FirstSeenChapter int32                  `protobuf:"varint,6,opt,name=first_seen_chapter,json=firstSeenChapter,proto3" json:"first_seen_chapter,omitempty"`
+	AvatarKey        string                 `protobuf:"bytes,7,opt,name=avatar_key,json=avatarKey,proto3" json:"avatar_key,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -1260,6 +1261,13 @@ func (x *StoryNpcInfo) GetFirstSeenChapter() int32 {
 		return x.FirstSeenChapter
 	}
 	return 0
+}
+
+func (x *StoryNpcInfo) GetAvatarKey() string {
+	if x != nil {
+		return x.AvatarKey
+	}
+	return ""
 }
 
 type StoryChapterInfo struct {
@@ -1719,7 +1727,8 @@ type PlayerState struct {
 	// hand_cards only sent to the player themselves
 	HandCards []*Card `protobuf:"bytes,9,rep,name=hand_cards,json=handCards,proto3" json:"hand_cards,omitempty"`
 	// true when this player has been dealt hole cards in the current hand.
-	HasCards      bool `protobuf:"varint,10,opt,name=has_cards,json=hasCards,proto3" json:"has_cards,omitempty"`
+	HasCards      bool   `protobuf:"varint,10,opt,name=has_cards,json=hasCards,proto3" json:"has_cards,omitempty"`
+	AvatarKey     string `protobuf:"bytes,11,opt,name=avatar_key,json=avatarKey,proto3" json:"avatar_key,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1822,6 +1831,13 @@ func (x *PlayerState) GetHasCards() bool {
 		return x.HasCards
 	}
 	return false
+}
+
+func (x *PlayerState) GetAvatarKey() string {
+	if x != nil {
+		return x.AvatarKey
+	}
+	return ""
 }
 
 type Pot struct {
@@ -3106,14 +3122,16 @@ const file_messages_proto_rawDesc = "" +
 	"\x06amount\x18\x02 \x01(\x03R\x06amount\"2\n" +
 	"\x11StartStoryRequest\x12\x1d\n" +
 	"\n" +
-	"chapter_id\x18\x01 \x01(\x05R\tchapterId\"\xba\x01\n" +
+	"chapter_id\x18\x01 \x01(\x05R\tchapterId\"\xd9\x01\n" +
 	"\fStoryNpcInfo\x12\x15\n" +
 	"\x06npc_id\x18\x01 \x01(\tR\x05npcId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1b\n" +
 	"\trei_intro\x18\x03 \x01(\tR\breiIntro\x12\x1b\n" +
 	"\trei_style\x18\x04 \x01(\tR\breiStyle\x12\x17\n" +
 	"\ais_boss\x18\x05 \x01(\bR\x06isBoss\x12,\n" +
-	"\x12first_seen_chapter\x18\x06 \x01(\x05R\x10firstSeenChapter\"\xbb\x02\n" +
+	"\x12first_seen_chapter\x18\x06 \x01(\x05R\x10firstSeenChapter\x12\x1d\n" +
+	"\n" +
+	"avatar_key\x18\a \x01(\tR\tavatarKey\"\xbb\x02\n" +
 	"\x10StoryChapterInfo\x12\x1d\n" +
 	"\n" +
 	"chapter_id\x18\x01 \x01(\x05R\tchapterId\x12\x14\n" +
@@ -3158,7 +3176,7 @@ const file_messages_proto_rawDesc = "" +
 	"\n" +
 	"min_buy_in\x18\x05 \x01(\x03R\bminBuyIn\x12\x1c\n" +
 	"\n" +
-	"max_buy_in\x18\x06 \x01(\x03R\bmaxBuyIn\"\xb4\x02\n" +
+	"max_buy_in\x18\x06 \x01(\x03R\bmaxBuyIn\"\xd3\x02\n" +
 	"\vPlayerState\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\x04R\x06userId\x12\x14\n" +
 	"\x05chair\x18\x02 \x01(\rR\x05chair\x12\x1a\n" +
@@ -3172,7 +3190,9 @@ const file_messages_proto_rawDesc = "" +
 	"\n" +
 	"hand_cards\x18\t \x03(\v2\x0f.holdem.v1.CardR\thandCards\x12\x1b\n" +
 	"\thas_cards\x18\n" +
-	" \x01(\bR\bhasCards\"F\n" +
+	" \x01(\bR\bhasCards\x12\x1d\n" +
+	"\n" +
+	"avatar_key\x18\v \x01(\tR\tavatarKey\"F\n" +
 	"\x03Pot\x12\x16\n" +
 	"\x06amount\x18\x01 \x01(\x03R\x06amount\x12'\n" +
 	"\x0feligible_chairs\x18\x02 \x03(\rR\x0eeligibleChairs\"\xc1\x01\n" +

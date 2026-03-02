@@ -463,34 +463,34 @@ CREATE TABLE player_bots (
 
 ### Progress Snapshot (as of 2026-02-27)
 
-- ✔ Phase 1 foundation is implemented in `holdem/npc/` and integrated into the live table loop.
-- ✔ Quick Join can already auto-fill newly created tables with 4 NPCs.
-- ✔ Story Mode has baseline wiring end-to-end: chapter JSON, chapter registry, story table creation, proto messages, gateway handler, frontend entrypoint.
-- ✔ Frontend seat rendering already distinguishes NPC players with a dedicated badge.
+- [x] Phase 1 foundation is implemented in `holdem/npc/` and integrated into the live table loop.
+- [x] Quick Join can already auto-fill newly created tables with 4 NPCs.
+- [x] Story Mode has baseline wiring end-to-end: chapter JSON, chapter registry, story table creation, proto messages, gateway handler, frontend entrypoint.
+- [x] Frontend seat rendering already distinguishes NPC players with a dedicated badge.
 - Partial only: Returning-NPC records/pool logic and Quick Join recognition loops are not implemented yet.
 - New architecture direction (this doc): migrate to unified policy core + provider model.
 
 ### Phase 1: Foundation
-- ✔ Create `holdem/npc/` package with `BrainDecider` interface
-- ✔ Implement `RuleBrain` with `PersonalityProfile` parameters
-- ✔ Build `PersonaRegistry` that loads from JSON
-- ✔ Implement `NPCManager` (spawn, on-turn, despawn)
-- ✔ Integrate NPC turn handling into table game loop
-- ✔ NPC badge display on frontend player seats
+- [x] Create `holdem/npc/` package with `BrainDecider` interface
+- [x] Implement `RuleBrain` with `PersonalityProfile` parameters
+- [x] Build `PersonaRegistry` that loads from JSON
+- [x] Implement `NPCManager` (spawn, on-turn, despawn)
+- [x] Integrate NPC turn handling into table game loop
+- [x] NPC badge display on frontend player seats
 
 ### Phase 2: Story Mode
-- ✔ Story chapter config (objectives, NPC assignments, unlock rewards)
-- ✔ Chapter progress tracking (`story_progress` table)
-- ✔ Feature unlock gating (Audit, Coach, etc.)
+- [x] Story chapter config (objectives, NPC assignments, unlock rewards)
+- [x] Chapter progress tracking (`story_progress` table)
+- [x] Feature unlock gating (Audit, Coach, etc.)
 - [x] Rei story narration templates (chapter intro, NPC intro, completion)
-- [ ] 5 Boss personas + 15 supporting personas (brain tuning + avatar art)
+- [x] 5 Boss personas + 15 supporting personas (brain tuning + avatar art)
 
 Current state:
-- ✔ `data/story_chapters.json` + `ChapterRegistry` are in place.
-- ✔ Story table creation, chapter info proto payloads, gateway handler, and frontend "Begin Chapter I" entry are wired.
-- ✔ Story progress persistence + chapter lock/unlock flow are implemented (memory/postgres/sqlite backends + server push to frontend).
-- ✔ Chapter intro + chapter completion + per-NPC encounter/return narration templates are wired into frontend Rei runtime (`npc_roster` proto + seen-NPC memory).
-- Partial: 20 personas and brain tuning exist in JSON, but the avatar-art portion is still outstanding.
+- [x] `data/story_chapters.json` + `ChapterRegistry` are in place.
+- [x] Story table creation, chapter info proto payloads, gateway handler, and frontend "Begin Chapter I" entry are wired.
+- [x] Story progress persistence + chapter lock/unlock flow are implemented (memory/postgres/sqlite backends + server push to frontend).
+- [x] Chapter intro + chapter completion + per-NPC encounter/return narration templates are wired into frontend Rei runtime (`npc_roster` proto + seen-NPC memory).
+- [x] 20 personas (5 bosses + 15 supporting) are tuned in JSON, and avatar art is key-driven (`avatarKey`) from server to seat rendering.
 
 ### Phase 3: Quick Join Integration
 - [ ] Player NPC pool + unlock tracking (`player_npc_records` table)
@@ -499,7 +499,7 @@ Current state:
 - [ ] Per-NPC win/loss record display in left rail
 
 Current state:
-- ✔ Baseline NPC autofill for Quick Join exists today.
+- [x] Baseline NPC autofill for Quick Join exists today.
 - Partial: current fill logic is random roster fill and is not yet rank-tier-aware or unlock-pool-aware.
 
 ### Phase 4: Player Bots (Agent UI Programming)

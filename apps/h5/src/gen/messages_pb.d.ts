@@ -375,6 +375,11 @@ export declare type StoryNpcInfo = Message<"holdem.v1.StoryNpcInfo"> & {
    * @generated from field: int32 first_seen_chapter = 6;
    */
   firstSeenChapter: number;
+
+  /**
+   * @generated from field: string avatar_key = 7;
+   */
+  avatarKey: string;
 };
 
 /**
@@ -660,6 +665,11 @@ export declare type PlayerState = Message<"holdem.v1.PlayerState"> & {
    * @generated from field: bool has_cards = 10;
    */
   hasCards: boolean;
+
+  /**
+   * @generated from field: string avatar_key = 11;
+   */
+  avatarKey: string;
 };
 
 /**
