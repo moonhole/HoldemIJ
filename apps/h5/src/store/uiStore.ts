@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { StoryChapterInfo, StoryProgressState } from '@gen/messages_pb';
+import type { StoryChapterInfo, StoryNpcInfo, StoryProgressState } from '@gen/messages_pb';
 import { gameClient } from '../network/GameClient';
 import type { ReiStoryNarration } from '../rei/types';
 import { useGameStore } from './gameStore';
@@ -36,6 +36,7 @@ type UiStoreState = {
     storyActiveProgressEvents: number;
     storyActiveChapterHistoricalCompleted: boolean;
     storyActiveChapterCompletedInRun: boolean;
+    storySeenNpcIds: string[];
     pausedStoryInstance: PausedStoryInstance | null;
     selectedStoryChapter: number;
 
@@ -58,9 +59,132 @@ const QUICK_START_WAIT_SNAPSHOT_MS = 8000;
 const RETURN_LOBBY_DISCONNECT_GRACE_MS = 350;
 const STORY_NARRATION_CHAPTER_INTRO_TTL_MS = 20000;
 const STORY_NARRATION_CHAPTER_CLEAR_TTL_MS = 22000;
+const STORY_SEEN_NPCS_STORAGE_KEY = 'holdem.story.seen_npcs.v1';
 
 function normalizeStoryText(text: string): string {
     return text.replace(/\s+/g, ' ').trim();
+}
+
+function normalizeNpcId(id: string): string {
+    return id.trim().toLowerCase();
+}
+
+function equalStringArrays(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) {
+        return false;
+    }
+    for (let i = 0; i < a.length; i += 1) {
+        if (a[i] !== b[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+function loadSeenStoryNpcIds(): string[] {
+    if (typeof window === 'undefined') {
+        return [];
+    }
+    try {
+        const raw = window.localStorage.getItem(STORY_SEEN_NPCS_STORAGE_KEY);
+        if (!raw) {
+            return [];
+        }
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+            return [];
+        }
+        return Array.from(
+            new Set(
+                parsed
+                    .map((value) => normalizeNpcId(String(value)))
+                    .filter((value) => value.length > 0),
+            ),
+        ).sort();
+    } catch {
+        return [];
+    }
+}
+
+function persistSeenStoryNpcIds(ids: string[]): void {
+    if (typeof window === 'undefined') {
+        return;
+    }
+    try {
+        window.localStorage.setItem(STORY_SEEN_NPCS_STORAGE_KEY, JSON.stringify(ids));
+    } catch {
+        // Ignore storage failures to avoid blocking gameplay.
+    }
+}
+
+function formatNpcStyle(style: string): string {
+    return normalizeStoryText(style).replace(/[-_]+/g, ' ');
+}
+
+function buildNpcNarrationLine(npc: StoryNpcInfo, isReturning: boolean): string {
+    const name = normalizeStoryText(npc.name) || normalizeNpcId(npc.npcId).toUpperCase();
+    const intro = normalizeStoryText(npc.reiIntro);
+    const style = formatNpcStyle(npc.reiStyle);
+    const prefix = npc.isBoss ? `Boss ${name}` : name;
+    if (isReturning) {
+        const recap = intro.length > 0 ? `Recap: ${intro}` : 'Recap: profile unchanged.';
+        const styleHint = style.length > 0 ? `Style ${style}.` : '';
+        return `${prefix} returns. ${styleHint} ${recap}`.replace(/\s+/g, ' ').trim();
+    }
+    const introText = intro.length > 0 ? intro : 'Unknown profile. Confirm reads at showdown.';
+    const styleHint = style.length > 0 ? `Style ${style}.` : '';
+    return `${prefix}: ${introText} ${styleHint}`.replace(/\s+/g, ' ').trim();
+}
+
+function buildChapterRosterNarration(
+    info: StoryChapterInfo,
+    seenNpcIds: string[],
+): { details: string; keyLineSuffix: string; nextSeenNpcIds: string[] } {
+    const seen = new Set(
+        seenNpcIds
+            .map((id) => normalizeNpcId(id))
+            .filter((id) => id.length > 0),
+    );
+    const nextSeen = new Set(seen);
+    const firstEncounterLines: string[] = [];
+    const returningLines: string[] = [];
+
+    for (const npc of info.npcRoster) {
+        const npcId = normalizeNpcId(npc.npcId);
+        if (npcId.length === 0) {
+            continue;
+        }
+        const isReturning = seen.has(npcId);
+        if (isReturning) {
+            returningLines.push(buildNpcNarrationLine(npc, true));
+        } else {
+            firstEncounterLines.push(buildNpcNarrationLine(npc, false));
+        }
+        nextSeen.add(npcId);
+    }
+
+    const detailsParts: string[] = [];
+    if (firstEncounterLines.length > 0) {
+        detailsParts.push(`First encounters: ${firstEncounterLines.join(' ')}`);
+    }
+    if (returningLines.length > 0) {
+        detailsParts.push(`Returning opponents: ${returningLines.join(' ')}`);
+    }
+
+    let keyLineSuffix = '';
+    if (firstEncounterLines.length > 0 && returningLines.length > 0) {
+        keyLineSuffix = `${firstEncounterLines.length} new, ${returningLines.length} returning opponents profiled.`;
+    } else if (firstEncounterLines.length > 0) {
+        keyLineSuffix = `${firstEncounterLines.length} new opponents profiled.`;
+    } else if (returningLines.length > 0) {
+        keyLineSuffix = `${returningLines.length} known opponents are back.`;
+    }
+
+    return {
+        details: detailsParts.join(' ').trim(),
+        keyLineSuffix,
+        nextSeenNpcIds: Array.from(nextSeen).sort(),
+    };
 }
 
 function featureLabel(featureId: string): string {
@@ -85,23 +209,37 @@ function formatFeatureList(features: string[]): string {
     return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
 }
 
-function buildChapterIntroNarration(info: StoryChapterInfo): ReiStoryNarration {
+function buildChapterIntroNarration(
+    info: StoryChapterInfo,
+    seenNpcIds: string[],
+): { narration: ReiStoryNarration; nextSeenNpcIds: string[] } {
     const chapterId = Math.max(1, Math.trunc(Number(info.chapterId) || 1));
     const now = Date.now();
     const intro = normalizeStoryText(info.reiIntro);
     const boss = normalizeStoryText(info.bossName);
     const bossNote = normalizeStoryText(info.reiBossNote);
+    const rosterNarration = buildChapterRosterNarration(info, seenNpcIds);
     const detailsParts = [
         intro,
         boss && bossNote ? `Boss ${boss}: ${bossNote}` : bossNote,
+        rosterNarration.details,
     ].filter((part) => part.length > 0);
 
+    const keyLineBase = `${storyChapterTitle(chapterId)} started.`;
+    const keyLine =
+        rosterNarration.keyLineSuffix.length > 0
+            ? `${keyLineBase} ${rosterNarration.keyLineSuffix}`
+            : keyLineBase;
+
     return {
-        id: now,
-        statusTag: 'OBSERVE',
-        keyLine: `${storyChapterTitle(chapterId)} started.`,
-        details: detailsParts.join(' '),
-        expiresAtMs: now + STORY_NARRATION_CHAPTER_INTRO_TTL_MS,
+        narration: {
+            id: now,
+            statusTag: 'OBSERVE',
+            keyLine,
+            details: detailsParts.join(' '),
+            expiresAtMs: now + STORY_NARRATION_CHAPTER_INTRO_TTL_MS,
+        },
+        nextSeenNpcIds: rosterNarration.nextSeenNpcIds,
     };
 }
 
@@ -192,6 +330,7 @@ export const useUiStore = create<UiStoreState>((set) => ({
     storyActiveProgressEvents: 0,
     storyActiveChapterHistoricalCompleted: false,
     storyActiveChapterCompletedInRun: false,
+    storySeenNpcIds: loadSeenStoryNpcIds(),
     pausedStoryInstance: null,
     selectedStoryChapter: 1,
 
@@ -444,17 +583,22 @@ export const useUiStore = create<UiStoreState>((set) => ({
     ingestStoryChapterInfo: (info) =>
         set((state) => {
             const chapterId = Math.max(1, Math.trunc(Number(info.chapterId) || 1));
+            const intro = buildChapterIntroNarration(info, state.storySeenNpcIds);
+            if (!equalStringArrays(state.storySeenNpcIds, intro.nextSeenNpcIds)) {
+                persistSeenStoryNpcIds(intro.nextSeenNpcIds);
+            }
             return {
                 ...state,
                 storyChapterInfo: info,
                 selectedStoryChapter:
                     chapterId <= state.storyHighestUnlockedChapter ? chapterId : state.selectedStoryChapter,
-                storyReiNarration: buildChapterIntroNarration(info),
+                storyReiNarration: intro.narration,
                 storyActiveChapterId: chapterId,
                 storyActiveTableId: info.tableId,
                 storyActiveProgressEvents: 0,
                 storyActiveChapterHistoricalCompleted: false,
                 storyActiveChapterCompletedInRun: false,
+                storySeenNpcIds: intro.nextSeenNpcIds,
             };
         }),
 

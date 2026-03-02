@@ -343,6 +343,47 @@ export declare type StartStoryRequest = Message<"holdem.v1.StartStoryRequest"> &
 export declare const StartStoryRequestSchema: GenMessage<StartStoryRequest>;
 
 /**
+ * @generated from message holdem.v1.StoryNpcInfo
+ */
+export declare type StoryNpcInfo = Message<"holdem.v1.StoryNpcInfo"> & {
+  /**
+   * @generated from field: string npc_id = 1;
+   */
+  npcId: string;
+
+  /**
+   * @generated from field: string name = 2;
+   */
+  name: string;
+
+  /**
+   * @generated from field: string rei_intro = 3;
+   */
+  reiIntro: string;
+
+  /**
+   * @generated from field: string rei_style = 4;
+   */
+  reiStyle: string;
+
+  /**
+   * @generated from field: bool is_boss = 5;
+   */
+  isBoss: boolean;
+
+  /**
+   * @generated from field: int32 first_seen_chapter = 6;
+   */
+  firstSeenChapter: number;
+};
+
+/**
+ * Describes the message holdem.v1.StoryNpcInfo.
+ * Use `create(StoryNpcInfoSchema)` to create a new message.
+ */
+export declare const StoryNpcInfoSchema: GenMessage<StoryNpcInfo>;
+
+/**
  * @generated from message holdem.v1.StoryChapterInfo
  */
 export declare type StoryChapterInfo = Message<"holdem.v1.StoryChapterInfo"> & {
@@ -385,6 +426,11 @@ export declare type StoryChapterInfo = Message<"holdem.v1.StoryChapterInfo"> & {
    * @generated from field: string table_id = 8;
    */
   tableId: string;
+
+  /**
+   * @generated from field: repeated holdem.v1.StoryNpcInfo npc_roster = 9;
+   */
+  npcRoster: StoryNpcInfo[];
 };
 
 /**

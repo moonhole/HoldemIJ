@@ -2,6 +2,8 @@ import { initialLiveSnapshot, reduceLiveMachine, type ReiLiveSnapshot } from './
 import { initialReplaySnapshot, reduceReplayMachine, type ReiReplaySnapshot } from './machine/replayMachine';
 import type { ReiMachineState, ReiMode, ReiRuntimeInput, ReiStatusTag } from './types';
 
+const REI_MIN_VIEW_HOLD_MS = 1500;
+
 export type ReiRuntimeState = {
     mode: ReiMode;
     machineState: ReiMachineState;
@@ -39,6 +41,10 @@ function mapReplayToView(snapshot: ReiReplaySnapshot) {
         keyLine: snapshot.keyLine,
         details: snapshot.details,
     };
+}
+
+function isCriticalStatus(tag: ReiStatusTag): boolean {
+    return tag === 'HERO_DECISION' || tag === 'SYNCING' || tag === 'OFFLINE';
 }
 
 export function initialReiRuntimeState(nowMs: number = Date.now()): ReiRuntimeState {
@@ -94,6 +100,27 @@ export function reduceReiRuntimeState(prev: ReiRuntimeState, input: ReiRuntimeIn
             details: storyNarration.details,
         }
         : active;
+    const viewChanged =
+        prev.machineState !== view.machineState ||
+        prev.statusTag !== view.statusTag ||
+        prev.keyLine !== view.keyLine ||
+        prev.details !== view.details;
+    const canHoldView =
+        !storyNarration &&
+        prev.mode === nextMode &&
+        viewChanged &&
+        !isCriticalStatus(prev.statusTag) &&
+        !isCriticalStatus(view.statusTag) &&
+        input.nowMs-prev.updatedAtMs < REI_MIN_VIEW_HOLD_MS;
+    const effectiveView = canHoldView
+        ? {
+            machineState: prev.machineState,
+            statusTag: prev.statusTag,
+            keyLine: prev.keyLine,
+            details: prev.details,
+        }
+        : view;
+    const nextUpdatedAtMs = canHoldView ? prev.updatedAtMs : input.nowMs;
 
     const liveChanged =
         prev.liveSnapshot.machineState !== nextLiveSnapshot.machineState ||
@@ -111,10 +138,11 @@ export function reduceReiRuntimeState(prev: ReiRuntimeState, input: ReiRuntimeIn
 
     const changed =
         prev.mode !== nextMode ||
-        prev.machineState !== view.machineState ||
-        prev.statusTag !== view.statusTag ||
-        prev.keyLine !== view.keyLine ||
-        prev.details !== view.details ||
+        prev.machineState !== effectiveView.machineState ||
+        prev.statusTag !== effectiveView.statusTag ||
+        prev.keyLine !== effectiveView.keyLine ||
+        prev.details !== effectiveView.details ||
+        prev.updatedAtMs !== nextUpdatedAtMs ||
         liveChanged ||
         replayChanged;
 
@@ -125,11 +153,11 @@ export function reduceReiRuntimeState(prev: ReiRuntimeState, input: ReiRuntimeIn
     return {
         ...prev,
         mode: nextMode,
-        machineState: view.machineState,
-        statusTag: view.statusTag,
-        keyLine: view.keyLine,
-        details: view.details,
-        updatedAtMs: input.nowMs,
+        machineState: effectiveView.machineState,
+        statusTag: effectiveView.statusTag,
+        keyLine: effectiveView.keyLine,
+        details: effectiveView.details,
+        updatedAtMs: nextUpdatedAtMs,
         liveSnapshot: nextLiveSnapshot,
         replaySnapshot: nextReplaySnapshot,
     };

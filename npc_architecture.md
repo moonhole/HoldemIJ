@@ -467,7 +467,7 @@ CREATE TABLE player_bots (
 - ✔ Quick Join can already auto-fill newly created tables with 4 NPCs.
 - ✔ Story Mode has baseline wiring end-to-end: chapter JSON, chapter registry, story table creation, proto messages, gateway handler, frontend entrypoint.
 - ✔ Frontend seat rendering already distinguishes NPC players with a dedicated badge.
-- Partial only: Returning-NPC records/pool logic and Rei recognition/commentary loops are not implemented yet.
+- Partial only: Returning-NPC records/pool logic and Quick Join recognition loops are not implemented yet.
 - New architecture direction (this doc): migrate to unified policy core + provider model.
 
 ### Phase 1: Foundation
@@ -482,14 +482,14 @@ CREATE TABLE player_bots (
 - ✔ Story chapter config (objectives, NPC assignments, unlock rewards)
 - ✔ Chapter progress tracking (`story_progress` table)
 - ✔ Feature unlock gating (Audit, Coach, etc.)
-- [ ] Rei story narration templates (chapter intro, NPC intro, completion)
+- [x] Rei story narration templates (chapter intro, NPC intro, completion)
 - [ ] 5 Boss personas + 15 supporting personas (brain tuning + avatar art)
 
 Current state:
 - ✔ `data/story_chapters.json` + `ChapterRegistry` are in place.
 - ✔ Story table creation, chapter info proto payloads, gateway handler, and frontend "Begin Chapter I" entry are wired.
 - ✔ Story progress persistence + chapter lock/unlock flow are implemented (memory/postgres/sqlite backends + server push to frontend).
-- Partial: chapter intro + chapter completion narration is wired into frontend Rei runtime, but per-NPC encounter/return narration is still missing.
+- ✔ Chapter intro + chapter completion + per-NPC encounter/return narration templates are wired into frontend Rei runtime (`npc_roster` proto + seen-NPC memory).
 - Partial: 20 personas and brain tuning exist in JSON, but the avatar-art portion is still outstanding.
 
 ### Phase 3: Quick Join Integration

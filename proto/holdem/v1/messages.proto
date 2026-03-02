@@ -83,6 +83,15 @@ message StartStoryRequest {
   int32 chapter_id = 1;
 }
 
+message StoryNpcInfo {
+  string npc_id = 1;
+  string name = 2;
+  string rei_intro = 3;
+  string rei_style = 4;
+  bool is_boss = 5;
+  int32 first_seen_chapter = 6;
+}
+
 message StoryChapterInfo {
   int32 chapter_id = 1;
   string title = 2;
@@ -92,6 +101,7 @@ message StoryChapterInfo {
   string rei_boss_note = 6;
   string boss_name = 7;
   string table_id = 8;
+  repeated StoryNpcInfo npc_roster = 9;
 }
 
 message StoryProgressState {

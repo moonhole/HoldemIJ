@@ -266,9 +266,35 @@ func (c *Connection) handleStartStory(env *pb.ClientEnvelope, req *pb.StartStory
 
 	// Send chapter info to client
 	bossName := ""
+	npcRoster := make([]*pb.StoryNpcInfo, 0, 1+len(chapter.SupportIDs))
 	if mgr := t.NPCManager(); mgr != nil {
-		if boss := mgr.Registry().Get(chapter.BossID); boss != nil {
+		registry := mgr.Registry()
+		seen := make(map[string]struct{}, 1+len(chapter.SupportIDs))
+		appendNPC := func(npcID string, isBoss bool) {
+			if _, ok := seen[npcID]; ok {
+				return
+			}
+			persona := registry.Get(npcID)
+			if persona == nil {
+				return
+			}
+			seen[npcID] = struct{}{}
+			npcRoster = append(npcRoster, &pb.StoryNpcInfo{
+				NpcId:            persona.ID,
+				Name:             persona.Name,
+				ReiIntro:         persona.ReiIntro,
+				ReiStyle:         persona.ReiStyle,
+				IsBoss:           isBoss,
+				FirstSeenChapter: int32(persona.FirstSeen),
+			})
+		}
+
+		if boss := registry.Get(chapter.BossID); boss != nil {
 			bossName = boss.Name
+		}
+		appendNPC(chapter.BossID, true)
+		for _, supportID := range chapter.SupportIDs {
+			appendNPC(supportID, false)
 		}
 	}
 
@@ -285,6 +311,7 @@ func (c *Connection) handleStartStory(env *pb.ClientEnvelope, req *pb.StartStory
 				ReiBossNote:   chapter.ReiBossNote,
 				BossName:      bossName,
 				TableId:       t.ID,
+				NpcRoster:     npcRoster,
 			},
 		},
 	}

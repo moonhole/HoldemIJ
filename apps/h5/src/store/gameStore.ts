@@ -138,6 +138,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
                             ...next.snapshot,
                             players,
                             pots: [], // Clear pots for new hand
+                            round: start.round,
                             dealerChair: start.dealerChair,
                             smallBlindChair: start.smallBlindChair,
                             bigBlindChair: start.bigBlindChair,
