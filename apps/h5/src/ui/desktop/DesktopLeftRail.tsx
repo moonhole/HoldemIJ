@@ -1,6 +1,8 @@
 import { Phase } from '@gen/messages_pb';
 import { useMemo } from 'react';
+import { gameClient } from '../../network/GameClient';
 import { useReplayStore } from '../../replay/replayStore';
+import { getStoryChapterObjective, storyChapterRoman } from '../../story/storyCatalog';
 import { useAuthStore } from '../../store/authStore';
 import { useGameStore } from '../../store/gameStore';
 import { useUiStore } from '../../store/uiStore';
@@ -24,6 +26,44 @@ function phaseLabel(phase: Phase | undefined): string {
 
 function formatChips(value: bigint): string {
     return `$${value.toLocaleString()}`;
+}
+
+function computeStoryObjectiveComplete(chapterId: number, myChair: number, snapshot: ReturnType<typeof useGameStore.getState>['snapshot']): boolean {
+    if (chapterId <= 0 || myChair < 0 || !snapshot) {
+        return false;
+    }
+    const objective = getStoryChapterObjective(chapterId);
+    if (!objective) {
+        return false;
+    }
+    const hero = snapshot.players.find((player) => player.chair === myChair);
+    if (!hero) {
+        return false;
+    }
+    const startStack = snapshot.config?.maxBuyIn ?? 0n;
+    const bigBlind = snapshot.config?.bigBlind ?? 0n;
+    const handsPlayed = Math.max(0, Math.trunc(Number(snapshot.round) || 0));
+
+    switch (objective.type) {
+        case 'win_bb':
+            if (bigBlind <= 0n) {
+                return false;
+            }
+            return hero.stack-startStack >= BigInt(objective.target) * bigBlind;
+        case 'survive':
+            return handsPlayed >= objective.target && hero.stack >= startStack;
+        case 'eliminate':
+            return hero.stack > 0n && snapshot.players.every((player) => player.chair === myChair || player.stack <= 0n);
+        case 'most_chips':
+            if (handsPlayed < objective.target) {
+                return false;
+            }
+            return snapshot.players.every((player) => player.chair === myChair || hero.stack >= player.stack);
+        case 'win_pots':
+            return false;
+        default:
+            return false;
+    }
 }
 
 /* ── Login Scene ── */
@@ -161,6 +201,12 @@ function LobbyLeftRail(): JSX.Element {
 /* ── Table / Audit Scene ── */
 function TableLeftRail(): JSX.Element {
     const currentScene = useUiStore((s) => s.currentScene);
+    const storyChapterInfo = useUiStore((s) => s.storyChapterInfo);
+    const storyCompletedChapters = useUiStore((s) => s.storyCompletedChapters);
+    const storyActiveChapterId = useUiStore((s) => s.storyActiveChapterId);
+    const storyActiveProgressEvents = useUiStore((s) => s.storyActiveProgressEvents);
+    const storyActiveChapterHistoricalCompleted = useUiStore((s) => s.storyActiveChapterHistoricalCompleted);
+    const storyActiveChapterCompletedInRun = useUiStore((s) => s.storyActiveChapterCompletedInRun);
     const replayMode = useReplayStore((s) => s.mode);
     const replayTape = useReplayStore((s) => s.tape);
     const replayCursor = useReplayStore((s) => s.cursor);
@@ -198,6 +244,38 @@ function TableLeftRail(): JSX.Element {
         : '--';
 
     const isReplayReady = currentScene === 'table' && replayMode === 'loaded';
+    const currentTableId = gameClient.getCurrentTableId();
+    const isStoryTableActive =
+        !!storyChapterInfo &&
+        storyChapterInfo.tableId.length > 0 &&
+        storyChapterInfo.tableId === currentTableId;
+    const activeChapterId = isStoryTableActive
+        ? Math.max(1, Math.trunc(Number(storyChapterInfo.chapterId) || storyActiveChapterId || 1))
+        : 0;
+    const activeObjective = activeChapterId > 0 ? getStoryChapterObjective(activeChapterId) : null;
+    const handsPlayed = Math.max(0, Math.trunc(Number(snapshot?.round) || 0));
+    const handProgressTarget = activeObjective?.target ?? 0;
+    const showHandProgress = isStoryTableActive && handProgressTarget > 0;
+    const handProgressRatio = showHandProgress
+        ? Math.max(0, Math.min(1, handsPlayed / handProgressTarget))
+        : 0;
+    const handProgressLabel = showHandProgress
+        ? `${handsPlayed}/${handProgressTarget}`
+        : `${handsPlayed}`;
+    const historicalComplete = isStoryTableActive
+        ? (storyActiveProgressEvents > 0
+            ? storyActiveChapterHistoricalCompleted
+            : storyCompletedChapters.includes(activeChapterId))
+        : false;
+    const localCurrentRunComplete = isStoryTableActive
+        ? computeStoryObjectiveComplete(activeChapterId, myChair, snapshot)
+        : false;
+    const currentRunComplete = isStoryTableActive ? (storyActiveChapterCompletedInRun || localCurrentRunComplete) : false;
+    const historicalStatusText = historicalComplete
+        ? 'Completed'
+        : currentRunComplete
+            ? 'Pending Sync'
+            : 'Not Completed';
 
     return (
         <aside className="desktop-left-rail-content">
@@ -219,6 +297,43 @@ function TableLeftRail(): JSX.Element {
                     </div>
                 </div>
             </section>
+
+            {isStoryTableActive && storyChapterInfo ? (
+                <section className="desktop-rail-card desktop-story-card">
+                    <header className="desktop-rail-head">
+                        <span className="desktop-rail-title">Story Chapter Status</span>
+                        <span className={`desktop-rail-chip ${currentRunComplete ? 'is-live' : ''}`}>
+                            {`Chapter ${storyChapterRoman(activeChapterId)}`}
+                        </span>
+                    </header>
+                    <div className="desktop-story-objective">
+                        {storyChapterInfo.objectiveDesc || 'Objective pending'}
+                    </div>
+                    <div className="desktop-story-hand-progress">
+                        <div className="desktop-story-hand-progress-head">
+                            <span className="desktop-rail-label">Hands</span>
+                            <span className="desktop-story-hand-progress-value">{handProgressLabel}</span>
+                        </div>
+                        <div className="desktop-story-hand-progress-track" role="progressbar" aria-valuemin={0} aria-valuenow={handsPlayed} aria-valuemax={handProgressTarget || undefined}>
+                            <div className="desktop-story-hand-progress-fill" style={{ width: `${handProgressRatio * 100}%` }} />
+                        </div>
+                    </div>
+                    <div className="desktop-story-status-grid">
+                        <div className="desktop-story-status-item">
+                            <span className="desktop-rail-label">Historical</span>
+                            <span className={`desktop-story-status-pill ${historicalComplete ? 'is-done' : currentRunComplete ? 'is-waiting' : 'is-pending'}`}>
+                                {historicalStatusText}
+                            </span>
+                        </div>
+                        <div className="desktop-story-status-item">
+                            <span className="desktop-rail-label">Current Run</span>
+                            <span className={`desktop-story-status-pill ${currentRunComplete ? 'is-done' : 'is-pending'}`}>
+                                {currentRunComplete ? 'Completed' : 'In Progress'}
+                            </span>
+                        </div>
+                    </div>
+                </section>
+            ) : null}
 
             <section className="desktop-rail-card">
                 <header className="desktop-rail-head">

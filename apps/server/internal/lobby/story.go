@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"strings"
 	"sync"
 	"time"
 
@@ -285,7 +286,7 @@ func (l *Lobby) onStoryHandEnd(
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	progress, err := l.storyService.CompleteChapter(
+	progress, err := l.completeStoryChapterWithRetry(
 		ctx,
 		session.userID,
 		session.chapterID,
@@ -325,6 +326,62 @@ func (l *Lobby) onStoryHandEnd(
 	}
 }
 
+func (l *Lobby) completeStoryChapterWithRetry(
+	ctx context.Context,
+	userID uint64,
+	chapterID int,
+	unlocks []string,
+	chapterCount int,
+) (*story.Progress, error) {
+	if l.storyService == nil {
+		return nil, fmt.Errorf("story service unavailable")
+	}
+
+	baseCtx := ctx
+	if baseCtx == nil {
+		baseCtx = context.Background()
+	}
+
+	const maxAttempts = 4
+	var lastErr error
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		attemptCtx, cancel := context.WithTimeout(baseCtx, 3*time.Second)
+		progress, err := l.storyService.CompleteChapter(
+			attemptCtx,
+			userID,
+			chapterID,
+			unlocks,
+			chapterCount,
+		)
+		cancel()
+		if err == nil {
+			return progress, nil
+		}
+		if err == story.ErrChapterLocked {
+			return nil, err
+		}
+		lastErr = err
+		if !isStoryCompletionRetryable(err) || attempt == maxAttempts {
+			break
+		}
+		time.Sleep(time.Duration(attempt) * 200 * time.Millisecond)
+	}
+	return nil, lastErr
+}
+
+func isStoryCompletionRetryable(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		return true
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "database is locked") ||
+		strings.Contains(msg, "database busy") ||
+		strings.Contains(msg, "busy timeout")
+}
+
 // PauseStorySession freezes an active story table when the owning user leaves the table scene.
 func (l *Lobby) PauseStorySession(userID uint64, tableID string) {
 	if userID == 0 || tableID == "" {
@@ -334,6 +391,7 @@ func (l *Lobby) PauseStorySession(userID uint64, tableID string) {
 	var t *table.Table
 	var chapterID int
 	var alreadyPaused bool
+	var completed bool
 
 	l.mu.Lock()
 	session := l.storySessions[tableID]
@@ -342,16 +400,27 @@ func (l *Lobby) PauseStorySession(userID uint64, tableID string) {
 		return
 	}
 	session.mu.Lock()
-	if session.completed {
-		session.mu.Unlock()
+	completed = session.completed
+	if !completed {
+		alreadyPaused = session.paused
+		session.paused = true
+		chapterID = session.chapterID
+	}
+	session.mu.Unlock()
+
+	if completed {
+		delete(l.storySessions, tableID)
 		delete(l.pausedStories, userID)
+		l.removePausedStoryByTableLocked(tableID)
+		t = l.tables[tableID]
+		delete(l.tables, tableID)
 		l.mu.Unlock()
+		if t != nil {
+			t.Stop()
+		}
+		log.Printf("[Lobby] completed story session closed on leave: user=%d table=%s", userID, tableID)
 		return
 	}
-	alreadyPaused = session.paused
-	session.paused = true
-	chapterID = session.chapterID
-	session.mu.Unlock()
 
 	t = l.tables[tableID]
 	if t == nil || t.IsClosed() {

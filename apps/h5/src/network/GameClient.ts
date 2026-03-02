@@ -43,7 +43,7 @@ export type MessageHandler = {
     onDisconnect?: () => void;
     onSeatUpdate?: (seatUpdate: SeatUpdate) => void;
     onStoryChapterInfo?: (info: StoryChapterInfo) => void;
-    onStoryProgress?: (progress: StoryProgressState) => void;
+    onStoryProgress?: (progress: StoryProgressState, tableId: string) => void;
 };
 
 export class GameClient {
@@ -342,7 +342,7 @@ export class GameClient {
                 case 'storyProgress':
                     {
                         const value = env.payload.value;
-                        this.notify((h) => h.onStoryProgress?.(value));
+                        this.notify((h) => h.onStoryProgress?.(value, env.tableId));
                         break;
                     }
             }

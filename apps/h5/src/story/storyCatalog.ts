@@ -2,14 +2,18 @@ export type StoryChapterMeta = {
     id: number;
     roman: string;
     name: string;
+    objective: {
+        type: 'win_bb' | 'survive' | 'win_pots' | 'eliminate' | 'most_chips';
+        target: number;
+    };
 };
 
 export const STORY_CHAPTERS: readonly StoryChapterMeta[] = [
-    { id: 1, roman: 'I', name: 'NEON GUTTER' },
-    { id: 2, roman: 'II', name: 'CHROME HEAVEN' },
-    { id: 3, roman: 'III', name: 'VOID RUNNER' },
-    { id: 4, roman: 'IV', name: 'GLITCH PALACE' },
-    { id: 5, roman: 'V', name: 'DATA STREAM' },
+    { id: 1, roman: 'I', name: 'NEON GUTTER', objective: { type: 'win_bb', target: 10 } },
+    { id: 2, roman: 'II', name: 'CHROME HEAVEN', objective: { type: 'survive', target: 30 } },
+    { id: 3, roman: 'III', name: 'VOID RUNNER', objective: { type: 'win_pots', target: 3 } },
+    { id: 4, roman: 'IV', name: 'GLITCH PALACE', objective: { type: 'eliminate', target: 5 } },
+    { id: 5, roman: 'V', name: 'DATA STREAM', objective: { type: 'most_chips', target: 60 } },
 ];
 
 export type StoryFeatureMeta = {
@@ -51,4 +55,12 @@ export function storyChapterRoman(chapterId: number): string {
         return `${chapterId}`;
     }
     return chapter.roman;
+}
+
+export function getStoryChapterObjective(chapterId: number): StoryChapterMeta['objective'] | null {
+    const chapter = getStoryChapterMeta(chapterId);
+    if (!chapter) {
+        return null;
+    }
+    return chapter.objective;
 }

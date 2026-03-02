@@ -31,6 +31,11 @@ type UiStoreState = {
     storyProgressHydrated: boolean;
     storyChapterInfo: StoryChapterInfo | null;
     storyReiNarration: ReiStoryNarration | null;
+    storyActiveChapterId: number;
+    storyActiveTableId: string;
+    storyActiveProgressEvents: number;
+    storyActiveChapterHistoricalCompleted: boolean;
+    storyActiveChapterCompletedInRun: boolean;
     pausedStoryInstance: PausedStoryInstance | null;
     selectedStoryChapter: number;
 
@@ -44,7 +49,7 @@ type UiStoreState = {
     restartStoryChapter: (chapterId: number) => Promise<void>;
     setSelectedStoryChapter: (chapterId: number) => void;
     ingestStoryChapterInfo: (info: StoryChapterInfo) => void;
-    ingestStoryProgress: (progress: StoryProgressState) => void;
+    ingestStoryProgress: (progress: StoryProgressState, tableId?: string) => void;
     resetQuickStart: () => void;
 };
 
@@ -182,6 +187,11 @@ export const useUiStore = create<UiStoreState>((set) => ({
     storyProgressHydrated: false,
     storyChapterInfo: null,
     storyReiNarration: null,
+    storyActiveChapterId: 0,
+    storyActiveTableId: '',
+    storyActiveProgressEvents: 0,
+    storyActiveChapterHistoricalCompleted: false,
+    storyActiveChapterCompletedInRun: false,
     pausedStoryInstance: null,
     selectedStoryChapter: 1,
 
@@ -215,20 +225,27 @@ export const useUiStore = create<UiStoreState>((set) => ({
         const gameState = useGameStore.getState();
         const currentTableId = gameClient.getCurrentTableId();
         const storyInfo = state.storyChapterInfo;
+        const storyChapterId = Math.max(1, Math.trunc(Number(storyInfo?.chapterId) || state.storyActiveChapterId || state.selectedStoryChapter));
         const isStoryTableActive =
             !!storyInfo &&
             storyInfo.tableId.length > 0 &&
             storyInfo.tableId === currentTableId &&
             gameState.myChair !== -1;
+        const storyChapterCompleted =
+            storyChapterId > 0 &&
+            (state.storyCompletedChapters.includes(storyChapterId) || state.storyActiveChapterCompletedInRun);
 
         set((prev) => {
             let pausedStoryInstance = prev.pausedStoryInstance;
-            if (isStoryTableActive && storyInfo) {
+            if (isStoryTableActive && storyInfo && !storyChapterCompleted) {
                 pausedStoryInstance = {
                     chapterId: Math.max(1, Math.trunc(Number(storyInfo.chapterId) || prev.selectedStoryChapter)),
                     tableId: storyInfo.tableId,
                     pausedAtMs: Date.now(),
                 };
+            }
+            if (isStoryTableActive && storyChapterCompleted) {
+                pausedStoryInstance = null;
             }
             return {
                 ...prev,
@@ -433,10 +450,15 @@ export const useUiStore = create<UiStoreState>((set) => ({
                 selectedStoryChapter:
                     chapterId <= state.storyHighestUnlockedChapter ? chapterId : state.selectedStoryChapter,
                 storyReiNarration: buildChapterIntroNarration(info),
+                storyActiveChapterId: chapterId,
+                storyActiveTableId: info.tableId,
+                storyActiveProgressEvents: 0,
+                storyActiveChapterHistoricalCompleted: false,
+                storyActiveChapterCompletedInRun: false,
             };
         }),
 
-    ingestStoryProgress: (progress) =>
+    ingestStoryProgress: (progress, tableId = '') =>
         set((state) => {
             const highestCompleted = Math.max(0, Number(progress.highestCompletedChapter) || 0);
             const highestUnlocked = Math.max(1, Number(progress.highestUnlockedChapter) || 1);
@@ -460,6 +482,36 @@ export const useUiStore = create<UiStoreState>((set) => ({
             const selected =
                 state.selectedStoryChapter > highestUnlocked ? highestUnlocked : Math.max(1, state.selectedStoryChapter);
 
+            let storyActiveProgressEvents = state.storyActiveProgressEvents;
+            let storyActiveChapterHistoricalCompleted = state.storyActiveChapterHistoricalCompleted;
+            let storyActiveChapterCompletedInRun = state.storyActiveChapterCompletedInRun;
+            let pausedStoryInstance = state.pausedStoryInstance;
+
+            if (
+                tableId.length > 0 &&
+                state.storyActiveTableId.length > 0 &&
+                tableId === state.storyActiveTableId &&
+                state.storyActiveChapterId > 0
+            ) {
+                storyActiveProgressEvents += 1;
+                const activeChapterIsCompleted = completed.includes(state.storyActiveChapterId);
+                if (storyActiveProgressEvents === 1) {
+                    storyActiveChapterHistoricalCompleted = activeChapterIsCompleted;
+                } else {
+                    if (activeChapterIsCompleted && !storyActiveChapterHistoricalCompleted) {
+                        storyActiveChapterCompletedInRun = true;
+                    }
+                    storyActiveChapterHistoricalCompleted = activeChapterIsCompleted;
+                }
+            }
+            if (
+                pausedStoryInstance &&
+                state.storyActiveChapterId > 0 &&
+                completed.includes(state.storyActiveChapterId)
+            ) {
+                pausedStoryInstance = null;
+            }
+
             return {
                 ...state,
                 storyHighestCompletedChapter: highestCompleted,
@@ -468,6 +520,10 @@ export const useUiStore = create<UiStoreState>((set) => ({
                 storyUnlockedFeatures: features,
                 storyProgressHydrated: true,
                 storyReiNarration,
+                storyActiveProgressEvents,
+                storyActiveChapterHistoricalCompleted,
+                storyActiveChapterCompletedInRun,
+                pausedStoryInstance,
                 selectedStoryChapter: selected,
             };
         }),
@@ -493,8 +549,8 @@ export function bindUiClientToStore(): void {
         onStoryChapterInfo: (value) => {
             useUiStore.getState().ingestStoryChapterInfo(value);
         },
-        onStoryProgress: (value) => {
-            useUiStore.getState().ingestStoryProgress(value);
+        onStoryProgress: (value, tableId) => {
+            useUiStore.getState().ingestStoryProgress(value, tableId);
         },
     });
 }
