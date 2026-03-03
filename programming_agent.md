@@ -7,15 +7,16 @@
 我们的目标是：
 1. **自然语言编程**：允许玩家通过右侧的 "Agent Chat (REI)"，用自然语言对话来生成、修改、定制游戏界面HUD。
 2. **打牌自动化**：允许玩家（特别是开发者/硬核玩家）通过代码或自然语言定义自己的打牌策略（Bot Scripts），甚至让 Bot 代理自己离线或其他桌面的对局。
-3. **安全与隔离**：在一套基于 React/PixiJS 的复杂 Web 架构和 Go 服务端引擎之间，建立安全、受控的沙盒接口（Holdem API），确保玩家编写的代码不会破坏游戏核心状态或产生作弊行为。
+3. **开发友好与敏捷测试**：由于采用“云端 Server + 本地可执行 Server + 本地 WASM Replay”架构，我们拥有极高的本地安全边界与隔离性。用户编写的代码和 UI 组件可在本地环境中自由测试（Local Server/WASM 充当天然的安全容器），而无需刻意构建复杂的前端沙盒。
 
 ---
 
-## 二、 核心痛点与技术边界
+## 二、 核心考量与架构红利
 
-### 1. 安全隔离 (Sandbox)
-* **前端沙盒**：AI 或玩家生成的代码不能污染全局作用域。针对 UI 和 HUD 的生成，我们必须在独立的 `<iframe>`、`new Function` 上下文、或者安全的 JSX 渲染器（如 `react-live`）中执行。
-* **服务端防注入**：对于自动化脚本，不允许直接发送非法的 Action 序列，一切依然要通过合法的 `Act(Chair, Action, Amount)` 接口校验。
+### 1. 架构级沙盒 (Architecture as Sandbox)
+得益于我们的多端分离架构，传统的在前端做 `<iframe>` 或严格 Worker 隔离的诉求大大降低：
+* **本地试错空间**：玩家或 Agent 生成的代码可以直接提交至本地运行的 Local Server，或直接与加载的本地 WASM 引擎交互。只要不影响云端正式对局进程，即使代码报错/无限循环，也仅限于本地环境的崩溃，刷新或重启即可恢复。
+* **WASM 天然隔离**：核心算牌、推演机制通过 WASM (Replay Engine) 暴露，它是内存安全的黑盒。前端生成的代码再怎么越界，也无法破坏底层游戏状态的正确性。
 
 ### 2. 上下文暴露 (Holdem API)
 玩家的代码必须能知道“现在发生了什么”。我们需要向沙盒内注入一个全局只读对象（例如 `window.HoldemAPI` 或 `context.api`），包含：
@@ -27,23 +28,22 @@
 
 ## 三、 三阶段落地路线图 (Roadmap)
 
-### Phase 1: 数据可视化与简单 HUD (只读状态投影)
-**目标**：玩家可以通过自然语言命令 Rei ：“帮我在屏幕左上角显示实时的底池赔率（Pot Odds）和 SPR（筹码底池比）”。
+### Phase 1: 独立的自定义 UI 路由页面 (Custom UI Hub)
+**目标**：玩家进入一个专门的路由（如 `/agent-ui`），在这个页面里，不再是基础的游戏桌面，而是一张用于测试和运行自定义代码的画布。这类似于《魔兽世界》的 ElvUI 设置中心或者一个本地图灵测试台。
 
 **实现路径**：
-1. **引擎提供只读 Store**：前端对 `useGameStore` 进行封装，暴露出一个稳定的 `HoldemContext`。
-2. **运行时代码执行**：在右侧 Agent 面板或单独的 Code Editor 面板里，允许执行简单的 JavaScript。
-3. **Canvas 悬浮层**：在真正的 PixiJS 牌桌之上，盖一个绝对定位的 `<canvas>` 或 `<div>`，AI 生成的代码负责在这一层调用 `drawText` / `renderDiv` 等指令渲染纯文本或简单的图形。
-4. **LLM 提示词约束**：在发给 Rei 的 Prompt 中，明确告知它：“你现在的任务是使用 `HoldemAPI` 获取数据，并用这段 JS/HTML 渲染一个面板”。
+1. **统一路由入口**：在大厅添加一个进入 Agent UI Programming 的独立路由跳转。
+2. **纯粹的数据映射上下文**：在这个路由里，注入 `useGameStore` 提供的数据，交由玩家和 Rei 来决定怎么渲染。
+3. **集成编辑器**：左侧/上方是实时渲染画布，右侧/下方是集成代码编辑器与 Rei 的对话框。
+4. **混合渲染引擎 (React + PixiJS)**：LLM 提示词约束不仅包含纯 React/DOM 组件，还明确告知 Rei 可以使用 `@pixi/react`（React-Pixi）语法。允许代码在画布上直接操纵 PixiJS 的 `Sprite`、`Graphics`、`Text`，绘制拥有 WebGL 特效的筹码和牌面。
 
-### Phase 2: 动态 UI 渲染与交互组件 (React Component Injection)
-**目标**：玩家对 Rei 说：“帮我画一个紫色的面板，包含两个按钮，点击左边等于弃牌，点击右边等于全下”。面板需要实时响应玩家的操作。
+### Phase 2: 交互式仪表盘组件与 WebGL 特效扩展 (Interactive & FX Extensibility)
+**目标**：玩家能够在画板上添加控制类的 DOM 组件，同时也能够使用 PixiJS 编写华丽的视觉滤镜和动画特效。比如手写一个带发光特效和缓动动画的“一键 Fold”组件。
 
 **实现路径**：
-1. **动态 JSX 编译**：引入 `react-live` 或 `Babel standalone`，允许在浏览器中实时编译并挂载（Mount） React 组件。
-2. **挂载插槽 (Widget Slots)**：在前端界面（左侧边栏、HUD 区域等）预留几个空白的 `<WidgetSlot id="slot-1" />`，提供给 Agent 注入编译好的组件。
-3. **双向绑定**：此时不仅要注入 `HoldemAPI.getSnapshot()`，还要注入限制性的写入 API，如 `HoldemAPI.fold()`、`HoldemAPI.allIn()`，允许自定义按钮触发真实的网络请求。
-4. **资产管理联动**：结合 AI 美术管线，Rei 可以实时调用大模型生成一张贴图，并自动替换当前 UI 代码里的图片 URL。
+1. **统一的编译器生态**：引入 `react-live` 等实时编译组件，同时预注入 `PIXI` 和 `@pixi/react` 包及其依赖到全局作用域。
+2. **双向绑定指令 API**：不仅仅是读取 `Snapshot`，暴露基础操作接口（`actionFold()`, `actionBet()`），玩家或者 Agent 写的按钮点击后直接连入本地 Server。
+3. **资产与特效编排**：联动本地目录 `public/assets/` 下的美术内容，让 Rei 能够直接在画板中用 PixiJS 实例化带有专属 Shader 或动效逻辑的新生成的卡背或全像素外框。
 
 ### Phase 3: 智能合约与自动化打牌脚本 (Bot Automation)
 **目标**：玩家定义复杂的打牌策略（如：“翻牌前拿到 AA/KK 必定 3-bet，如果是听花面则强力隔离下注”），并交由服务器自动执行。
