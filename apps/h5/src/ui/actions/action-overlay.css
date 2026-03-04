@@ -74,17 +74,17 @@
     backdrop-filter: blur(28px);
     box-shadow: 0 40px 100px rgba(0, 0, 0, 0.95);
     pointer-events: auto;
-    padding: calc(24px * var(--stage-scale, 1));
+    padding: calc(16px * var(--stage-scale, 1));
     display: flex;
     flex-direction: column;
-    gap: 20px;
+    gap: calc(12px * var(--stage-scale, 1));
     height: auto;
-    min-height: 100px;
+    min-height: 80px;
 }
 
 .player-controls {
     display: flex;
-    gap: calc(24px * var(--stage-scale, 1));
+    gap: calc(16px * var(--stage-scale, 1));
     align-items: stretch;
     width: 100%;
     height: 100%;
@@ -94,7 +94,7 @@
     position: relative;
     width: 100%;
     /* Lock the height to match the tallest view (the raise slider stage) */
-    min-height: 180px;
+    min-height: 140px;
     display: grid;
     grid-template-columns: 100%;
 }
@@ -198,24 +198,24 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
 }
 
 .action-buttons-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
+    gap: 8px;
 }
 
 .btn-tile {
     background: rgba(255, 255, 255, 0.04);
     border: 1px solid rgba(255, 255, 255, 0.1);
-    border-radius: 20px;
-    padding: 16px 0;
+    border-radius: 16px;
+    padding: 12px 0;
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     color: #ffffff;
     cursor: pointer;
     transition: all 0.2s;
@@ -295,7 +295,7 @@
     flex: 1;
     display: flex;
     gap: 12px;
-    min-height: 180px;
+    min-height: 120px;
 }
 
 .slider-track-wrap {
@@ -540,6 +540,155 @@
 
     .live-player-card-backdrop {
         padding-top: calc(72px * var(--stage-scale, 1));
+    }
+}
+
+/* Desktop High-Resolution Optimizations */
+@media (min-width: 1920px) {
+    .action-overlay-shell {
+        max-width: 1100px;
+        width: calc(100% - 60px);
+        border-radius: 32px;
+        padding: calc(20px * var(--stage-scale, 1));
+        gap: calc(16px * var(--stage-scale, 1));
+    }
+
+    .shell-top-row {
+        margin-bottom: 4px;
+    }
+
+    .shell-main-content {
+        min-height: 160px;
+    }
+
+    .stat-pill {
+        padding: 12px 20px;
+    }
+
+    .stat-pill .label {
+        font-size: 10px;
+    }
+
+    .stat-pill .value {
+        font-size: 20px;
+    }
+
+    .player-controls {
+        gap: calc(24px * var(--stage-scale, 1));
+    }
+
+    .action-buttons-grid {
+        gap: 12px;
+    }
+
+    .btn-tile {
+        padding: 16px 0;
+        border-radius: 20px;
+    }
+
+    .btn-tile .btn-icon {
+        font-size: 26px;
+    }
+
+    .btn-tile .btn-label {
+        font-size: 12px;
+    }
+
+    .action-raise-group {
+        width: calc(160px * var(--stage-scale, 1));
+        padding: 12px;
+        border-radius: 24px;
+    }
+
+    .slider-control-dock {
+        min-height: 140px;
+    }
+
+    .bet-info-display {
+        padding: 8px;
+    }
+
+    .bet-info-display .value {
+        font-size: 22px;
+    }
+
+    .slider-track-wrap {
+        width: 34px;
+    }
+
+    .preset-btn {
+        padding: 8px 0;
+        font-size: 11px;
+    }
+}
+
+/* Extra Large Desktop (4K and above) */
+@media (min-width: 3000px) {
+    .action-overlay-shell {
+        max-width: 1400px;
+        padding: calc(24px * var(--stage-scale, 1));
+        gap: calc(20px * var(--stage-scale, 1));
+    }
+
+    .shell-top-row {
+        margin-bottom: 6px;
+    }
+
+    .shell-main-content {
+        min-height: 180px;
+    }
+
+    .stat-pill {
+        padding: 14px 28px;
+    }
+
+    .stat-pill .label {
+        font-size: 11px;
+    }
+
+    .stat-pill .value {
+        font-size: 24px;
+    }
+
+    .action-buttons-grid {
+        gap: 16px;
+    }
+
+    .btn-tile {
+        padding: 20px 0;
+        border-radius: 24px;
+    }
+
+    .btn-tile .btn-icon {
+        font-size: 30px;
+    }
+
+    .btn-tile .btn-label {
+        font-size: 14px;
+    }
+
+    .action-raise-group {
+        width: calc(180px * var(--stage-scale, 1));
+        padding: 14px;
+        border-radius: 24px;
+    }
+
+    .slider-control-dock {
+        min-height: 160px;
+    }
+
+    .bet-info-display .value {
+        font-size: 24px;
+    }
+
+    .vertical-slider::-webkit-slider-thumb {
+        width: 28px;
+        height: 28px;
+    }
+
+    .preset-btn {
+        padding: 12px 0;
+        font-size: 12px;
     }
 }
 
