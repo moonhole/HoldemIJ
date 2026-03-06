@@ -19,4 +19,15 @@ contextBridge.exposeInMainWorld('desktopBridge', {
     reportPerfSample: (sample) => ipcRenderer.send('desktop:report-perf-sample', sample),
     getProcessInfo: () => ipcRenderer.invoke('desktop:get-process-info'),
     quitApp: () => ipcRenderer.invoke('desktop:quit-app'),
+    // Resolution presets
+    getPresetSizes: () => ipcRenderer.invoke('desktop:get-preset-sizes'),
+    setWindowSize: (index) => ipcRenderer.invoke('desktop:set-size', { index }),
+    // Fullscreen
+    setFullScreen: (fullscreen) => ipcRenderer.invoke('desktop:set-fullscreen', { fullscreen }),
+    getFullScreen: () => ipcRenderer.invoke('desktop:get-fullscreen'),
+    onFullScreenChange: (callback) => {
+        const handler = (_, isFullScreen) => callback(isFullScreen);
+        ipcRenderer.on('desktop:fullscreen-changed', handler);
+        return () => ipcRenderer.removeListener('desktop:fullscreen-changed', handler);
+    },
 });

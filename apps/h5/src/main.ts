@@ -299,7 +299,9 @@ class GameApp {
             const PHI = 1.618033988749895;
             const rightW = w / (1 + PHI);           // ≈ 38.2 % of total
             const leftPlusCenterW = w - rightW;     // ≈ 61.8 % of total
-            const leftW = Math.max(leftPlusCenterW - centerW, 220);
+            // When window is small, reduce minimum left rail width to avoid overflow
+            const minLeftW = w < 1600 ? 140 : 220;
+            const leftW = Math.max(leftPlusCenterW - centerW, minLeftW);
 
             // Rebuild rails object for downstream use
             const rails = { left: leftW, right: w - leftW - centerW };

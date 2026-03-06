@@ -4,11 +4,24 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 
+// Preset resolutions for the game window
+const PRESET_SIZES = [
+    { width: 1920, height: 1080, label: '1920 × 1080' },
+    { width: 1920, height: 1200, label: '1920 × 1200' },
+    { width: 2560, height: 1440, label: '2560 × 1440' },
+    { width: 2560, height: 1600, label: '2560 × 1600' },
+    { width: 3840, height: 2160, label: '3840 × 2160 (4K)' },
+];
+
 let mainWindow = null;
 let gpuInfoWindow = null;
 let perfLogStream = null;
 let localServerState = null;
 let quitInFlight = false;
+let currentSizeIndex = 0; // Default to 1080p (1920x1080)
+let originalSystemWidth = 0;
+let originalSystemHeight = 0;
+let systemResolutionChanged = false;
 
 const userDataOverride = process.env.ELECTRON_USER_DATA_DIR;
 if (userDataOverride && userDataOverride.trim() !== '') {
@@ -394,6 +407,7 @@ async function waitForHealthReady(healthUrl, timeoutMs, intervalMs) {
     }
     return false;
 }
+
 
 function hasChildExited(childProcess) {
     return childProcess.exitCode !== null || childProcess.signalCode !== null;
@@ -885,11 +899,11 @@ function createAppMenu() {
 
 function createWindow() {
     const rendererSearch = normalizeRendererSearch();
+    const initialSize = PRESET_SIZES[currentSizeIndex];
     const win = new BrowserWindow({
-        width: 1280,
-        height: 800,
-        minWidth: 1024,
-        minHeight: 700,
+        width: initialSize.width,
+        height: initialSize.height,
+        resizable: false,
         autoHideMenuBar: true,
         backgroundColor: '#120810',
         webPreferences: {
@@ -901,8 +915,8 @@ function createWindow() {
         },
     });
 
-    // Lock aspect ratio to 16:10 so the desktop layout stays consistent on resize.
-    win.setAspectRatio(1280 / 800);
+    // Lock aspect ratio to maintain desktop layout consistency
+    win.setAspectRatio(initialSize.width / initialSize.height);
 
     win.webContents.setWindowOpenHandler(({ url }) => {
         void shell.openExternal(url);
@@ -914,6 +928,14 @@ function createWindow() {
         if (mainWindow === win) {
             mainWindow = null;
         }
+    });
+
+    // Listen for fullscreen changes and notify renderer
+    win.on('enter-full-screen', () => {
+        win.webContents.send('desktop:fullscreen-changed', true);
+    });
+    win.on('leave-full-screen', () => {
+        win.webContents.send('desktop:fullscreen-changed', false);
     });
 
     const devUrl = process.env.ELECTRON_RENDERER_URL;
@@ -967,6 +989,97 @@ app.whenReady().then(async () => {
         app.quit();
         return true;
     });
+
+    // Resolution presets IPC handlers
+    ipcMain.handle('desktop:get-preset-sizes', () => {
+        return PRESET_SIZES.map((size, index) => ({
+            ...size,
+            isActive: index === currentSizeIndex,
+        }));
+    });
+
+    ipcMain.handle('desktop:set-size', async (_, { index }) => {
+        if (!mainWindow || index < 0 || index >= PRESET_SIZES.length) {
+            return false;
+        }
+        const size = PRESET_SIZES[index];
+        currentSizeIndex = index;
+
+        // Ensure window is in a normal state before resizing
+        // This fixes the issue where resizing doesn't work properly
+        if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+        }
+        if (mainWindow.isMaximized()) {
+            mainWindow.unmaximize();
+        }
+
+        // Small delay to ensure window state is stable after exiting fullscreen
+        await new Promise((resolve) => setTimeout(resolve, 50));
+
+        // Use setBounds for more reliable resizing
+        const bounds = mainWindow.getBounds();
+        mainWindow.setBounds({
+            x: bounds.x,
+            y: bounds.y,
+            width: size.width,
+            height: size.height,
+        });
+
+        mainWindow.setAspectRatio(size.width / size.height);
+        return true;
+    });
+
+    // Fullscreen IPC handlers
+    ipcMain.handle('desktop:set-fullscreen', async (_, { fullscreen }) => {
+        if (!mainWindow) {
+            return false;
+        }
+
+        const currentSize = PRESET_SIZES[currentSizeIndex];
+
+        if (fullscreen) {
+            // Entering fullscreen: set zoom first, then enter fullscreen
+            if (mainWindow && currentSize) {
+                try {
+                    const { screen } = require('electron');
+                    const primaryDisplay = screen.getPrimaryDisplay();
+                    const screenWidth = primaryDisplay.workAreaSize.width;
+                    const screenHeight = primaryDisplay.workAreaSize.height;
+
+                    // Calculate scale factor based on resolution vs screen size
+                    const scaleX = screenWidth / currentSize.width;
+                    const scaleY = screenHeight / currentSize.height;
+                    const scaleFactor = Math.min(scaleX, scaleY);
+
+                    if (scaleFactor > 0 && scaleFactor !== 1) {
+                        mainWindow.webContents.setZoomFactor(Math.min(scaleFactor, 2.0));
+                    }
+                } catch (e) {
+                    // Ignore zoom errors
+                }
+            }
+            mainWindow.setFullScreen(fullscreen);
+        } else {
+            // Exiting fullscreen: exit fullscreen first, then reset zoom after delay
+            mainWindow.setFullScreen(fullscreen);
+            // Wait for window to fully exit fullscreen before resetting zoom
+            await new Promise((resolve) => setTimeout(resolve, 200));
+            if (mainWindow && !mainWindow.isDestroyed()) {
+                try {
+                    mainWindow.webContents.setZoomFactor(1.0);
+                } catch (e) {
+                    // Ignore zoom errors
+                }
+            }
+        }
+        return true;
+    });
+
+    ipcMain.handle('desktop:get-fullscreen', () => {
+        return mainWindow?.isFullScreen() ?? false;
+    });
+
     ipcMain.on('desktop:report-perf-sample', (event, payload) => {
         const senderPid =
             typeof event.sender?.getOSProcessId === 'function' ? event.sender.getOSProcessId() : undefined;
