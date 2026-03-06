@@ -765,6 +765,13 @@ class GameApp {
         return this.app.stage;
     }
 
+    /** Change the PixiJS renderer resolution at runtime (supersampling). */
+    setCanvasResolution(factor: number): void {
+        const clamped = Math.max(1, Math.min(factor, 3));
+        this.app.renderer.resolution = clamped;
+        this.app.resize();
+    }
+
     private flushPendingDestroySoon(): void {
         window.requestAnimationFrame(() => {
             if (this.pendingDestroy.length === 0) {
@@ -781,5 +788,9 @@ class GameApp {
 // Bootstrap
 const game = new GameApp();
 game.init().catch(console.error);
+
+// Expose canvas resolution control for desktop settings.
+(globalThis as typeof globalThis & { __setCanvasResolution?: (factor: number) => void }).__setCanvasResolution =
+    (factor: number) => game.setCanvasResolution(factor);
 
 export { DESIGN_HEIGHT, DESIGN_WIDTH, GameApp };

@@ -6,11 +6,8 @@ const path = require('node:path');
 
 // Preset resolutions for the game window
 const PRESET_SIZES = [
-    { width: 1920, height: 1080, label: '1920 × 1080' },
-    { width: 1920, height: 1200, label: '1920 × 1200' },
-    { width: 2560, height: 1440, label: '2560 × 1440' },
-    { width: 2560, height: 1600, label: '2560 × 1600' },
-    { width: 3840, height: 2160, label: '3840 × 2160 (4K)' },
+    { width: 1920, height: 1080, label: '1080p' },
+    { width: 2560, height: 1440, label: '2K' },
 ];
 
 let mainWindow = null;
@@ -1031,47 +1028,24 @@ app.whenReady().then(async () => {
     });
 
     // Fullscreen IPC handlers
-    ipcMain.handle('desktop:set-fullscreen', async (_, { fullscreen }) => {
+    ipcMain.handle('desktop:set-fullscreen', (_, { fullscreen }) => {
         if (!mainWindow) {
             return false;
         }
-
-        const currentSize = PRESET_SIZES[currentSizeIndex];
-
         if (fullscreen) {
-            // Entering fullscreen: set zoom first, then enter fullscreen
-            if (mainWindow && currentSize) {
-                try {
-                    const { screen } = require('electron');
-                    const primaryDisplay = screen.getPrimaryDisplay();
-                    const screenWidth = primaryDisplay.workAreaSize.width;
-                    const screenHeight = primaryDisplay.workAreaSize.height;
-
-                    // Calculate scale factor based on resolution vs screen size
-                    const scaleX = screenWidth / currentSize.width;
-                    const scaleY = screenHeight / currentSize.height;
-                    const scaleFactor = Math.min(scaleX, scaleY);
-
-                    if (scaleFactor > 0 && scaleFactor !== 1) {
-                        mainWindow.webContents.setZoomFactor(Math.min(scaleFactor, 2.0));
-                    }
-                } catch (e) {
-                    // Ignore zoom errors
-                }
+            // On Windows, resizable:false prevents the window from expanding to
+            // fill the screen. Temporarily unlock both constraints.
+            mainWindow.setResizable(true);
+            mainWindow.setAspectRatio(0);
+        }
+        mainWindow.setFullScreen(fullscreen);
+        if (!fullscreen) {
+            // Restore constraints after exiting fullscreen.
+            const size = PRESET_SIZES[currentSizeIndex];
+            if (size) {
+                mainWindow.setAspectRatio(size.width / size.height);
             }
-            mainWindow.setFullScreen(fullscreen);
-        } else {
-            // Exiting fullscreen: exit fullscreen first, then reset zoom after delay
-            mainWindow.setFullScreen(fullscreen);
-            // Wait for window to fully exit fullscreen before resetting zoom
-            await new Promise((resolve) => setTimeout(resolve, 200));
-            if (mainWindow && !mainWindow.isDestroyed()) {
-                try {
-                    mainWindow.webContents.setZoomFactor(1.0);
-                } catch (e) {
-                    // Ignore zoom errors
-                }
-            }
+            mainWindow.setResizable(false);
         }
         return true;
     });

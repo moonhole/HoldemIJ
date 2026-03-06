@@ -33,6 +33,14 @@ function getDesktopBridge(): DesktopBridge | undefined {
     return (globalThis as typeof globalThis & { desktopBridge?: DesktopBridge }).desktopBridge;
 }
 
+/** Map resolution preset index → PixiJS canvas resolution factor. */
+function applyCanvasResolution(presetIndex: number): void {
+    const setter = (globalThis as typeof globalThis & { __setCanvasResolution?: (f: number) => void }).__setCanvasResolution;
+    if (!setter) return;
+    // index 0 = 1080p → 1×, index 1 = 2K → 2× supersampling
+    setter(presetIndex >= 1 ? 2 : 1);
+}
+
 export function DesktopWorkspace(): JSX.Element | null {
     const uiProfile = useLayoutStore((s) => s.uiProfile);
     const currentScene = useUiStore((s) => s.currentScene);
@@ -103,6 +111,7 @@ export function DesktopWorkspace(): JSX.Element | null {
         const success = await setWindowSize(index);
         if (success) {
             setPresetSizes((prev) => prev.map((size, i) => ({ ...size, isActive: i === index })));
+            applyCanvasResolution(index);
             audioManager.play(SoundMap.UI_CLICK, 0.7);
 
             // Re-enter fullscreen if we were in fullscreen mode
@@ -139,6 +148,7 @@ export function DesktopWorkspace(): JSX.Element | null {
         // Restore previous resolution
         await setWindowSize(previousResolutionIndex);
         setPresetSizes((prev) => prev.map((size, i) => ({ ...size, isActive: i === previousResolutionIndex })));
+        applyCanvasResolution(previousResolutionIndex);
         audioManager.play(SoundMap.UI_CLICK, 0.7);
     };
 
