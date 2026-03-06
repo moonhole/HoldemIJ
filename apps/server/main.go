@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"holdem-lite/apps/server/internal/agent"
 	"holdem-lite/apps/server/internal/auth"
 	"holdem-lite/apps/server/internal/gateway"
 	"holdem-lite/apps/server/internal/ledger"
@@ -63,6 +64,11 @@ func main() {
 	authHTTP := auth.NewHTTPHandler(authService)
 	auditHTTP := ledger.NewHTTPHandler(authService, ledgerService)
 
+	// Initialize LLM Agent subsystem
+	agentConfig := agent.DefaultProviderConfig()
+	agentProvider := agent.NewProvider(agentConfig)
+	agentHTTP := agent.NewHTTPHandler(agentProvider)
+
 	mux := http.NewServeMux()
 	mux.HandleFunc("/ws", gw.HandleWebSocket)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -71,6 +77,7 @@ func main() {
 	})
 	authHTTP.RegisterRoutes(mux)
 	auditHTTP.RegisterRoutes(mux)
+	agentHTTP.RegisterRoutes(mux)
 
 	addr := strings.TrimSpace(os.Getenv("SERVER_ADDR"))
 	if addr == "" {

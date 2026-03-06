@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { audioManager } from '../../audio/AudioManager';
 import { SoundMap } from '../../audio/SoundMap';
+import { useChatStore } from '../../store/chatStore';
 
 const WELCOME_TEXT = 'Hello! I am Rei, your AI poker assistant. Feel free to ask me anything about hand strategies or pot odds.';
 const TYPE_SPEED_MS = 28;
@@ -33,42 +34,47 @@ function TypewriterText({ text }: { text: string }): JSX.Element {
 
 export function DesktopChatPanel(): JSX.Element {
     const [inputValue, setInputValue] = useState('');
-    const [messages, setMessages] = useState<{ id: number; sender: string; text: string }[]>([]);
     const [welcomeDone, setWelcomeDone] = useState(false);
+    const messages = useChatStore((s) => s.messages);
+    const isTyping = useChatStore((s) => s.isTyping);
+    const appendMessage = useChatStore((s) => s.appendMessage);
+    const sendMessage = useChatStore((s) => s.sendMessage);
+    const chatHistoryRef = useRef<HTMLDivElement>(null);
 
-    // Fire the welcome message on mount
+    // Fire the welcome message on mount if chat is empty
     useEffect(() => {
-        const timeout = window.setTimeout(() => {
-            setMessages([{ id: 1, sender: 'agent', text: WELCOME_TEXT }]);
-            // Mark done after the typing animation finishes
-            window.setTimeout(() => {
-                setWelcomeDone(true);
-            }, WELCOME_TEXT.length * TYPE_SPEED_MS + 200);
-        }, 600);
-        return () => window.clearTimeout(timeout);
-    }, []);
+        if (useChatStore.getState().messages.length === 0) {
+            const timeout = window.setTimeout(() => {
+                appendMessage('agent', WELCOME_TEXT);
+                // Mark done after the typing animation finishes
+                window.setTimeout(() => {
+                    setWelcomeDone(true);
+                }, WELCOME_TEXT.length * TYPE_SPEED_MS + 200);
+            }, 600);
+            return () => window.clearTimeout(timeout);
+        } else {
+            setWelcomeDone(true);
+        }
+    }, [appendMessage]);
+
+    // Auto-scroll to bottom
+    useEffect(() => {
+        if (chatHistoryRef.current) {
+            chatHistoryRef.current.scrollTop = chatHistoryRef.current.scrollHeight;
+        }
+    }, [messages]);
 
     const handleSend = (e?: React.FormEvent) => {
         if (e) e.preventDefault();
 
         const trimmed = inputValue.trim();
-        if (!trimmed) return;
+        if (!trimmed || isTyping) return;
 
         audioManager.play(SoundMap.UI_CLICK, 0.4);
-
-        const newMsgId = messages.length > 0 ? messages[messages.length - 1].id + 1 : 1;
-        setMessages(prev => [...prev, { id: newMsgId, sender: 'user', text: trimmed }]);
         setInputValue('');
 
-        // Mock response
-        setTimeout(() => {
-            setMessages(prev => [...prev, {
-                id: newMsgId + 1,
-                sender: 'agent',
-                text: 'Rei is currently busy scanning the table metadata... I will get back to you.'
-            }]);
-            audioManager.play(SoundMap.TURN_ALERT, 0.2);
-        }, 800);
+        // agentKind = 'coach' for Rei
+        void sendMessage(trimmed, 'coach');
     };
 
     return (
@@ -81,14 +87,17 @@ export function DesktopChatPanel(): JSX.Element {
                 <span className="desktop-rail-chip">Online</span>
             </header>
 
-            <div className="desktop-chat-history">
+            <div className="desktop-chat-history" ref={chatHistoryRef}>
                 {messages.map(msg => (
-                    <div key={msg.id} className={`desktop-chat-msg is-${msg.sender}`}>
-                        <div className="msg-bubble">
-                            {msg.id === 1 && msg.sender === 'agent' && !welcomeDone
+                    <div key={msg.id} className={`desktop-chat-msg is-${msg.role}`}>
+                        <div className="msg-bubble" style={{ whiteSpace: 'pre-wrap' }}>
+                            {msg.id === 1 && msg.role === 'agent' && !welcomeDone
                                 ? <TypewriterText text={msg.text} />
                                 : msg.text
                             }
+                            {(msg.role === 'agent' && msg.text === '' && isTyping) && (
+                                <span className="typing-indicator">...</span>
+                            )}
                         </div>
                     </div>
                 ))}
@@ -105,7 +114,7 @@ export function DesktopChatPanel(): JSX.Element {
                 <button
                     type="submit"
                     className="desktop-chat-send-btn"
-                    disabled={!inputValue.trim()}
+                    disabled={!inputValue.trim() || isTyping}
                 >
                     <span className="material-symbols-outlined">send</span>
                 </button>
